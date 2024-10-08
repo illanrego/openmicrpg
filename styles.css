@@ -1,0 +1,96 @@
+@font-face {
+  font-family: "win98";
+  src: url("win98.ttf") format('truetype');
+}
+
+body {
+  background-color: #0a0a23;
+  font-family: "win98", sans-serif;
+  font-weight: bold;
+}
+
+h1 {
+  color: black;
+  display: none;
+}
+
+#player {
+  padding: 5px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+}
+
+#text1 {
+  background-color: black;
+  color: white;
+  padding: 10px;
+  font-size: large;
+}
+
+#screen1 {
+  display: none;
+}
+
+#screen2 {
+  background-color: black;
+  color: #ffffff;
+  padding: 10px;
+  font-size: large;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#game {
+  max-width: 400px;
+  background-color: #ffffff;
+  color: #ffffff;
+  margin: 30px auto 0px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  border: 3px inset darkgrey;
+}
+
+#btnDivUp, #btnDivLow {
+  color: #0a0a23;
+  display: grid;
+  gap: 5px;  
+  margin-bottom: 5px;
+}
+
+#btnDivUp {
+  grid-template-columns: 1fr 1fr;
+}
+
+#btnDivLow {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+#screen2 p {
+}
+
+#stats {
+  color: #0a0a23;
+  grid-template-columns: 1fr 1fr;
+  display: grid;
+  margin-bottom: 5px;
+}
+
+#locationImg {
+  margin-left: -2rem;
+}
+
+
+button {
+  cursor: pointer;
+  color: #0a0a23;
+  background-color: #feac32;
+  background-image: linear-gradient(#fecc4c, #ffac33);
+  border: 3px solid #feac32;
+  min-width: 7rem;
+}
