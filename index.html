@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="styles.css" />
@@ -13,42 +13,83 @@
   <body>
     <div id="game">
       <h1>OPEN MIC - O RPG</h1>
-      <div id="screen1">
-        <div id="player">
-          <img id="avatar" src="avatar.png" width="80" />
-          <div id="dashboard">
-            <div id="stats">
-              <span class="stat"
-                >Nome: <strong><span id="goldText">Red</span></strong></span
-              >
-              <span class="stat"
-                >Nível: <strong><span id="goldText">Novato</span></strong></span
-              >
-              <span class="stat"
-                >Material: <strong><span id="xpText">2min</span></strong></span
-              >
-              <span class="stat"
-                >Tempo de Palco:
-                <strong><span id="healthText">3x</span></strong></span
-              >
-            </div>
-            <div id="btnDivUp">
-              <button id="button1">Escrever Piada</button>
-              <button id="button2">Buscar Show</button>
-              <button id="button3">Ver Material</button>
-            </div>
+      <div id="introScreen">
+        <img id="mentorImg" src="carvalho.png" width="120" />
+        <div id="introText"></div>
+        <button id="introContinue">Continuar</button>
+        <div id="avatarSelection">
+          <h3>Escolha seu avatar</h3>
+          <div class="avatar-option" data-avatar="boy">
+            <img src="avatar.png" width="80" />
+            <span>Personagem A</span>
+          </div>
+          <div class="avatar-option" data-avatar="girl">
+            <img src="normal-show.jpg" width="80" />
+            <span>Personagem B</span>
           </div>
         </div>
-        <div id="text1">
-          teste testes testes tes tes test esteststest se tes tse tes tes tse
-          tset stestestese
-        </div>
       </div>
-      <div id="screen2">
-        <img id="locationImg" src="carvalho.png" width="100" />
-        <p id="text2"></p>
-        <div id="btnDivLow">
-          <button id="button4">Continuar</button>
+      <div id="screen1" class="hidden">
+        <div id="player">
+          <img id="avatar" src="avatar.png" width="80" />
+          <!--          <div id="dashboard"> -->
+          <div id="stats">
+            <span class="stat"
+              >Nome: <strong><span id="nameText">Red</span></strong></span
+            >
+            <span class="stat"
+              >Nível: <strong><span id="levelText">Novato</span></strong></span
+            >
+            <span class="stat"
+              >Material: <strong><span id="xpText">0min</span></strong></span
+            >
+            <span class="stat"
+              >Tempo de Palco:
+              <strong><span id="stageText">3x</span></strong></span
+            >
+            <span class="stat"
+              >Fãs: <strong><span id="fansText">0</span></strong></span
+            >
+            <span class="stat"
+              >Motivação:
+              <strong><span id="motivationText">50</span></strong></span
+            >
+            <span class="stat"
+              >Teoria:
+              <strong><span id="theoryText">10</span></strong></span
+            >
+          </div>
+          <div id="btnDivUp">
+            <button id="button1">Escrever Piada</button>
+            <button id="button2">Buscar Show</button>
+            <button id="button3">Ver Material</button>
+            <button id="button4">Salvar</button>
+            <button id="button5">Criar Conteúdo</button>
+            <button id="button6">Estudar</button>
+          </div>
+          <!--   </div> -->
+        </div>
+        <div id="blackScreen">
+          <h2 id="title">COPO SUJO COMEDY CLUB</h2>
+          <img id="locationImg" src="writing-at-home.jpg" width="180" />
+          <p id="text">
+            <!-- Você está em casa, à toa. Você tem certeza que será descoberto pelo
+            mercado de comédia, já que é naturalmente muito mais engraçado que
+            todo mundo que faz stand up. Apesar disso, talvez fosse uma boa
+            ideia escrever piadas ou buscar show para se apresentar - só
+            enquanto a fama não vem do nada ...
+        -->
+          </p>
+          <h3 id="subTitle">Escolha 5 Piadas:</h3>
+          <ul id="jokeList"></ul>
+          <div id="legend"></div>
+          <div id="dialogBox" class="hidden">
+            <p id="dialogText"></p>
+            <div id="dialogActions"></div>
+            <button id="dialogClose">Fechar</button>
+          </div>
+          <div id="btnDivLow"></div>
+          <button id="btnContinuar">Apresentar</button>
         </div>
       </div>
     </div>

@@ -4,6 +4,8 @@
 }
 
 body {
+  margin: 0;
+  padding: 0;
   background-color: #0a0a23;
   font-family: "win98", sans-serif;
   font-weight: bold;
@@ -11,7 +13,31 @@ body {
 
 h1 {
   color: black;
+  font-size: 3rem;
+}
+
+h3,
+h2 {
+  margin: 0;
+  color: yellow;
+}
+
+#subTitle {
+  color: white;
+}
+#jokeList {
+  margin: 10px 0;
+  padding: 0;
   display: none;
+  list-style: none;
+}
+
+#legend {
+  display: none;
+  font-size: 0.7rem;
+  color: #cfd2ff;
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
 }
 
 #player {
@@ -22,15 +48,93 @@ h1 {
   justify-content: space-around;
 }
 
-#text1 {
+#introScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 15px;
+}
+
+#introText {
+  min-height: 120px;
+  border: 2px solid #feac32;
+  padding: 10px;
+  background: #0a0a23;
+  color: #ffffff;
+}
+
+#introContinue {
+  display: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#avatarSelection {
+  display: none;
+  gap: 15px;
+  justify-content: center;
+}
+
+.avatar-option {
+  border: 2px solid #feac32;
+  padding: 5px;
+  cursor: pointer;
+  background: #111124;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.avatar-option.selected {
+  box-shadow: 0 0 6px rgba(254, 172, 50, 0.6);
+}
+
+#blackScreen {
   background-color: black;
   color: white;
   padding: 10px;
   font-size: large;
+  min-width: 300px;
+  min-height: 200px;
 }
 
-#screen1 {
+#locationImg {
+  display: block;
+  margin: 0 auto 0.5rem auto;
+  max-width: 220px;
+}
+
+#dialogBox {
   display: none;
+  border: 2px solid #feac32;
+  padding: 10px;
+  margin: 10px 0;
+  background: #0a0a23;
+  color: #ffffff;
+  text-align: left;
+}
+
+#dialogBox button {
+  margin-top: 8px;
+}
+
+#dialogActions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+
+#screen1 {
+  display: block;
+  border: 3px inset darkgrey;
 }
 
 #screen2 {
@@ -38,7 +142,7 @@ h1 {
   color: #ffffff;
   padding: 10px;
   font-size: large;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
 }
@@ -53,36 +157,45 @@ h1 {
   flex-direction: column;
   justify-content: space-around;
   align-items: center;
-  border: 3px inset darkgrey;
-}
-
-#btnDivUp, #btnDivLow {
-  color: #0a0a23;
-  display: grid;
-  gap: 5px;  
-  margin-bottom: 5px;
-}
-
-#btnDivUp {
-  grid-template-columns: 1fr 1fr;
+  border: 5px solid #000000;
 }
 
 #btnDivLow {
-  grid-template-columns: 1fr 1fr 1fr;
+  display: none;
+  gap: 7px;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  color: #d6d6d6;
+  flex-direction: column;
 }
+
+#btnContinuar {
+  display: none;
+  margin: 0 auto;
+}
+
+#btnDivUp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  gap: 5px;
+}
+
+#btnDivUp button {
+  width: 100%;
+}
+
 
 #screen2 p {
 }
 
 #stats {
   color: #0a0a23;
-  grid-template-columns: 1fr 1fr;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   margin-bottom: 5px;
-}
-
-#locationImg {
-  margin-left: -2rem;
+  gap: 5px;
 }
 
 
@@ -93,4 +206,74 @@ button {
   background-image: linear-gradient(#fecc4c, #ffac33);
   border: 3px solid #feac32;
   min-width: 7rem;
+  font-family: sans-serif;
 }
+
+#btnDivLow button {
+ background-image: linear-gradient(#222222, black);
+ color: yellow;
+ border: 2px ridge darkgrey;
+
+}
+
+.joke-item {
+  border: 1px solid #3c3c3c;
+  padding: 6px;
+  margin-bottom: 5px;
+  background-color: #111124;
+  color: #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.joke-item .actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.delete-btn {
+  background: transparent;
+  border: 1px solid #dd5145;
+  color: #ff8a80;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background: #dd5145;
+  color: #0a0a23;
+}
+
+.joke-item strong {
+  color: #fecc4c;
+}
+
+.joke-item span {
+  font-size: 0.8rem;
+}
+
+.joke-item.read-only {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.joke-item.selected {
+  border-color: #feac32;
+  box-shadow: 0 0 6px rgba(254, 172, 50, 0.5);
+}
+
+.joke-history {
+  font-size: 1rem;
+  letter-spacing: 2px;
+}
+
+.joke-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #b4b4b4;
+}
+
