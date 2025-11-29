@@ -2,97 +2,92 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="win98.ttf" />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400&display=swap"
-    />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Caveat:wght@700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <title>Open Mic - O RPG</title>
   </head>
   <body>
     <div id="game">
-      <h1>OPEN MIC - O RPG</h1>
+      <h1>🎤 OPEN MIC RPG</h1>
       <div id="introScreen">
-        <img id="mentorImg" src="carvalho.png" width="120" />
+        <img id="mentorImg" src="carvalho.png" width="120" alt="Professor Carvalho" />
         <div id="introText"></div>
-        <button id="introContinue">Continuar</button>
+        <button id="introContinue">Continuar →</button>
         <div id="avatarSelection">
-          <h3>Escolha seu avatar</h3>
+          <h3>✨ Escolha seu avatar ✨</h3>
           <div class="avatar-option" data-avatar="boy">
-            <img src="avatar.png" width="80" />
+            <img src="avatar.png" width="80" alt="Personagem A" />
             <span>Personagem A</span>
           </div>
           <div class="avatar-option" data-avatar="girl">
-            <img src="normal-show.jpg" width="80" />
+            <img src="normal-show.jpg" width="80" alt="Personagem B" />
             <span>Personagem B</span>
           </div>
         </div>
       </div>
       <div id="screen1" class="hidden">
         <div id="player">
-          <img id="avatar" src="avatar.png" width="80" />
-          <!--          <div id="dashboard"> -->
+          <img id="avatar" src="avatar.png" width="80" alt="Avatar" />
           <div id="stats">
-            <span class="stat"
-              >Nome: <strong><span id="nameText">Red</span></strong></span
-            >
-            <span class="stat"
-              >Nível: <strong><span id="levelText">Novato</span></strong></span
-            >
-            <span class="stat"
-              >Material: <strong><span id="xpText">0min</span></strong></span
-            >
-            <span class="stat"
-              >Tempo de Palco:
-              <strong><span id="stageText">3x</span></strong></span
-            >
-            <span class="stat"
-              >Fãs: <strong><span id="fansText">0</span></strong></span
-            >
-            <span class="stat"
-              >Motivação:
-              <strong><span id="motivationText">50</span></strong></span
-            >
-            <span class="stat"
-              >Teoria:
-              <strong><span id="theoryText">10</span></strong></span
-            >
+            <span class="stat" data-stat="name">
+              <span>Nome:</span>
+              <strong><span id="nameText">Red</span></strong>
+            </span>
+            <span class="stat" data-stat="level">
+              <span>Nível:</span>
+              <strong><span id="levelText">Novato</span></strong>
+            </span>
+            <span class="stat" data-stat="material">
+              <span>Material:</span>
+              <strong><span id="xpText">0min</span></strong>
+            </span>
+            <span class="stat" data-stat="stage">
+              <span>Palco:</span>
+              <strong><span id="stageText">0x</span></strong>
+            </span>
+            <span class="stat" data-stat="fans">
+              <span>Fãs:</span>
+              <strong><span id="fansText">0</span></strong>
+            </span>
+            <span class="stat" data-stat="motivation">
+              <span>Motivação:</span>
+              <strong><span id="motivationText">50</span></strong>
+            </span>
+            <span class="stat" data-stat="theory">
+              <span>Teoria:</span>
+              <strong><span id="theoryText">10</span></strong>
+            </span>
           </div>
           <div id="btnDivUp">
-            <button id="button1">Escrever Piada</button>
-            <button id="button2">Buscar Show</button>
-            <button id="button3">Ver Material</button>
-            <button id="button4">Salvar</button>
-            <button id="button5">Criar Conteúdo</button>
-            <button id="button6">Estudar</button>
+            <button id="button1">✏️ Escrever</button>
+            <button id="button2">🎭 Buscar Show</button>
+            <button id="button3">📋 Material</button>
+            <button id="button4">💾 Salvar</button>
+            <button id="button5">📱 Conteúdo</button>
+            <button id="button6">📚 Estudar</button>
           </div>
-          <!--   </div> -->
         </div>
         <div id="blackScreen">
           <h2 id="title">COPO SUJO COMEDY CLUB</h2>
-          <img id="locationImg" src="writing-at-home.jpg" width="180" />
-          <p id="text">
-            <!-- Você está em casa, à toa. Você tem certeza que será descoberto pelo
-            mercado de comédia, já que é naturalmente muito mais engraçado que
-            todo mundo que faz stand up. Apesar disso, talvez fosse uma boa
-            ideia escrever piadas ou buscar show para se apresentar - só
-            enquanto a fama não vem do nada ...
-        -->
-          </p>
-          <h3 id="subTitle">Escolha 5 Piadas:</h3>
+          <img id="locationImg" src="writing-at-home.jpg" width="180" alt="Localização" />
+          <p id="text"></p>
+          <h3 id="subTitle">Monte sua vida de palco</h3>
           <ul id="jokeList"></ul>
           <div id="legend"></div>
           <div id="dialogBox" class="hidden">
             <p id="dialogText"></p>
             <div id="dialogActions"></div>
-            <button id="dialogClose">Fechar</button>
+            <button id="dialogClose">✕ Fechar</button>
           </div>
           <div id="btnDivLow"></div>
-          <button id="btnContinuar">Apresentar</button>
+          <button id="btnContinuar">🚀 Apresentar</button>
         </div>
       </div>
     </div>
+    <div id="confettiContainer" class="confetti-container"></div>
     <script src="./script.js"></script>
   </body>
 </html>

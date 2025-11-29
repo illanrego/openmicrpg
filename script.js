@@ -1,9 +1,131 @@
-const showText = (target, message, index, interval) => {
+const showText = (target, message, index, interval, callback) => {
   if (index < message.length) {
     document.querySelector(target).append(message[index++]);
-    setTimeout(() => showText(target, message, index, interval), interval);
+    setTimeout(() => showText(target, message, index, interval, callback), interval);
+  } else if (callback) {
+    callback();
   }
 };
+
+// Animation utilities
+const animateElement = (element, animationClass, duration = 500) => {
+  element.classList.add(animationClass);
+  setTimeout(() => element.classList.remove(animationClass), duration);
+};
+
+const createRipple = (event, element) => {
+  const ripple = document.createElement('span');
+  ripple.classList.add('ripple-effect');
+  const rect = element.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  ripple.style.width = ripple.style.height = `${size}px`;
+  ripple.style.left = `${event.clientX - rect.left - size / 2}px`;
+  ripple.style.top = `${event.clientY - rect.top - size / 2}px`;
+  element.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+};
+
+// Warm jazz/retro color palette for effects
+const confettiColors = ['#d4a84b', '#ffd966', '#f5e6c8', '#a65d4e', '#5a8f5a'];
+
+const spawnConfetti = (count = 30) => {
+  const container = document.getElementById('confettiContainer');
+  if (!container) return;
+  
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const confetti = document.createElement('div');
+      confetti.classList.add('confetti');
+      confetti.style.left = `${Math.random() * 100}%`;
+      confetti.style.top = `${50 + Math.random() * 30}%`;
+      confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+      confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+      confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+      container.appendChild(confetti);
+      setTimeout(() => confetti.remove(), 1500);
+    }, i * 40);
+  }
+};
+
+const animateStatChange = (statName, isPositive = true) => {
+  const statElement = document.querySelector(`[data-stat="${statName}"]`);
+  if (statElement) {
+    statElement.classList.add('stat-updated');
+    if (isPositive) {
+      statElement.style.setProperty('--stat-color', 'var(--neon-cyan)');
+    } else {
+      statElement.style.setProperty('--stat-color', 'var(--neon-pink)');
+    }
+    setTimeout(() => {
+      statElement.classList.remove('stat-updated');
+    }, 500);
+  }
+};
+
+const animateNumber = (element, start, end, duration = 500) => {
+  const startTime = performance.now();
+  const diff = end - start;
+  
+  const animate = (currentTime) => {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + diff * easeProgress);
+    element.textContent = current;
+    
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  };
+  
+  requestAnimationFrame(animate);
+};
+
+const shakeScreen = () => {
+  const game = document.getElementById('game');
+  game.style.animation = 'shake 0.5s ease';
+  setTimeout(() => {
+    game.style.animation = '';
+  }, 500);
+};
+
+const flashScreen = (color = 'rgba(212, 168, 75, 0.25)') => {
+  const flash = document.createElement('div');
+  flash.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: ${color};
+    pointer-events: none;
+    z-index: 9999;
+    animation: fadeOut 0.25s ease forwards;
+  `;
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 250);
+};
+
+// Add CSS for flash animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  .ripple-effect {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    animation: ripple 0.6s ease-out;
+    pointer-events: none;
+  }
+  @keyframes ripple {
+    from { transform: scale(0); opacity: 1; }
+    to { transform: scale(4); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
 
 const STORAGE_KEY = "openMicRPG.save.v1";
 const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😬 estranho | 💧 deu água";
@@ -566,46 +688,82 @@ const eventPool = [
         narration: "Vocês dão risada de outros fracassos e você recupera o moral."
       }
     ]
+  },
+  {
+    id: "cincoPiadas",
+    trigger: "jokes5",
+    once: true,
+    text:
+      "Você já tem 5 piadas no caderno! Professor Carvalho te liga: 'Parabéns, mas agora é hora de testar esse material no palco. Quer que eu te indique um open mic?'",
+    image: "carvalho.png",
+    choices: [
+      {
+        label: "Aceitar a indicação",
+        effects: { motivation: 8, theory: 3 },
+        narration: "Você ganha confiança e uma dica valiosa sobre timing."
+      },
+      {
+        label: "Quero mais material primeiro",
+        effects: { motivation: -2 },
+        narration: "Você prefere escrever mais antes de encarar a plateia."
+      }
+    ]
   }
 ];
 
 function maybeTriggerEvent(trigger, context = {}) {
-  if (activeEvent) {
+  if (activeEvent || !trigger || typeof trigger !== "string") {
     return;
   }
-  const candidates = eventPool.filter((event) => eventMatchesTrigger(event, trigger, context));
+  if (!state || !Array.isArray(eventPool)) {
+    return;
+  }
+  const candidates = eventPool.filter((event) => {
+    return event && eventMatchesTrigger(event, trigger, context);
+  });
   if (!candidates.length) {
     return;
   }
   const event = candidates[Math.floor(Math.random() * candidates.length)];
-  showEvent(event);
+  if (event && event.text) {
+    showEvent(event);
+  }
 }
 
 function eventMatchesTrigger(event, trigger, context = {}) {
-  if (event.once && state.eventsSeen.includes(event.id)) {
+  if (!event || !event.trigger || !trigger) {
+    return false;
+  }
+  if (event.once && Array.isArray(state.eventsSeen) && state.eventsSeen.includes(event.id)) {
+    return false;
+  }
+  if (event.trigger !== trigger) {
     return false;
   }
   switch (event.trigger) {
     case "showKill":
-      return trigger === "showKill";
+      return true;
     case "showBomb":
-      return (
-        trigger === "showBomb" &&
-        (context.adjustedScore ?? context.averageScore ?? context.score ?? 0) <= -0.05
-      );
+      const score = context.adjustedScore ?? context.averageScore ?? context.score ?? 0;
+      return typeof score === "number" && score <= -0.05;
     case "fans20":
-      return trigger === "fans20" && state.fans >= 20;
+      return typeof state.fans === "number" && state.fans >= 20;
+    case "jokes5":
+      return Array.isArray(state.jokes) && state.jokes.length === 5;
     case "random":
-      return trigger === "random" && Math.random() < 0.35;
+      return Math.random() < 0.35;
     default:
       return false;
   }
 }
 
 function showEvent(event) {
+  if (activeEvent) {
+    return;
+  }
   activeEvent = event;
   uiMode = "event";
-  setScene("event", "Evento surpresa", event.image);
+  setScene("event", "Evento surpresa", event.image || "agua1.jpg");
   const actions = (event.choices || []).map((choice, index) => ({
     label: choice.label,
     handler: () => handleEventChoiceIndex(index)
@@ -615,33 +773,44 @@ function showEvent(event) {
 
 function handleEventChoiceIndex(index) {
   if (!activeEvent) {
+    hideDialog();
     return;
   }
   const eventRef = activeEvent;
-  const choice = eventRef.choices[index];
+  const choice = eventRef.choices && eventRef.choices[index];
   if (!choice) {
+    hideDialog();
+    activeEvent = null;
+    uiMode = "idle";
     return;
   }
   if (eventRef.once && !state.eventsSeen.includes(eventRef.id)) {
     state.eventsSeen.push(eventRef.id);
   }
+  
+  const hasStartShow = !!choice.startShowId;
+  const hasNarration = !!choice.narration;
+  
+  hideDialog();
   activeEvent = null;
   uiMode = "idle";
-  hideDialog();
+  
   applyEventEffects(choice.effects || {});
   updateStats();
-  if (choice.startShowId) {
+  
+  if (hasStartShow) {
     showDialog(choice.narration || "Convite aceito! Hora de subir no palco.", [
       {
         label: "Montar set",
         handler: () => {
+          hideDialog();
           startSpecialShow(choice.startShowId);
         }
       }
     ]);
     return;
   }
-  if (choice.narration) {
+  if (hasNarration) {
     showDialog(choice.narration);
   }
 }
@@ -727,6 +896,7 @@ let uiMode = "idle";
 let introStep = 0;
 let activeEvent = null;
 let lastLevelLabel = null;
+let dialogTimeout = null;
 const selectedJokeIds = new Set();
 const avatarImages = {
   boy: "avatar.png",
@@ -762,6 +932,7 @@ function cacheElements() {
   elements.dialogText = document.querySelector("#dialogText");
   elements.dialogActions = document.querySelector("#dialogActions");
   elements.dialogClose = document.querySelector("#dialogClose");
+  elements.mainTitle = document.querySelector("h1");
   elements.buttons = {
     write: document.querySelector("#button1"),
     show: document.querySelector("#button2"),
@@ -794,18 +965,40 @@ function resetSubtitle() {
 }
 
 function attachEvents() {
-  elements.buttons.write.addEventListener("click", handleWriteJoke);
-  elements.buttons.show.addEventListener("click", handleSearchShow);
-  elements.buttons.material.addEventListener("click", handleViewMaterial);
-  elements.buttons.save.addEventListener("click", handleSaveGame);
-  elements.buttons.content.addEventListener("click", handleCreateContent);
-  elements.buttons.study.addEventListener("click", handleStudy);
-  elements.btnContinuar.addEventListener("click", performShow);
+  // Add ripple effects to all buttons
+  const addButtonEffects = (button, handler) => {
+    button.addEventListener("click", (e) => {
+      createRipple(e, button);
+      button.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        button.style.transform = '';
+      }, 150);
+      handler(e);
+    });
+  };
+
+  addButtonEffects(elements.buttons.write, handleWriteJoke);
+  addButtonEffects(elements.buttons.show, handleSearchShow);
+  addButtonEffects(elements.buttons.material, handleViewMaterial);
+  addButtonEffects(elements.buttons.save, handleSaveGame);
+  addButtonEffects(elements.buttons.content, handleCreateContent);
+  addButtonEffects(elements.buttons.study, handleStudy);
+  addButtonEffects(elements.btnContinuar, performShow);
+  
   elements.jokeList.addEventListener("click", handleJokeListClick);
-  elements.introContinue.addEventListener("click", advanceIntro);
+  
+  elements.introContinue.addEventListener("click", (e) => {
+    createRipple(e, elements.introContinue);
+    advanceIntro();
+  });
+  
   elements.avatarOptions.forEach((option) =>
-    option.addEventListener("click", () => selectAvatar(option.dataset.avatar))
+    option.addEventListener("click", (e) => {
+      createRipple(e, option);
+      selectAvatar(option.dataset.avatar);
+    })
   );
+  
   elements.dialogClose.addEventListener("click", hideDialog);
 }
 
@@ -826,6 +1019,9 @@ function startIntro() {
   setScene("intro", "Professor Carvalho", "carvalho.png");
   elements.introScreen.classList.remove("hidden");
   elements.screen.classList.add("hidden");
+  if (elements.mainTitle) {
+    elements.mainTitle.style.display = "block";
+  }
   elements.avatarSelection.style.display = "none";
   elements.avatarOptions.forEach((option) => option.classList.remove("selected"));
   playIntroLine();
@@ -859,10 +1055,18 @@ function selectAvatar(key) {
   elements.avatarOptions.forEach((option) =>
     option.classList.toggle("selected", option.dataset.avatar === key)
   );
-  setAvatarImage(key);
-  enterGame();
-  displayNarration(homeText);
-  saveGameState();
+  
+  // Celebration effect on selection
+  flashScreen('rgba(212, 168, 75, 0.25)');
+  spawnConfetti(20);
+  
+  // Delay transition for effect
+  setTimeout(() => {
+    setAvatarImage(key);
+    enterGame();
+    displayNarration(homeText);
+    saveGameState();
+  }, 400);
 }
 
 function setAvatarImage(key) {
@@ -872,41 +1076,131 @@ function setAvatarImage(key) {
 
 function enterGame(skipNarration = false) {
   uiMode = "idle";
-  elements.introScreen.classList.add("hidden");
-  elements.screen.classList.remove("hidden");
-  setAvatarImage(state.avatar);
-  setScene("home");
-  if (!skipNarration) {
-    displayNarration(homeText);
-  }
+  
+  // Fade out intro
+  elements.introScreen.style.transition = 'opacity 0.4s ease';
+  elements.introScreen.style.opacity = '0';
+  
+  setTimeout(() => {
+    elements.introScreen.classList.add("hidden");
+    elements.introScreen.style.opacity = '';
+    
+    // Prepare screen for animation
+    elements.screen.style.opacity = '0';
+    elements.screen.style.transform = 'translateY(20px)';
+    elements.screen.classList.remove("hidden");
+    
+    if (elements.mainTitle) {
+      elements.mainTitle.style.display = "none";
+    }
+    
+    setAvatarImage(state.avatar);
+    setScene("home");
+    
+    // Animate in
+    setTimeout(() => {
+      elements.screen.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      elements.screen.style.opacity = '1';
+      elements.screen.style.transform = 'translateY(0)';
+      
+      if (!skipNarration) {
+        displayNarration(homeText);
+      }
+    }, 50);
+  }, 400);
 }
 
 function showDialog(message, actions = []) {
-  elements.dialogText.textContent = message;
+  if (!elements.dialogBox || !elements.dialogText) {
+    console.warn("Dialog elements not found");
+    return;
+  }
+  hideDialog();
+  if (dialogTimeout) {
+    clearTimeout(dialogTimeout);
+    dialogTimeout = null;
+  }
+  
+  elements.dialogText.textContent = message || "";
   elements.dialogActions.innerHTML = "";
-  if (actions.length) {
-    elements.dialogClose.classList.add("hidden");
-    actions.forEach((action) => {
+  
+  if (actions && actions.length > 0) {
+    if (elements.dialogClose) {
+      elements.dialogClose.classList.add("hidden");
+    }
+    actions.forEach((action, index) => {
+      if (!action || !action.label) {
+        return;
+      }
       const btn = document.createElement("button");
       btn.textContent = action.label;
-      btn.addEventListener("click", () => {
-        action.handler?.();
+      btn.style.opacity = '0';
+      btn.style.transform = 'translateY(10px)';
+      btn.addEventListener("click", (e) => {
+        createRipple(e, btn);
+        e.preventDefault();
+        e.stopPropagation();
+        if (action.handler && typeof action.handler === "function") {
+          setTimeout(() => action.handler(), 150);
+        }
       });
       elements.dialogActions.appendChild(btn);
+      
+      // Animate buttons in with delay
+      setTimeout(() => {
+        btn.style.transition = 'all 0.3s ease';
+        btn.style.opacity = '1';
+        btn.style.transform = 'translateY(0)';
+      }, 100 + index * 80);
     });
   } else {
-    elements.dialogClose.classList.remove("hidden");
+    if (elements.dialogClose) {
+      elements.dialogClose.classList.remove("hidden");
+    }
   }
+  
+  // Animate dialog appearance
+  elements.dialogBox.style.opacity = '0';
+  elements.dialogBox.style.transform = 'scale(0.9) translateY(20px)';
   elements.dialogBox.classList.remove("hidden");
+  
+  setTimeout(() => {
+    elements.dialogBox.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    elements.dialogBox.style.opacity = '1';
+    elements.dialogBox.style.transform = 'scale(1) translateY(0)';
+  }, 10);
 }
 
 function hideDialog() {
-  elements.dialogBox.classList.add("hidden");
-  elements.dialogActions.innerHTML = "";
-  elements.dialogClose.classList.remove("hidden");
-  if (uiMode === "event" && !activeEvent) {
-    uiMode = "idle";
+  if (!elements.dialogBox) {
+    return;
   }
+  
+  if (dialogTimeout) {
+    clearTimeout(dialogTimeout);
+    dialogTimeout = null;
+  }
+
+  // Animate out
+  elements.dialogBox.style.transition = 'all 0.25s ease';
+  elements.dialogBox.style.opacity = '0';
+  elements.dialogBox.style.transform = 'scale(0.95) translateY(-10px)';
+  
+  dialogTimeout = setTimeout(() => {
+    elements.dialogBox.classList.add("hidden");
+    elements.dialogBox.style.opacity = '';
+    elements.dialogBox.style.transform = '';
+    if (elements.dialogActions) {
+      elements.dialogActions.innerHTML = "";
+    }
+    if (elements.dialogClose) {
+      elements.dialogClose.classList.remove("hidden");
+    }
+    if (uiMode === "event" && !activeEvent) {
+      uiMode = "idle";
+    }
+    dialogTimeout = null;
+  }, 250);
 }
 
 function loadGameState() {
@@ -972,32 +1266,111 @@ function saveGameState() {
 
 function displayNarration(message) {
   elements.text.innerHTML = "";
-  showText("#text", message, 0, 20);
+  elements.text.style.opacity = '0';
+  elements.text.style.transform = 'translateY(10px)';
+  
+  setTimeout(() => {
+    elements.text.style.transition = 'all 0.3s ease';
+    elements.text.style.opacity = '1';
+    elements.text.style.transform = 'translateY(0)';
+    showText("#text", message, 0, 18);
+  }, 100);
 }
 
 function setScene(sceneKey, customTitle, customImage) {
   const scene = scenes[sceneKey] || {};
-  elements.title.textContent = customTitle || scene.title || "Na estrada";
-  elements.image.src = customImage || scene.image || "writing-at-home.jpg";
+  
+  // Animate title change
+  elements.title.style.opacity = '0';
+  elements.title.style.transform = 'translateY(-10px)';
+  
+  setTimeout(() => {
+    elements.title.textContent = customTitle || scene.title || "Na estrada";
+    elements.title.style.opacity = '1';
+    elements.title.style.transform = 'translateY(0)';
+  }, 150);
+  
+  // Animate image change with fade
+  elements.image.style.opacity = '0';
+  elements.image.style.transform = 'scale(0.95)';
+  
+  setTimeout(() => {
+    elements.image.src = customImage || scene.image || "writing-at-home.jpg";
+    elements.image.onload = () => {
+      elements.image.style.opacity = '1';
+      elements.image.style.transform = 'scale(1)';
+    };
+  }, 200);
+  
+  // Add transition styles
+  elements.title.style.transition = 'all 0.3s ease';
+  elements.image.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
 }
 
-function updateStats() {
+let previousStats = { fans: 0, motivation: 60, theory: 10, stageTime: 0 };
+
+function updateStats(animate = true) {
+  const oldFans = previousStats.fans;
+  const oldMotivation = previousStats.motivation;
+  const oldTheory = previousStats.theory;
+  const oldStageTime = previousStats.stageTime;
+  
   state.fans = Math.max(0, Math.round(state.fans || 0));
   state.motivation = clamp(state.motivation ?? 60, 0, 120);
   state.theory = clamp(state.theory ?? 10, 0, 120);
+  
   elements.stats.name.textContent = state.name;
+  
+  // Animate stage time
+  if (animate && state.stageTime !== oldStageTime) {
+    animateStatChange('stage', state.stageTime > oldStageTime);
+  }
   elements.stats.stage.textContent = `${state.stageTime}x`;
+  
   const totalMinutes = getTotalMinutes();
   elements.stats.material.textContent = `${totalMinutes}min`;
+  
   const levelLabel = determineLevel(totalMinutes);
   elements.stats.level.textContent = levelLabel;
+  
   if (lastLevelLabel && levelLabel !== lastLevelLabel) {
-    showDialog(`Você evoluiu para o nível ${levelLabel}!`);
+    showDialog(`🎉 Você evoluiu para o nível ${levelLabel}!`);
+    spawnConfetti(30);
+    animateStatChange('level', true);
   }
   lastLevelLabel = levelLabel;
-  elements.stats.fans.textContent = state.fans;
-  elements.stats.motivation.textContent = `${state.motivation}`;
-  elements.stats.theory.textContent = `${state.theory}`;
+  
+  // Animate fans
+  if (animate && state.fans !== oldFans) {
+    animateNumber(elements.stats.fans, oldFans, state.fans, 600);
+    animateStatChange('fans', state.fans > oldFans);
+  } else {
+    elements.stats.fans.textContent = state.fans;
+  }
+  
+  // Animate motivation
+  if (animate && state.motivation !== oldMotivation) {
+    animateNumber(elements.stats.motivation, oldMotivation, state.motivation, 400);
+    animateStatChange('motivation', state.motivation > oldMotivation);
+  } else {
+    elements.stats.motivation.textContent = `${state.motivation}`;
+  }
+  
+  // Animate theory
+  if (animate && state.theory !== oldTheory) {
+    animateNumber(elements.stats.theory, oldTheory, state.theory, 400);
+    animateStatChange('theory', state.theory > oldTheory);
+  } else {
+    elements.stats.theory.textContent = `${state.theory}`;
+  }
+  
+  // Update previous stats
+  previousStats = {
+    fans: state.fans,
+    motivation: state.motivation,
+    theory: state.theory,
+    stageTime: state.stageTime
+  };
 }
 
 function determineLevel(minutes) {
@@ -1040,24 +1413,47 @@ function handleWriteJoke() {
 
 function presentWritingModes() {
   uiMode = "chooseWritingMode";
-  elements.subTitle.textContent = "Como você quer criar material hoje?";
+  elements.subTitle.textContent = "✏️ Como você quer criar material hoje?";
   elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.style.opacity = '0';
+  
   const buttons = Object.values(writingModes)
     .map(
       (mode) => `
         <button class="writing-mode-btn" data-mode="${mode.id}">
-          ${mode.label}<br /><small>${mode.desc}</small>
+          ${mode.id === 'desk' ? '🪑' : '📝'} ${mode.label}<br /><small>${mode.desc}</small>
         </button>
       `
     )
     .join("");
   elements.btnDivLow.innerHTML = `
-    <div>Você pode gastar motivação para lapidar o texto ou coletar ideias rápidas.</div>
+    <div>💡 Você pode gastar motivação para lapidar o texto ou coletar ideias rápidas.</div>
     ${buttons}
   `;
+  
+  // Animate in
+  setTimeout(() => {
+    elements.btnDivLow.style.transition = 'opacity 0.4s ease';
+    elements.btnDivLow.style.opacity = '1';
+  }, 50);
+  
   elements.btnDivLow
     .querySelectorAll(".writing-mode-btn")
-    .forEach((btn) => btn.addEventListener("click", () => createJokeFromMode(btn.dataset.mode)));
+    .forEach((btn, index) => {
+      btn.style.opacity = '0';
+      btn.style.transform = 'translateY(10px)';
+      
+      setTimeout(() => {
+        btn.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        btn.style.opacity = '1';
+        btn.style.transform = 'translateY(0)';
+      }, 150 + index * 100);
+      
+      btn.addEventListener("click", (e) => {
+        createRipple(e, btn);
+        setTimeout(() => createJokeFromMode(btn.dataset.mode), 150);
+      });
+    });
 }
 
 function exitWritingMode() {
@@ -1114,17 +1510,32 @@ function createJokeFromMode(modeId) {
   renderJokeList({ selectable: false });
   updateStats();
   setScene("writing");
+  
+  // Celebration for new joke!
+  flashScreen('rgba(212, 168, 75, 0.2)');
+  if (adjustedPotential > 0.7) {
+    spawnConfetti(15);
+  }
+  
   displayNarration(
-    `Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada sobre ${idea.seed}. Ela tem ${minutes} min e parece ${label}.`
+    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada sobre ${idea.seed}. Ela tem ${minutes} min e parece ${label}.`
   );
+  if (state.jokes.length === 5) {
+    maybeTriggerEvent("jokes5", { source: "writing" });
+  }
   maybeTriggerEvent("random", { source: "writing" });
 }
 
 function handleSearchShow() {
   if (!state.jokes.length) {
-    displayNarration("Você ainda não tem material. Escreva alguma coisa antes de encarar a plateia.");
+    shakeScreen();
+    displayNarration("⚠️ Você ainda não tem material. Escreva alguma coisa antes de encarar a plateia.");
     return;
   }
+  
+  // Show searching animation
+  flashScreen('rgba(139, 115, 85, 0.2)');
+  
   const randomShow = showPool[Math.floor(Math.random() * showPool.length)];
   beginShowPreparation(randomShow);
 }
@@ -1133,13 +1544,23 @@ function beginShowPreparation(show) {
   currentShow = show;
   uiMode = "showSelection";
   selectedJokeIds.clear();
-  elements.subTitle.textContent = `Monte pelo menos ${show.minMinutes} min para ${show.name}`;
+  elements.subTitle.textContent = `🎭 Monte pelo menos ${show.minMinutes} min para ${show.name}`;
   renderJokeList({ selectable: true });
   renderSetSummary();
   setScene("club", show.name, show.image);
-  displayNarration(`${show.intro} ${show.crowd}`);
+  displayNarration(`🎤 ${show.intro} ${show.crowd}`);
+  
+  // Animate button in
+  elements.btnContinuar.style.opacity = '0';
+  elements.btnContinuar.style.transform = 'translateY(20px)';
   elements.btnContinuar.style.display = "block";
-  elements.btnContinuar.textContent = "Subir no palco";
+  elements.btnContinuar.textContent = "🚀 Subir no palco";
+  
+  setTimeout(() => {
+    elements.btnContinuar.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    elements.btnContinuar.style.opacity = '1';
+    elements.btnContinuar.style.transform = 'translateY(0)';
+  }, 400);
 }
 
 function startSpecialShow(showId) {
@@ -1156,17 +1577,18 @@ function startSpecialShow(showId) {
 function handleViewMaterial() {
   exitSelectionMode();
   uiMode = "viewMaterial";
-  elements.subTitle.textContent = "Todo o seu material";
+  elements.subTitle.textContent = "📋 Todo o seu material";
   renderJokeList({ selectable: false });
   elements.btnDivLow.style.display = "flex";
-  elements.btnDivLow.innerHTML = `<div>Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
+  elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
   setScene("home");
-  displayNarration("Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
+  displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
 }
 
 function handleSaveGame() {
   saveGameState();
-  displayNarration("Jogo salvo no seu navegador. Pode fechar o bloco e voltar quando quiser.");
+  flashScreen('rgba(90, 143, 90, 0.25)');
+  displayNarration("💾 Jogo salvo no seu navegador. Pode fechar o bloco e voltar quando quiser.");
 }
 
 function handleCreateContent() {
@@ -1179,8 +1601,15 @@ function handleCreateContent() {
   state.fans += fanGain;
   state.motivation = clamp(state.motivation - 6 + Math.round(Math.random() * 4), 0, 120);
   setScene("content");
+  
+  // Content creation effect
+  flashScreen('rgba(245, 230, 200, 0.15)');
+  if (fanGain > 15) {
+    spawnConfetti(12);
+  }
+  
   displayNarration(
-    `Você grava clipes e posta nas redes. ${fanGain} novas pessoas começam a te seguir e aguardam o próximo set.`
+    `📱 Você grava clipes e posta nas redes. ${fanGain} novas pessoas começam a te seguir e aguardam o próximo set.`
   );
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
@@ -1195,7 +1624,11 @@ function handleStudy() {
   state.theory = clamp(state.theory + 12, 0, 150);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   setScene("study");
-  displayNarration("Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno.");
+  
+  // Study effect - warm glow
+  flashScreen('rgba(245, 230, 200, 0.2)');
+  
+  displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno.");
   updateStats();
 }
 
@@ -1212,15 +1645,20 @@ function renderJokeList({ selectable }) {
 
   elements.legend.textContent = LEGEND_TEXT;
   elements.legend.style.display = "block";
+  elements.legend.style.opacity = '0';
+  setTimeout(() => {
+    elements.legend.style.transition = 'opacity 0.3s ease';
+    elements.legend.style.opacity = '1';
+  }, 100);
 
   if (!state.jokes.length) {
     elements.jokeList.innerHTML =
-      '<li class="joke-item read-only"><strong>Sem piadas no bloco.</strong> Bora escrever algo.</li>';
+      '<li class="joke-item read-only"><strong>📝 Sem piadas no bloco.</strong> Bora escrever algo.</li>';
     elements.jokeList.style.display = "block";
     return;
   }
 
-  state.jokes.forEach((joke) => {
+  state.jokes.forEach((joke, index) => {
     const li = document.createElement("li");
     li.classList.add("joke-item");
     if (!selectable) {
@@ -1230,6 +1668,11 @@ function renderJokeList({ selectable }) {
     if (selectedJokeIds.has(joke.id)) {
       li.classList.add("selected");
     }
+    
+    // Add staggered animation
+    li.style.opacity = '0';
+    li.style.transform = 'translateX(-20px)';
+    
     const historyLine = formatHistory(joke.history);
     li.innerHTML = `
       <div><strong>${joke.title}</strong> — ${joke.minutes} min | ${joke.structure?.toUpperCase() || "SET"}</div>
@@ -1243,10 +1686,17 @@ function renderJokeList({ selectable }) {
       const actions = document.createElement("div");
       actions.classList.add("actions");
       actions.innerHTML =
-        '<button class="rewrite-btn">Reescrever</button><button class="delete-btn">Apagar</button>';
+        '<button class="rewrite-btn">✏️ Reescrever</button><button class="delete-btn">🗑️ Apagar</button>';
       li.appendChild(actions);
     }
     elements.jokeList.appendChild(li);
+    
+    // Animate in with stagger
+    setTimeout(() => {
+      li.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      li.style.opacity = '1';
+      li.style.transform = 'translateX(0)';
+    }, 50 + index * 60);
   });
   elements.jokeList.style.display = "block";
 }
@@ -1293,15 +1743,26 @@ function deleteJoke(jokeId) {
   if (jokeIndex === -1) {
     return;
   }
-  const [removed] = state.jokes.splice(jokeIndex, 1);
-  selectedJokeIds.delete(jokeId);
-  updateStats();
-  renderJokeList({ selectable: false });
-  if (uiMode === "viewMaterial") {
-    elements.btnDivLow.style.display = "flex";
-    elements.btnDivLow.innerHTML = `<div>Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
+  
+  // Find and animate out the joke item
+  const jokeElement = elements.jokeList.querySelector(`[data-id="${jokeId}"]`);
+  if (jokeElement) {
+    jokeElement.style.transition = 'all 0.3s ease';
+    jokeElement.style.opacity = '0';
+    jokeElement.style.transform = 'translateX(50px) scale(0.9)';
   }
-  displayNarration(`${removed.title} foi aposentada. Hora de escrever algo no lugar.`);
+  
+  setTimeout(() => {
+    const [removed] = state.jokes.splice(jokeIndex, 1);
+    selectedJokeIds.delete(jokeId);
+    updateStats();
+    renderJokeList({ selectable: false });
+    if (uiMode === "viewMaterial") {
+      elements.btnDivLow.style.display = "flex";
+      elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
+    }
+    displayNarration(`🗑️ ${removed.title} foi aposentada. Hora de escrever algo no lugar.`);
+  }, 300);
 }
 
 function rewriteJoke(jokeId) {
@@ -1315,7 +1776,11 @@ function rewriteJoke(jokeId) {
   joke.structure = structures[Math.floor(Math.random() * structures.length)];
   joke.minutes = Math.random() > 0.8 ? 2 : 1;
   joke.freshness = "reescrita";
-  displayNarration(`${joke.title} ganhou um novo ritmo ${joke.structure.toUpperCase()} e foi atualizado.`);
+  
+  // Rewrite effect
+  flashScreen('rgba(212, 168, 75, 0.15)');
+  
+  displayNarration(`✏️ ${joke.title} ganhou um novo ritmo ${joke.structure.toUpperCase()} e foi atualizado.`);
   renderJokeList({ selectable: false });
   updateStats();
 }
@@ -1329,12 +1794,16 @@ function renderSetSummary() {
   const minutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones =
     [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
+  
+  const meetsMinimum = currentShow && minutes >= currentShow.minMinutes;
+  const minuteColor = meetsMinimum ? 'var(--neon-cyan)' : 'var(--neon-pink)';
+  
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    <div>Set atual: ${selectedJokes.length} piadas | ${minutes} min</div>
-    <div>Clima do set: ${tones}</div>
-    ${currentShow ? `<div>Dificuldade do show: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
-    ${currentShow?.vibeHint ? `<div>${currentShow.vibeHint}</div>` : ""}
+    <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}</strong> min</span></div>
+    <div>🎨 Clima do set: ${tones}</div>
+    ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
+    ${currentShow?.vibeHint ? `<div>💡 ${currentShow.vibeHint}</div>` : ""}
   `;
 }
 
@@ -1358,9 +1827,13 @@ function performShow() {
   const setList = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
   const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0);
   if (!setList.length) {
-    displayNarration("Você precisa selecionar alguma piada antes de subir.");
+    shakeScreen();
+    displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir.");
     return;
   }
+  
+  // Stage entrance effect - spotlight flash
+  flashScreen('rgba(255, 248, 220, 0.3)');
   const evaluation = evaluateShow(setList, currentShow);
   const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
     const mood = scoreToEmoji(entry.score);
@@ -1498,15 +1971,23 @@ function showResultNarrative(outcome, breakdown, timeImpact, deltas = {}) {
   if (outcome === "kill") {
     setScene("kill");
     message =
-      "Você matou no palco! A plateia pediu mais uma e você nem acreditou. Algumas piadas renovaram a confiança.";
+      "🔥 Você matou no palco! A plateia pediu mais uma e você nem acreditou. Algumas piadas renovaram a confiança.";
+    // Celebration effects!
+    setTimeout(() => {
+      spawnConfetti(50);
+      flashScreen('rgba(212, 168, 75, 0.35)');
+    }, 300);
   } else if (outcome === "ok") {
     setScene("ok");
     message =
-      "Foi honesto. Algumas risadas fortes, alguns silêncios constrangedores. Dá pra refinar o set e tentar de novo.";
+      "🙂 Foi honesto. Algumas risadas fortes, alguns silêncios constrangedores. Dá pra refinar o set e tentar de novo.";
+    flashScreen('rgba(245, 230, 200, 0.15)');
   } else {
     setScene("bomb");
     message =
-      "Silêncio mortal. O garçom falou mais alto que você. Aceite que faz parte do processo e ajuste o texto.";
+      "💧 Silêncio mortal. O garçom falou mais alto que você. Aceite que faz parte do processo e ajuste o texto.";
+    shakeScreen();
+    flashScreen('rgba(166, 68, 68, 0.25)');
   }
   const detalhes = breakdown.length
     ? breakdown.map((entry) => `${entry.title} ${entry.emoji}`).join(" | ")
