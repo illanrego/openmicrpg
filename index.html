@@ -32,13 +32,21 @@
         <div id="player">
           <img id="avatar" src="avatar.png" width="80" alt="Avatar" />
           <div id="stats">
+            <span class="stat stat-day" data-stat="day">
+              <span>📅</span>
+              <strong><span id="dayText">Segunda, Dia 1</span></strong>
+            </span>
+            <span class="stat stat-points" data-stat="points">
+              <span>⚡</span>
+              <strong><span id="pointsText">2/2 pontos</span></strong>
+            </span>
             <span class="stat" data-stat="name">
               <span>Nome:</span>
               <strong><span id="nameText">Red</span></strong>
             </span>
             <span class="stat" data-stat="level">
               <span>Nível:</span>
-              <strong><span id="levelText">Novato</span></strong>
+              <strong><span id="levelText">Open</span></strong>
             </span>
             <span class="stat" data-stat="material">
               <span>Material:</span>
@@ -60,6 +68,10 @@
               <span>Teoria:</span>
               <strong><span id="theoryText">10</span></strong>
             </span>
+            <span class="stat stat-flow hidden" data-stat="flow" id="flowIndicator">
+              <span>🔥</span>
+              <strong><span id="flowText">FLOW!</span></strong>
+            </span>
           </div>
           <div id="btnDivUp">
             <button id="button1">✏️ Escrever</button>
@@ -68,6 +80,13 @@
             <button id="button4">💾 Salvar</button>
             <button id="button5">📱 Conteúdo</button>
             <button id="button6">📚 Estudar</button>
+          </div>
+          <div id="dayControls">
+            <button id="btnEndDay" class="day-btn">🌙 Encerrar Dia</button>
+            <button id="btnGoToShow" class="day-btn show-btn hidden">🎤 Ir para o Show!</button>
+          </div>
+          <div id="scheduledShowInfo" class="hidden">
+            <span id="scheduledShowText"></span>
           </div>
         </div>
         <div id="blackScreen">

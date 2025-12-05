@@ -127,8 +127,30 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-const STORAGE_KEY = "openMicRPG.save.v1";
-const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😬 estranho | 💧 deu água";
+const STORAGE_KEY = "openMicRPG.save.v2";
+const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😶 risinhos | 💧 deu água";
+
+// ========== TIME SYSTEM ==========
+const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const MAX_ACTIVITY_POINTS = 2;
+
+const ACTIVITY_COSTS = {
+  study: 1,
+  desk: 1,           // sentar e escrever
+  day: 0.5,          // anotar durante o dia
+  contentLong: 1,    // criar conteúdo longo
+  contentQuick: 0.5  // criar conteúdo rápido
+};
+
+const createInitialTimeState = () => ({
+  currentDay: 1,
+  currentWeekDay: 1, // Segunda
+  activityPoints: MAX_ACTIVITY_POINTS,
+  scheduledShow: null, // { showId, dayScheduled }
+  showHistory: [],     // track shows done for progression
+  consecutiveGoodShows: 0, // for flow state
+  flowState: null      // { active: true, daysRemaining: X, endChance: 0.2 }
+});
 
 const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack"];
 
@@ -140,12 +162,13 @@ const toneDescriptions = {
   hack: "observações batidas porém eficientes"
 };
 
+// 5 níveis de resultado: nota 5 (explodiu) até nota 1 (deu água)
 const SCORE_EMOJI_SCALE = [
-  { threshold: 0.45, emoji: "🤯", label: "Explodiu a mente" },
-  { threshold: 0.3, emoji: "🔥", label: "Matou" },
-  { threshold: 0.15, emoji: "🙂", label: "Segurou" },
-  { threshold: 0, emoji: "😬", label: "Estranho" },
-  { threshold: -Infinity, emoji: "💧", label: "Deu água" }
+  { threshold: 0.45, emoji: "🤯", label: "Explodiu", nota: 5 },
+  { threshold: 0.32, emoji: "🔥", label: "Matou", nota: 4 },
+  { threshold: 0.18, emoji: "🙂", label: "Segurou", nota: 3 },
+  { threshold: 0.05, emoji: "😶", label: "Risinhos", nota: 2 },
+  { threshold: -Infinity, emoji: "💧", label: "Deu água", nota: 1 }
 ];
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -157,7 +180,8 @@ const generatePotential = () => parseFloat((0.35 + Math.random() * 0.5).toFixed(
 
 const scoreToEmoji = (score) => {
   const normalized = Number.isFinite(score) ? score : 0;
-  return SCORE_EMOJI_SCALE.find((tier) => normalized >= tier.threshold) || SCORE_EMOJI_SCALE[SCORE_EMOJI_SCALE.length - 1];
+  const tier = SCORE_EMOJI_SCALE.find((t) => normalized >= t.threshold) || SCORE_EMOJI_SCALE[SCORE_EMOJI_SCALE.length - 1];
+  return { emoji: tier.emoji, label: tier.label, nota: tier.nota };
 };
 
 const structures = ["oneliner", "storytelling", "bit", "prop"];
@@ -184,6 +208,7 @@ const writingModes = {
 const defaultJokes = [];
 
 const ideaPool = [
+  // BESTEIROL (12 piadas)
   {
     seed: "fila de mercado às 23h",
     tone: "besteirol",
@@ -199,47 +224,77 @@ const ideaPool = [
     mood: "insônia"
   },
   {
-    seed: "motorista de app coach",
-    tone: "hack",
+    seed: "coach de paquera em metrô lotado",
+    tone: "besteirol",
     baseMinutes: 1,
-    place: "topar uma corrida aleatória no subúrbio",
-    mood: "sobrevivência urbana"
+    place: "voltar pra casa espremido no rush",
+    mood: "transporte público"
   },
   {
-    seed: "manual de geladeira com Bluetooth",
-    tone: "hack",
+    seed: "gente que leva marmita pro rolê",
+    tone: "besteirol",
     baseMinutes: 1,
-    place: "fuçar tralhas tecnológicas do primo",
-    mood: "futuro inútil"
+    place: "observar a galera nos botecos baratos",
+    mood: "economia criativa"
   },
   {
-    seed: "sobrinho gamer no almoço",
-    tone: "limpo",
+    seed: "amigo que faz trilha sonora da própria vida",
+    tone: "besteirol",
     baseMinutes: 1,
-    place: "visitar a família no domingo",
+    place: "sair com amigos no fim de semana",
+    mood: "comportamento"
+  },
+  {
+    seed: "porteiro que sabe tudo da sua vida",
+    tone: "besteirol",
+    baseMinutes: 1,
+    place: "conversa rápida no prédio",
+    mood: "condomínio"
+  },
+  {
+    seed: "pessoa que conta o sonho inteiro",
+    tone: "besteirol",
+    baseMinutes: 1,
+    place: "café da manhã com colegas",
+    mood: "social"
+  },
+  {
+    seed: "cardápio de restaurante em inglês errado",
+    tone: "besteirol",
+    baseMinutes: 1,
+    place: "almoçar fora no bairro",
+    mood: "cotidiano"
+  },
+  {
+    seed: "casal que faz tudo combinando roupa",
+    tone: "besteirol",
+    baseMinutes: 1,
+    place: "passeio no shopping",
+    mood: "relacionamentos"
+  },
+  {
+    seed: "tio que manda bom dia no grupo às 5h",
+    tone: "besteirol",
+    baseMinutes: 1,
+    place: "olhar celular ao acordar",
     mood: "família"
   },
   {
-    seed: "grupo da família com fake news",
-    tone: "limpo",
+    seed: "áudio de WhatsApp de 7 minutos",
+    tone: "besteirol",
     baseMinutes: 2,
-    place: "dar uma espiada no WhatsApp coletivo",
-    mood: "treta doméstica"
+    place: "receber mensagem do amigo prolixo",
+    mood: "tecnologia"
   },
   {
-    seed: "aplicativo de meditação que grita",
-    tone: "humor negro",
+    seed: "pessoa que fala 'com certeza absoluta'",
+    tone: "besteirol",
     baseMinutes: 1,
-    place: "instalar app suspeito pra controlar ansiedade",
-    mood: "autoajuda quebrada"
-  },
-  {
-    seed: "médico que receita férias",
-    tone: "humor negro",
-    baseMinutes: 2,
-    place: "marcar consulta só pra ter atestado",
+    place: "reunião de trabalho",
     mood: "corporativo"
   },
+
+  // VULGAR (8 piadas)
   {
     seed: "banheiro químico em festival",
     tone: "vulgar",
@@ -255,25 +310,62 @@ const ideaPool = [
     mood: "higiene zero"
   },
   {
-    seed: "curso online de charuto artesão",
-    tone: "hack",
+    seed: "academia às 6h da manhã",
+    tone: "vulgar",
+    baseMinutes: 1,
+    place: "tentar entrar em forma",
+    mood: "saúde"
+  },
+  {
+    seed: "match que some após o encontro",
+    tone: "vulgar",
+    baseMinutes: 1,
+    place: "usar app de relacionamento",
+    mood: "dating"
+  },
+  {
+    seed: "vizinho barulhento de madrugada",
+    tone: "vulgar",
     baseMinutes: 2,
-    place: "cair em anúncios estranhos às 3h",
-    mood: "internet"
+    place: "tentar dormir numa sexta",
+    mood: "condomínio"
   },
   {
-    seed: "coach de paquera em metrô lotado",
-    tone: "besteirol",
+    seed: "motel com tema de castelo",
+    tone: "vulgar",
     baseMinutes: 1,
-    place: "voltar pra casa espremido no rush",
-    mood: "transporte público"
+    place: "passeio com a pessoa",
+    mood: "relacionamentos"
   },
   {
-    seed: "influencer fazendo publi de imposto",
-    tone: "hack",
+    seed: "praia lotada no verão",
+    tone: "vulgar",
     baseMinutes: 1,
-    place: "rolar o feed até perder a noção do tempo",
-    mood: "mídia"
+    place: "férias no litoral",
+    mood: "perrengue"
+  },
+  {
+    seed: "depilação pela primeira vez",
+    tone: "vulgar",
+    baseMinutes: 1,
+    place: "se preparar pra ocasião",
+    mood: "autocuidado"
+  },
+
+  // LIMPO (10 piadas)
+  {
+    seed: "sobrinho gamer no almoço",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "visitar a família no domingo",
+    mood: "família"
+  },
+  {
+    seed: "grupo da família com fake news",
+    tone: "limpo",
+    baseMinutes: 2,
+    place: "dar uma espiada no WhatsApp coletivo",
+    mood: "treta doméstica"
   },
   {
     seed: "vizinho que toca sax às 6h",
@@ -283,11 +375,69 @@ const ideaPool = [
     mood: "condomínio"
   },
   {
-    seed: "gente que leva marmita pro rolê",
-    tone: "besteirol",
+    seed: "avó que não entende celular",
+    tone: "limpo",
     baseMinutes: 1,
-    place: "observar a galera nos botecos baratos",
-    mood: "economia criativa"
+    place: "visitar os avós",
+    mood: "família"
+  },
+  {
+    seed: "criança perguntando 'por quê' infinitamente",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "cuidar do filho do amigo",
+    mood: "crianças"
+  },
+  {
+    seed: "cachorro que late pra própria sombra",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "passear com o pet",
+    mood: "animais"
+  },
+  {
+    seed: "pai que não pede informação",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "viagem de carro em família",
+    mood: "família"
+  },
+  {
+    seed: "mãe no supermercado encontrando conhecida",
+    tone: "limpo",
+    baseMinutes: 2,
+    place: "fazer compras com a mãe",
+    mood: "família"
+  },
+  {
+    seed: "dentista tentando conversar durante procedimento",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "ir ao dentista",
+    mood: "cotidiano"
+  },
+  {
+    seed: "professor de autoescola nervoso",
+    tone: "limpo",
+    baseMinutes: 1,
+    place: "tentar tirar carteira",
+    mood: "aprendizado"
+  },
+
+  // HUMOR NEGRO (10 piadas)
+  {
+    seed: "aplicativo de meditação que grita",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "instalar app suspeito pra controlar ansiedade",
+    mood: "autoajuda quebrada"
+  },
+  {
+    seed: "médico que receita férias",
+    tone: "humor negro",
+    baseMinutes: 2,
+    place: "marcar consulta só pra ter atestado",
+    mood: "corporativo"
   },
   {
     seed: "empresa que faz festa sem bebida",
@@ -295,6 +445,127 @@ const ideaPool = [
     baseMinutes: 2,
     place: "aceitar corporativo às pressas",
     mood: "falta de noção"
+  },
+  {
+    seed: "terapeuta que precisa de terapia",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "sessão semanal",
+    mood: "saúde mental"
+  },
+  {
+    seed: "consulta de 5 minutos após 2h de espera",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "ir ao posto de saúde",
+    mood: "sistema público"
+  },
+  {
+    seed: "férias que cansam mais que trabalho",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "voltar de viagem",
+    mood: "cansaço"
+  },
+  {
+    seed: "amigo MLM que some e reaparece vendendo",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "receber mensagem suspeita",
+    mood: "social"
+  },
+  {
+    seed: "velório com wifi",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "situação delicada",
+    mood: "morte"
+  },
+  {
+    seed: "ansiedade de domingo às 18h",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "fim de semana acabando",
+    mood: "trabalho"
+  },
+  {
+    seed: "remédio com lista de efeitos colaterais",
+    tone: "humor negro",
+    baseMinutes: 1,
+    place: "ler bula na farmácia",
+    mood: "saúde"
+  },
+
+  // HACK (10 piadas)
+  {
+    seed: "motorista de app coach",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "topar uma corrida aleatória no subúrbio",
+    mood: "sobrevivência urbana"
+  },
+  {
+    seed: "manual de geladeira com Bluetooth",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "fuçar tralhas tecnológicas do primo",
+    mood: "futuro inútil"
+  },
+  {
+    seed: "curso online de charuto artesão",
+    tone: "hack",
+    baseMinutes: 2,
+    place: "cair em anúncios estranhos às 3h",
+    mood: "internet"
+  },
+  {
+    seed: "influencer fazendo publi de imposto",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "rolar o feed até perder a noção do tempo",
+    mood: "mídia"
+  },
+  {
+    seed: "comida de avião",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "voo longo",
+    mood: "viagem"
+  },
+  {
+    seed: "diferença de supermercado caro e barato",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "fazer compras do mês",
+    mood: "economia"
+  },
+  {
+    seed: "wifi de hotel que não funciona",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "viagem a trabalho",
+    mood: "tecnologia"
+  },
+  {
+    seed: "atendimento robotizado que não entende",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "ligar pro banco",
+    mood: "burocracia"
+  },
+  {
+    seed: "reunião que podia ser email",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "rotina de escritório",
+    mood: "corporativo"
+  },
+  {
+    seed: "GPS que manda por caminho absurdo",
+    tone: "hack",
+    baseMinutes: 1,
+    place: "dirigir na cidade",
+    mood: "tecnologia"
   }
 ];
 
@@ -603,6 +874,370 @@ const showPool = [
       limpo: 0.6,
       hack: 0.7
     }
+  },
+  // ========== NEW SHOWS ==========
+  {
+    id: "bar-universitario",
+    name: "Open Mic Universitário",
+    minMinutes: 4,
+    difficulty: 0.18,
+    crowd: "Estudantes bêbados que riem de qualquer coisa depois das 23h.",
+    intro: "Um bar perto da faculdade abre espaço para novatos. Público jovem e barulhento.",
+    image: "coposujo.jpg",
+    vibeHint: "Besteirol e vulgaridade funcionam bem com essa galera.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.7,
+      vulgar: 0.5,
+      "humor negro": 0.2,
+      limpo: -0.2,
+      hack: 0.2
+    }
+  },
+  {
+    id: "livraria-cultural",
+    name: "Livraria & Riso",
+    minMinutes: 5,
+    difficulty: 0.3,
+    crowd: "Intelectuais com café na mão, buscando humor sofisticado.",
+    intro: "Uma livraria cult quer animar as noites de sábado com stand-up entre as estantes.",
+    image: "normal-show.jpg",
+    vibeHint: "Referências culturais e humor inteligente impressionam.",
+    typeAffinity: {
+      default: 0,
+      besteirol: -0.2,
+      vulgar: -0.5,
+      "humor negro": 0.4,
+      limpo: 0.5,
+      hack: 0.3
+    }
+  },
+  {
+    id: "pub-irlandes",
+    name: "Pub O'Laughs",
+    minMinutes: 5,
+    difficulty: 0.28,
+    crowd: "Gringos expatriados e brasileiros que fingem entender inglês.",
+    intro: "Um pub irlandês faz noite de comédia bilíngue. Sotaque não é problema.",
+    image: "normal-show.jpg",
+    vibeHint: "Piadas universais sobre comportamento funcionam em qualquer língua.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.4,
+      vulgar: 0.1,
+      "humor negro": 0.2,
+      limpo: 0.3,
+      hack: 0.4
+    }
+  },
+  {
+    id: "churrascaria",
+    name: "Comedy & Carne",
+    minMinutes: 4,
+    difficulty: 0.22,
+    crowd: "Famílias em rodízio que não vieram pra prestar atenção.",
+    intro: "Uma churrascaria resolveu colocar entretenimento. Concorra com a picanha.",
+    image: "normal-show.jpg",
+    vibeHint: "Material limpo e observações sobre comida ganham a mesa.",
+    typeAffinity: {
+      default: -0.1,
+      besteirol: 0.3,
+      vulgar: -0.4,
+      "humor negro": -0.3,
+      limpo: 0.6,
+      hack: 0.4
+    }
+  },
+  {
+    id: "teatro-alternativo",
+    name: "Teatro do Porão",
+    minMinutes: 6,
+    difficulty: 0.38,
+    crowd: "Plateia cult que curte o underground e detesta o mainstream.",
+    intro: "Um teatro de porão te convida para a noite experimental. Vale tudo.",
+    image: "bombing-show.jpg",
+    vibeHint: "Ousadia e originalidade são mais importantes que punchlines perfeitas.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.1,
+      vulgar: 0.3,
+      "humor negro": 0.6,
+      limpo: -0.3,
+      hack: -0.2
+    }
+  },
+  {
+    id: "stand-up-sertanejo",
+    name: "Riso & Viola",
+    minMinutes: 5,
+    difficulty: 0.25,
+    crowd: "Fãs de sertanejo entre uma música e outra do show principal.",
+    intro: "Uma casa de shows sertaneja quer esquentar a plateia antes da banda.",
+    image: "normal-show.jpg",
+    vibeHint: "Piadas sobre interior, família e relacionamento agradam.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.4,
+      vulgar: 0.2,
+      "humor negro": -0.2,
+      limpo: 0.5,
+      hack: 0.3
+    }
+  },
+  {
+    id: "hostel-mochileiro",
+    name: "Backpacker Comedy",
+    minMinutes: 4,
+    difficulty: 0.2,
+    crowd: "Mochileiros de todas as idades compartilhando histórias de viagem.",
+    intro: "Um hostel faz noite de talentos. Qualquer um pode subir.",
+    image: "coposujo.jpg",
+    vibeHint: "Histórias de perrengue e observações culturais conectam.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.5,
+      vulgar: 0.2,
+      "humor negro": 0.1,
+      limpo: 0.3,
+      hack: 0.3
+    }
+  },
+  {
+    id: "casamento",
+    name: "Festa de Casamento",
+    minMinutes: 6,
+    difficulty: 0.45,
+    crowd: "Parentes que não se veem há anos e amigos bêbados dos noivos.",
+    intro: "Os noivos te contrataram para o brinde. Não estrague o dia mais importante deles.",
+    image: "killing-it.jpg",
+    vibeHint: "Piadas sobre relacionamento e família, mas sem ser ofensivo.",
+    typeAffinity: {
+      default: -0.1,
+      besteirol: 0.2,
+      vulgar: -0.6,
+      "humor negro": -0.4,
+      limpo: 0.7,
+      hack: 0.4
+    }
+  },
+  {
+    id: "show-beneficente",
+    name: "Stand-Up Solidário",
+    minMinutes: 5,
+    difficulty: 0.3,
+    crowd: "Pessoas generosas que pagaram ingresso caro por uma boa causa.",
+    intro: "Um evento beneficente te convida. A causa é nobre, a pressão também.",
+    image: "normal-show.jpg",
+    vibeHint: "Humor leve e positivo. Nada que estrague o clima de caridade.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.2,
+      vulgar: -0.5,
+      "humor negro": -0.2,
+      limpo: 0.6,
+      hack: 0.3
+    }
+  },
+  {
+    id: "cervejaria-artesanal",
+    name: "Cervejaria & Comédia",
+    minMinutes: 5,
+    difficulty: 0.24,
+    crowd: "Hipsters com barba provando IPAs e falando de lúpulo.",
+    intro: "Uma cervejaria artesanal faz noite de stand-up entre as torneiras.",
+    image: "coposujo.jpg",
+    vibeHint: "Observações sobre comportamento urbano e tendências funcionam.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.3,
+      vulgar: 0.1,
+      "humor negro": 0.3,
+      limpo: 0.2,
+      hack: 0.5
+    }
+  },
+  {
+    id: "sindicato",
+    name: "Show do Sindicato",
+    minMinutes: 6,
+    difficulty: 0.35,
+    crowd: "Trabalhadores em assembleia que querem descontrair.",
+    intro: "O sindicato te chamou para a confraternização anual. Público exigente.",
+    image: "normal-show.jpg",
+    vibeHint: "Piadas sobre trabalho e patrão funcionam. Evite política direta.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.2,
+      vulgar: 0.1,
+      "humor negro": 0.3,
+      limpo: 0.3,
+      hack: 0.5
+    }
+  },
+  {
+    id: "festa-junina",
+    name: "Arraiá do Riso",
+    minMinutes: 4,
+    difficulty: 0.2,
+    crowd: "Famílias em festa com quentão na mão e chapéu de palha.",
+    intro: "Uma festa junina de bairro te convida para animar entre as quadrilhas.",
+    image: "normal-show.jpg",
+    vibeHint: "Humor família e piadas sobre tradições caem bem.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.5,
+      vulgar: -0.3,
+      "humor negro": -0.2,
+      limpo: 0.6,
+      hack: 0.3
+    }
+  },
+  {
+    id: "show-lgbtq",
+    name: "Rainbow Comedy",
+    minMinutes: 5,
+    difficulty: 0.28,
+    crowd: "Comunidade LGBTQ+ que valoriza autenticidade e ousadia.",
+    intro: "Uma casa noturna LGBTQ+ faz noite de stand-up. Seja você mesmo.",
+    image: "killing-it.jpg",
+    vibeHint: "Autenticidade e humor sobre experiências pessoais conectam.",
+    typeAffinity: {
+      default: 0.15,
+      besteirol: 0.3,
+      vulgar: 0.4,
+      "humor negro": 0.3,
+      limpo: 0.1,
+      hack: 0.2
+    }
+  },
+  {
+    id: "republica",
+    name: "Comedy na República",
+    minMinutes: 4,
+    difficulty: 0.15,
+    crowd: "Universitários em festa que só querem rir e beber.",
+    intro: "Uma república estudantil abriu as portas para um show informal.",
+    image: "bombing-show.jpg",
+    vibeHint: "Qualquer coisa que seja escandalosa ou boba funciona.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.6,
+      vulgar: 0.6,
+      "humor negro": 0.3,
+      limpo: -0.2,
+      hack: 0.2
+    }
+  },
+  {
+    id: "restaurante-japones",
+    name: "Sushi & Stand-Up",
+    minMinutes: 5,
+    difficulty: 0.32,
+    crowd: "Clientes de restaurante japonês sofisticado.",
+    intro: "Um restaurante japonês chique quer inovar com entretenimento.",
+    image: "normal-show.jpg",
+    vibeHint: "Humor sutil e observações refinadas agradam.",
+    typeAffinity: {
+      default: 0,
+      besteirol: -0.1,
+      vulgar: -0.5,
+      "humor negro": 0.2,
+      limpo: 0.5,
+      hack: 0.4
+    }
+  },
+  {
+    id: "stand-up-feminino",
+    name: "Ladies' Night Comedy",
+    minMinutes: 5,
+    difficulty: 0.26,
+    crowd: "Mulheres em noite só delas, celebrando juntas.",
+    intro: "Uma noite de comédia só para mulheres. Ambiente acolhedor e empoderado.",
+    image: "normal-show.jpg",
+    vibeHint: "Experiências genuínas e observações sobre o dia a dia conectam.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.3,
+      vulgar: 0.2,
+      "humor negro": 0.2,
+      limpo: 0.4,
+      hack: 0.3
+    }
+  },
+  {
+    id: "parque-ao-ar-livre",
+    name: "Comedy no Parque",
+    minMinutes: 5,
+    difficulty: 0.35,
+    crowd: "Famílias passeando no domingo, crianças correndo.",
+    intro: "Um evento cultural no parque te chama. Som ao ar livre, público disperso.",
+    image: "bombing-show.jpg",
+    vibeHint: "Material limpo e energia alta para segurar atenção.",
+    typeAffinity: {
+      default: -0.1,
+      besteirol: 0.3,
+      vulgar: -0.6,
+      "humor negro": -0.4,
+      limpo: 0.6,
+      hack: 0.3
+    }
+  },
+  {
+    id: "navio-cruzeiro",
+    name: "Comedy no Cruzeiro",
+    minMinutes: 7,
+    difficulty: 0.4,
+    requiresLevel: "elenco",
+    crowd: "Passageiros de cruzeiro de todas as idades e origens.",
+    intro: "Um cruzeiro te contrata para a temporada. Público cativo e variado.",
+    image: "killing-it.jpg",
+    vibeHint: "Humor universal, nada muito local ou nichado.",
+    typeAffinity: {
+      default: 0.05,
+      besteirol: 0.3,
+      vulgar: -0.3,
+      "humor negro": -0.1,
+      limpo: 0.5,
+      hack: 0.5
+    }
+  },
+  {
+    id: "programa-tv",
+    name: "Participação em TV",
+    minMinutes: 4,
+    difficulty: 0.5,
+    requiresLevel: "elenco",
+    crowd: "Plateia de programa de TV, câmeras ligadas.",
+    intro: "Você foi chamado para um quadro de comédia na TV. É sua chance de aparecer.",
+    image: "killing-it.jpg",
+    vibeHint: "Material polido e timing perfeito. Cada segundo conta.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.2,
+      vulgar: -0.6,
+      "humor negro": -0.3,
+      limpo: 0.6,
+      hack: 0.5
+    }
+  },
+  {
+    id: "show-solo",
+    name: "Seu Próprio Show",
+    minMinutes: 10,
+    difficulty: 0.45,
+    requiresLevel: "headliner",
+    crowd: "Seus fãs que pagaram ingresso para te ver.",
+    intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
+    image: "killing-it.jpg",
+    vibeHint: "É hora de mostrar quem você é. Autenticidade máxima.",
+    typeAffinity: {
+      default: 0.15,
+      besteirol: 0.3,
+      vulgar: 0.2,
+      "humor negro": 0.3,
+      limpo: 0.3,
+      hack: 0.2
+    }
   }
 ];
 
@@ -645,8 +1280,8 @@ const eventPool = [
       },
       {
         label: "Indicar outra pessoa",
-        effects: { theory: 6, motivation: 4 },
-        narration: "Você indica um amigo, ganha gratidão e volta para casa estudando referencias."
+        effects: { theory: 6, motivation: 4, network: 5 },
+        narration: "Você indica um amigo, ganha gratidão e network. Volta para casa estudando referencias."
       }
     ]
   },
@@ -660,12 +1295,12 @@ const eventPool = [
     choices: [
       {
         label: "Mandar punchline atrás de punchline",
-        effects: { fans: 20, motivation: -4 },
+        effects: { fans: 20, motivation: -4, network: 3 },
         narration: "Você viraliza uns cortes, mas sai sem energia para escrever."
       },
       {
         label: "Falar sobre processo",
-        effects: { theory: 10, motivation: 4 },
+        effects: { theory: 10, motivation: 4, network: 5 },
         narration: "Você inspira novos comediantes e reflete sobre seu método."
       }
     ]
@@ -673,18 +1308,19 @@ const eventPool = [
   {
     id: "bombMentor",
     trigger: "showBomb",
+    cooldown: 5, // só acontece a cada 5 dias no mínimo
     text:
-      "Depois de uma água histórica, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
-    image: "bedroom.jpg",
+      "Depois de uma água absurda no Copo Sujo, Illan Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
+    image: "carvalho.png",
     choices: [
       {
         label: "Pedir análise técnica",
-        effects: { theory: 12, motivation: -3 },
-        narration: "Vocês destrincham cada minuto do set. Dói, mas você aprende."
+        effects: { theory: 15, motivation: -5 },
+        narration: "Vocês destrincham cada minuto do set. Dói muito, mas você aprende bastante."
       },
       {
         label: "Assistir shows juntos",
-        effects: { motivation: 12 },
+        effects: { motivation: 15, network: 3 },
         narration: "Vocês dão risada de outros fracassos e você recupera o moral."
       }
     ]
@@ -699,13 +1335,226 @@ const eventPool = [
     choices: [
       {
         label: "Aceitar a indicação",
-        effects: { motivation: 8, theory: 3 },
-        narration: "Você ganha confiança e uma dica valiosa sobre timing."
+        effects: { motivation: 8, theory: 3, network: 5 },
+        narration: "Você ganha confiança, uma dica valiosa sobre timing e um contato importante."
       },
       {
         label: "Quero mais material primeiro",
         effects: { motivation: -2 },
         narration: "Você prefere escrever mais antes de encarar a plateia."
+      }
+    ]
+  },
+  // ========== NEW EVENTS ==========
+  {
+    id: "stevanEstrada",
+    trigger: "random",
+    text:
+      "Stevan Gaipo te chamou para fazer show com ele na estrada! Você vai focar no seu texto durante o dia ou vai fazer network e relaxar à tarde?",
+    image: "normal-show.jpg",
+    choices: [
+      {
+        label: "Focar no texto",
+        effects: { theory: 8, motivation: -3 },
+        narration: "Você revisa o material no trajeto. Pequeno boost no resultado do show, mas menos conexões."
+      },
+      {
+        label: "Network e relaxar",
+        effects: { motivation: 5, network: 12 },
+        narration: "Você faz amizade com a galera. Seu network dispara e novas portas se abrem."
+      }
+    ]
+  },
+  {
+    id: "criseCriativa",
+    trigger: "random",
+    text:
+      "Você está há dias sem conseguir escrever nada que preste. A página em branco te assombra. O que fazer?",
+    image: "bedroom.jpg",
+    choices: [
+      {
+        label: "Forçar e escrever qualquer coisa",
+        effects: { motivation: -10, theory: 5 },
+        narration: "Você sofre, mas algo sai. A disciplina é importante, mesmo quando dói."
+      },
+      {
+        label: "Dar um tempo e viver a vida",
+        effects: { motivation: 12, fans: 3 },
+        narration: "Você sai, encontra amigos, vive experiências. O material vai vir naturalmente."
+      }
+    ]
+  },
+  {
+    id: "conviteTV",
+    trigger: "fans50",
+    once: true,
+    text:
+      "Um produtor de TV te viu num show e quer te chamar para um quadro. É uma oportunidade única, mas exige compromisso.",
+    image: "killing-it.jpg",
+    choices: [
+      {
+        label: "Aceitar imediatamente",
+        effects: { fans: 30, motivation: -8, network: 10 },
+        narration: "Você entra na TV! Fãs novos aparecem, mas a pressão é intensa."
+      },
+      {
+        label: "Pedir tempo para pensar",
+        effects: { motivation: 5, network: -3 },
+        narration: "Você quer ter certeza. O produtor respeita, mas fica um pouco frustrado."
+      }
+    ]
+  },
+  {
+    id: "amigoCopiaSet",
+    trigger: "random",
+    text:
+      "Você descobre que um 'amigo' comediante está usando piadas muito parecidas com as suas no set dele. Confronta?",
+    image: "bombing-show.jpg",
+    choices: [
+      {
+        label: "Confrontar diretamente",
+        effects: { motivation: -5, network: -8, theory: 3 },
+        narration: "A treta é inevitável. Você perde um contato, mas defende seu trabalho."
+      },
+      {
+        label: "Ignorar e escrever material melhor",
+        effects: { motivation: 8, theory: 10 },
+        narration: "A melhor vingança é sucesso. Você canaliza a raiva em criatividade."
+      }
+    ]
+  },
+  {
+    id: "viralNegativo",
+    trigger: "random",
+    text:
+      "Um vídeo seu bombou na internet... por motivos ruins. Uma piada foi tirada de contexto e você está sendo cancelado.",
+    image: "bombing-show.jpg",
+    choices: [
+      {
+        label: "Se explicar publicamente",
+        effects: { fans: -15, motivation: -10, network: 5 },
+        narration: "Você tenta se defender. Alguns entendem, outros não. A poeira vai baixar."
+      },
+      {
+        label: "Ficar em silêncio e esperar passar",
+        effects: { fans: -8, motivation: -5 },
+        narration: "O tempo cura tudo. Em algumas semanas, ninguém mais lembra."
+      }
+    ]
+  },
+  {
+    id: "ofertaDinheiro",
+    trigger: "random",
+    text:
+      "Uma empresa te oferece um bom dinheiro para fazer uma publi no palco. O produto é... questionável.",
+    image: "normal-show.jpg",
+    choices: [
+      {
+        label: "Aceitar o dinheiro",
+        effects: { fans: -10, motivation: 5, network: -5 },
+        narration: "Você faz a publi. O dinheiro ajuda, mas alguns fãs ficam decepcionados."
+      },
+      {
+        label: "Recusar com educação",
+        effects: { fans: 8, motivation: 3 },
+        narration: "Você mantém sua integridade. Os fãs verdadeiros respeitam isso."
+      }
+    ]
+  },
+  {
+    id: "festaPosShow",
+    trigger: "showKill",
+    text:
+      "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
+    image: "killing-it.jpg",
+    choices: [
+      {
+        label: "Ir para a festa",
+        effects: { motivation: 8, network: 10, theory: -3 },
+        narration: "Você faz amigos e conexões importantes. A noite foi épica."
+      },
+      {
+        label: "Ir pra casa escrever",
+        effects: { theory: 12, motivation: -2 },
+        narration: "Sozinho em casa, você anota tudo que funcionou. Material precioso."
+      }
+    ]
+  },
+  {
+    id: "doencaDiaShow",
+    trigger: "random",
+    text:
+      "Você acordou mal no dia do show. Dor de garganta, febre baixa. Cancelar ou ir assim mesmo?",
+    image: "bombing-show.jpg",
+    choices: [
+      {
+        label: "Ir assim mesmo",
+        effects: { motivation: -8, network: 5, fans: -3 },
+        narration: "Você vai, mas não está 100%. O show é mediano, mas o produtor respeita o compromisso."
+      },
+      {
+        label: "Cancelar e descansar",
+        effects: { motivation: 5, network: -8 },
+        narration: "Você cancela. Sua saúde agradece, mas o produtor fica na mão."
+      }
+    ]
+  },
+  {
+    id: "mentorOferece",
+    trigger: "random",
+    text:
+      "Um comediante mais experiente te oferece mentoria. Mas ele é conhecido por ser duro e exigente.",
+    image: "carvalho.png",
+    choices: [
+      {
+        label: "Aceitar a mentoria",
+        effects: { theory: 20, motivation: -10 },
+        narration: "A jornada é brutal, mas você evolui muito como artista."
+      },
+      {
+        label: "Recusar educadamente",
+        effects: { motivation: 5, network: 3 },
+        narration: "Você agradece, mas prefere seguir seu próprio caminho."
+      }
+    ]
+  },
+  {
+    id: "competicaoComica",
+    trigger: "random",
+    once: true,
+    text:
+      "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
+    image: "killing-it.jpg",
+    choices: [
+      {
+        label: "Se inscrever",
+        effects: { motivation: -5, fans: 15, network: 8 },
+        narration: "Você participa e, independente do resultado, ganha visibilidade."
+      },
+      {
+        label: "Esperar a próxima edição",
+        effects: { motivation: 3 },
+        narration: "Você decide se preparar melhor para a próxima. Sem pressa."
+      }
+    ]
+  },
+  {
+    id: "piratearamSeuShow",
+    trigger: "fans30",
+    once: true,
+    text:
+      "Alguém gravou seu set inteiro e postou na internet sem permissão. Suas piadas estão expostas.",
+    image: "bombing-show.jpg",
+    choices: [
+      {
+        label: "Pedir para remover",
+        effects: { motivation: -5, fans: -5 },
+        narration: "Você consegue tirar, mas o estrago já foi feito. Hora de escrever material novo."
+      },
+      {
+        label: "Deixar e usar como divulgação",
+        effects: { fans: 20, motivation: 5 },
+        narration: "Você transforma o limão em limonada. O vídeo vira seu cartão de visitas."
       }
     ]
   }
@@ -737,6 +1586,13 @@ function eventMatchesTrigger(event, trigger, context = {}) {
   if (event.once && Array.isArray(state.eventsSeen) && state.eventsSeen.includes(event.id)) {
     return false;
   }
+  // Check cooldown
+  if (event.cooldown && event.lastTriggered) {
+    const daysSince = state.currentDay - event.lastTriggered;
+    if (daysSince < event.cooldown) {
+      return false;
+    }
+  }
   if (event.trigger !== trigger) {
     return false;
   }
@@ -748,10 +1604,14 @@ function eventMatchesTrigger(event, trigger, context = {}) {
       return typeof score === "number" && score <= -0.05;
     case "fans20":
       return typeof state.fans === "number" && state.fans >= 20;
+    case "fans30":
+      return typeof state.fans === "number" && state.fans >= 30;
+    case "fans50":
+      return typeof state.fans === "number" && state.fans >= 50;
     case "jokes5":
       return Array.isArray(state.jokes) && state.jokes.length === 5;
     case "random":
-      return Math.random() < 0.35;
+      return Math.random() < 0.25; // Reduced from 0.35 since we have more events
     default:
       return false;
   }
@@ -820,7 +1680,7 @@ function applyEventEffects(effects) {
     return;
   }
   if (effects.fans) {
-    state.fans += effects.fans;
+    state.fans = Math.max(0, state.fans + effects.fans);
   }
   if (effects.motivation) {
     state.motivation = clamp(state.motivation + effects.motivation, 0, 150);
@@ -830,6 +1690,9 @@ function applyEventEffects(effects) {
   }
   if (effects.stageTime) {
     state.stageTime = Math.max(0, state.stageTime + effects.stageTime);
+  }
+  if (effects.network) {
+    state.network = Math.max(0, (state.network || 10) + effects.network);
   }
 }
 
@@ -933,6 +1796,12 @@ function cacheElements() {
   elements.dialogActions = document.querySelector("#dialogActions");
   elements.dialogClose = document.querySelector("#dialogClose");
   elements.mainTitle = document.querySelector("h1");
+  // Day controls
+  elements.btnEndDay = document.querySelector("#btnEndDay");
+  elements.btnGoToShow = document.querySelector("#btnGoToShow");
+  elements.scheduledShowInfo = document.querySelector("#scheduledShowInfo");
+  elements.scheduledShowText = document.querySelector("#scheduledShowText");
+  elements.flowIndicator = document.querySelector("#flowIndicator");
   elements.buttons = {
     write: document.querySelector("#button1"),
     show: document.querySelector("#button2"),
@@ -948,7 +1817,10 @@ function cacheElements() {
     stage: document.querySelector("#stageText"),
     fans: document.querySelector("#fansText"),
     motivation: document.querySelector("#motivationText"),
-    theory: document.querySelector("#theoryText")
+    theory: document.querySelector("#theoryText"),
+    day: document.querySelector("#dayText"),
+    points: document.querySelector("#pointsText"),
+    flow: document.querySelector("#flowText")
   };
 }
 
@@ -986,6 +1858,10 @@ function attachEvents() {
   addButtonEffects(elements.btnContinuar, performShow);
   
   elements.jokeList.addEventListener("click", handleJokeListClick);
+  
+  // Day control buttons
+  addButtonEffects(elements.btnEndDay, handleEndDay);
+  addButtonEffects(elements.btnGoToShow, handleGoToScheduledShow);
   
   elements.introContinue.addEventListener("click", (e) => {
     createRipple(e, elements.introContinue);
@@ -1215,7 +2091,16 @@ function loadGameState() {
     motivation: 60,
     theory: 10,
     eventsSeen: [],
-    lastSave: null
+    lastSave: null,
+    // Time system
+    ...createInitialTimeState(),
+    // Level progression
+    level: "open",
+    showsAtLevel4: 0,       // contagem de shows nota 4+ no nível atual
+    shows5a5AtLevel4: 0,    // contagem de shows 5a5 nota 4+
+    pague15Unlocked: false,
+    // Network (hidden metric)
+    network: 10
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1238,7 +2123,22 @@ function loadGameState() {
       motivation: parsed.motivation ?? baseState.motivation,
       theory: parsed.theory ?? baseState.theory,
       eventsSeen: Array.isArray(parsed.eventsSeen) ? parsed.eventsSeen : [],
-      lastSave: parsed.lastSave || baseState.lastSave
+      lastSave: parsed.lastSave || baseState.lastSave,
+      // Time system
+      currentDay: parsed.currentDay ?? baseState.currentDay,
+      currentWeekDay: parsed.currentWeekDay ?? baseState.currentWeekDay,
+      activityPoints: parsed.activityPoints ?? baseState.activityPoints,
+      scheduledShow: parsed.scheduledShow || baseState.scheduledShow,
+      showHistory: Array.isArray(parsed.showHistory) ? parsed.showHistory : [],
+      consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
+      flowState: parsed.flowState || null,
+      // Level progression
+      level: parsed.level || baseState.level,
+      showsAtLevel4: parsed.showsAtLevel4 ?? 0,
+      shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
+      pague15Unlocked: parsed.pague15Unlocked ?? false,
+      // Network
+      network: parsed.network ?? baseState.network
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -1252,12 +2152,27 @@ function saveGameState() {
     stageTime: state.stageTime,
     jokes: state.jokes,
     language: state.language,
-     avatar: state.avatar,
-     hasStarted: state.hasStarted,
-     fans: state.fans,
-     motivation: state.motivation,
-     theory: state.theory,
-     eventsSeen: state.eventsSeen,
+    avatar: state.avatar,
+    hasStarted: state.hasStarted,
+    fans: state.fans,
+    motivation: state.motivation,
+    theory: state.theory,
+    eventsSeen: state.eventsSeen,
+    // Time system
+    currentDay: state.currentDay,
+    currentWeekDay: state.currentWeekDay,
+    activityPoints: state.activityPoints,
+    scheduledShow: state.scheduledShow,
+    showHistory: state.showHistory,
+    consecutiveGoodShows: state.consecutiveGoodShows,
+    flowState: state.flowState,
+    // Level progression
+    level: state.level,
+    showsAtLevel4: state.showsAtLevel4,
+    shows5a5AtLevel4: state.shows5a5AtLevel4,
+    pague15Unlocked: state.pague15Unlocked,
+    // Network
+    network: state.network,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1321,6 +2236,29 @@ function updateStats(animate = true) {
   
   elements.stats.name.textContent = state.name;
   
+  // Day and activity points
+  const weekDayName = DAYS_OF_WEEK[state.currentWeekDay] || "???";
+  elements.stats.day.textContent = `${weekDayName}, Dia ${state.currentDay}`;
+  elements.stats.points.textContent = `${state.activityPoints}/${MAX_ACTIVITY_POINTS} pontos`;
+  
+  // Update points color based on remaining
+  const pointsStat = elements.stats.points.closest('.stat');
+  if (pointsStat) {
+    if (state.activityPoints <= 0) {
+      pointsStat.style.color = 'var(--neon-pink)';
+    } else if (state.activityPoints < 1) {
+      pointsStat.style.color = 'var(--accent-gold)';
+    } else {
+      pointsStat.style.color = '';
+    }
+  }
+  
+  // Update scheduled show visibility
+  updateScheduledShowUI();
+  
+  // Update flow state indicator
+  updateFlowUI();
+  
   // Animate stage time
   if (animate && state.stageTime !== oldStageTime) {
     animateStatChange('stage', state.stageTime > oldStageTime);
@@ -1330,7 +2268,8 @@ function updateStats(animate = true) {
   const totalMinutes = getTotalMinutes();
   elements.stats.material.textContent = `${totalMinutes}min`;
   
-  const levelLabel = determineLevel(totalMinutes);
+  // Level is now based on progression, not just material
+  const levelLabel = getLevelLabel(state.level);
   elements.stats.level.textContent = levelLabel;
   
   if (lastLevelLabel && levelLabel !== lastLevelLabel) {
@@ -1373,18 +2312,234 @@ function updateStats(animate = true) {
   };
 }
 
-function determineLevel(minutes) {
-  if (minutes >= 20) {
-    return "Headliner";
-  }
-  if (minutes >= 12) {
-    return "Elenco";
-  }
-  if (minutes >= 6) {
-    return "Opener";
-  }
-  return "Novato";
+// ========== TIME SYSTEM FUNCTIONS ==========
+
+function getLevelLabel(level) {
+  const labels = {
+    open: "Open",
+    elenco: "Elenco",
+    headliner: "Headliner"
+  };
+  return labels[level] || "Open";
 }
+
+function updateScheduledShowUI() {
+  if (!elements.scheduledShowInfo || !elements.btnGoToShow) return;
+  
+  if (state.scheduledShow) {
+    const show = findShowById(state.scheduledShow.showId);
+    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+    
+    if (daysUntil === 0) {
+      // Show is today!
+      elements.btnGoToShow.classList.remove('hidden');
+      elements.btnGoToShow.textContent = `🎤 Ir para ${show?.name || 'o Show'}!`;
+      elements.scheduledShowInfo.classList.add('hidden');
+    } else if (daysUntil > 0) {
+      elements.btnGoToShow.classList.add('hidden');
+      elements.scheduledShowInfo.classList.remove('hidden');
+      const showName = show?.name || 'Show';
+      const dayName = getDayName(state.scheduledShow.dayScheduled);
+      elements.scheduledShowText.textContent = `📅 ${showName} em ${daysUntil} dia(s) (${dayName})`;
+    } else {
+      // Show passed, clear it
+      state.scheduledShow = null;
+      elements.btnGoToShow.classList.add('hidden');
+      elements.scheduledShowInfo.classList.add('hidden');
+    }
+  } else {
+    elements.btnGoToShow.classList.add('hidden');
+    elements.scheduledShowInfo.classList.add('hidden');
+  }
+}
+
+function updateFlowUI() {
+  if (!elements.flowIndicator) return;
+  
+  if (state.flowState?.active) {
+    elements.flowIndicator.classList.remove('hidden');
+    elements.flowIndicator.classList.add('flow-active');
+    if (elements.stats.flow) {
+      elements.stats.flow.textContent = `FLOW! (${state.flowState.daysRemaining}d)`;
+    }
+  } else {
+    elements.flowIndicator.classList.add('hidden');
+    elements.flowIndicator.classList.remove('flow-active');
+  }
+}
+
+function getDayName(dayNumber) {
+  const weekDay = dayNumber % 7;
+  return DAYS_OF_WEEK[weekDay] || "???";
+}
+
+function handleEndDay() {
+  if (uiMode === "event" || uiMode === "showSelection") return;
+  
+  // Check if there's a show scheduled for today
+  if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) {
+    showDialog("⚠️ Você tem um show marcado para hoje! Vá para o show ou cancele antes de encerrar o dia.", [
+      { label: "Ir para o Show", handler: () => { hideDialog(); handleGoToScheduledShow(); }},
+      { label: "Cancelar Show", handler: () => { 
+        state.scheduledShow = null; 
+        hideDialog();
+        displayNarration("❌ Show cancelado. Sua reputação pode sofrer...");
+        state.network = Math.max(0, (state.network || 10) - 5);
+        updateStats();
+      }},
+      { label: "Voltar", handler: hideDialog }
+    ]);
+    return;
+  }
+  
+  advanceDay();
+}
+
+function advanceDay() {
+  state.currentDay += 1;
+  state.currentWeekDay = (state.currentWeekDay + 1) % 7;
+  state.activityPoints = MAX_ACTIVITY_POINTS;
+  
+  // Motivation recovery
+  state.motivation = clamp(state.motivation + 5, 0, 120);
+  
+  // Process flow state
+  processFlowState();
+  
+  updateStats();
+  setScene("home");
+  
+  const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
+  displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${MAX_ACTIVITY_POINTS} pontos de atividade.`);
+  
+  // Chance for random events
+  if (Math.random() < 0.2) {
+    maybeTriggerEvent("random", { source: "newDay" });
+  }
+  
+  saveGameState();
+}
+
+function handleGoToScheduledShow() {
+  if (!state.scheduledShow) {
+    displayNarration("📅 Você não tem nenhum show marcado.");
+    return;
+  }
+  
+  if (state.scheduledShow.dayScheduled !== state.currentDay) {
+    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+    displayNarration(`⏰ O show é em ${daysUntil} dia(s). Encerre o dia para avançar.`);
+    return;
+  }
+  
+  const show = findShowById(state.scheduledShow.showId);
+  if (!show) {
+    state.scheduledShow = null;
+    displayNarration("❌ O show foi cancelado de última hora.");
+    return;
+  }
+  
+  // Clear the scheduled show and start show preparation
+  const scheduledShow = state.scheduledShow;
+  state.scheduledShow = null;
+  
+  // Calculate offered time based on experience
+  const offeredMinutes = calculateOfferedTime(show, scheduledShow);
+  
+  beginShowPreparationWithTime(show, offeredMinutes);
+}
+
+function calculateOfferedTime(show, scheduledShow) {
+  const showCount = state.stageTime || 0;
+  const level = state.level || "open";
+  
+  // Special shows have their own rules
+  if (scheduledShow?.showType === "5a5") {
+    return 1; // 5a5 starts with 1 minute
+  }
+  if (scheduledShow?.showType === "pague15") {
+    return 5; // pague15 is always 5 minutes
+  }
+  
+  // Standard time calculation
+  let maxTime = 3; // Default for new comics
+  
+  if (showCount >= 10) {
+    maxTime = 10;
+  } else if (showCount >= 4) {
+    maxTime = 5;
+  }
+  
+  if (level === "elenco") {
+    maxTime = Math.max(maxTime, 15);
+  } else if (level === "headliner") {
+    maxTime = Math.max(maxTime, 20);
+  }
+  
+  // Show minimum requirements
+  return Math.min(maxTime, Math.max(show.minMinutes, 3));
+}
+
+function canAffordActivity(cost) {
+  return state.activityPoints >= cost;
+}
+
+function spendActivityPoints(cost, activityName) {
+  if (!canAffordActivity(cost)) {
+    const deficit = cost - state.activityPoints;
+    shakeScreen();
+    displayNarration(`⚠️ Você não tem pontos de atividade suficientes! Precisa de ${cost}, mas só tem ${state.activityPoints}. Encerre o dia para recuperar seus pontos.`);
+    return false;
+  }
+  
+  state.activityPoints = Math.max(0, state.activityPoints - cost);
+  updateStats();
+  return true;
+}
+
+function checkStatRequirements(requirements) {
+  const warnings = [];
+  
+  if (requirements.motivation && state.motivation < requirements.motivation) {
+    const deficit = requirements.motivation - state.motivation;
+    warnings.push({
+      stat: "motivação",
+      required: requirements.motivation,
+      current: state.motivation,
+      tip: "Descanse, faça shows bem-sucedidos ou crie conteúdo para recuperar motivação."
+    });
+  }
+  
+  if (requirements.theory && state.theory < requirements.theory) {
+    warnings.push({
+      stat: "teoria",
+      required: requirements.theory,
+      current: state.theory,
+      tip: "Estude comédia para aumentar sua teoria."
+    });
+  }
+  
+  return warnings;
+}
+
+function processFlowState() {
+  if (!state.flowState?.active) return;
+  
+  state.flowState.daysRemaining -= 1;
+  state.flowState.endChance = Math.min(1, (state.flowState.endChance || 0.2) + 0.066); // ~12 days to 100%
+  
+  // Roll to end flow
+  if (Math.random() < state.flowState.endChance || state.flowState.daysRemaining <= 0) {
+    state.flowState = null;
+    state.consecutiveGoodShows = 0;
+    document.body.classList.remove('flow-active');
+    flashScreen('rgba(100, 100, 100, 0.3)');
+    showDialog("😔 O estado de flow acabou. O momento mágico passou, mas o aprendizado fica.");
+  }
+}
+
+// Level is now based on progression from shows, not material minutes
+// See checkLevelProgression() for advancement logic
 
 function getTotalMinutes() {
   return state.jokes.reduce((acc, joke) => acc + (joke.minutes || 0), 0);
@@ -1466,6 +2621,39 @@ function exitWritingMode() {
 }
 
 function createJokeFromMode(modeId) {
+  const mode = writingModes[modeId] || writingModes.desk;
+  const activityCost = mode.id === "desk" ? ACTIVITY_COSTS.desk : ACTIVITY_COSTS.day;
+  
+  // Check activity points first
+  if (!canAffordActivity(activityCost)) {
+    shakeScreen();
+    displayNarration(`⚠️ Você não tem pontos de atividade suficientes para ${mode.label.toLowerCase()}! Encerre o dia para recuperar.`);
+    exitWritingMode();
+    return;
+  }
+  
+  // Check motivation requirements
+  const motivationReq = mode.id === "desk" ? 15 : 5;
+  const warnings = checkStatRequirements({ motivation: motivationReq });
+  if (warnings.length > 0) {
+    const warn = warnings[0];
+    shakeScreen();
+    displayNarration(`⚠️ Você precisa de pelo menos ${warn.required} de ${warn.stat} para ${mode.label.toLowerCase()}, mas só tem ${warn.current}. ${warn.tip}`);
+    exitWritingMode();
+    return;
+  }
+  
+  // Check material limit for opens (10 min max)
+  const currentMinutes = getTotalMinutes();
+  if (state.level === "open" && currentMinutes >= 10) {
+    showDialog("📝 Você atingiu o limite de 10 minutos de material como Open. Precisa apagar alguma piada para escrever outra, ou evoluir para Elenco fazendo shows!", [
+      { label: "Ver Material", handler: () => { hideDialog(); handleViewMaterial(); }},
+      { label: "Fechar", handler: hideDialog }
+    ]);
+    exitWritingMode();
+    return;
+  }
+  
   const idea = drawUniqueIdea();
   if (!idea) {
     displayNarration(
@@ -1474,29 +2662,112 @@ function createJokeFromMode(modeId) {
     exitWritingMode();
     return;
   }
-  const mode = writingModes[modeId] || writingModes.desk;
+  
+  // Now show tone/structure selection
+  exitWritingMode();
+  showJokeCustomization(idea, mode);
+}
+
+function showJokeCustomization(idea, mode) {
+  uiMode = "jokeCustomization";
+  
+  // Store for later use
+  window.pendingJokeIdea = idea;
+  window.pendingJokeMode = mode;
+  
+  const toneOptions = allowedTones.map(tone => 
+    `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}">${tone === idea.tone ? '⭐ ' : ''}${tone}</button>`
+  ).join('');
+  
+  const structureOptions = structures.map(struct =>
+    `<button class="structure-btn" data-structure="${struct}">${struct.toUpperCase()}</button>`
+  ).join('');
+  
+  elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.innerHTML = `
+    <div class="joke-customization">
+      <h4>🎨 Escolha o tom da piada:</h4>
+      <div class="tone-buttons">${toneOptions}</div>
+      <h4>🏗️ Escolha a estrutura:</h4>
+      <div class="structure-buttons">${structureOptions}</div>
+      <div class="customization-hint">💡 Ideia original: "${idea.seed}" (${describeTone(idea.tone)})</div>
+    </div>
+  `;
+  
+  // Set default selections
+  window.selectedTone = idea.tone;
+  window.selectedStructure = structures[0];
+  
+  elements.btnDivLow.querySelectorAll('.tone-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      elements.btnDivLow.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      window.selectedTone = btn.dataset.tone;
+    });
+    if (btn.dataset.tone === idea.tone) btn.classList.add('selected');
+  });
+  
+  elements.btnDivLow.querySelectorAll('.structure-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      elements.btnDivLow.querySelectorAll('.structure-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      window.selectedStructure = btn.dataset.structure;
+    });
+  });
+  elements.btnDivLow.querySelector('.structure-btn').classList.add('selected');
+  
+  showDialog("Personalize sua nova piada e confirme:", [
+    { label: "✅ Criar Piada", handler: () => { hideDialog(); finalizeJokeCreation(); }},
+    { label: "❌ Cancelar", handler: () => { 
+      hideDialog(); 
+      exitWritingMode();
+      window.pendingJokeIdea = null;
+      window.pendingJokeMode = null;
+    }}
+  ]);
+}
+
+function finalizeJokeCreation() {
+  const idea = window.pendingJokeIdea;
+  const mode = window.pendingJokeMode;
+  
+  if (!idea || !mode) {
+    exitWritingMode();
+    return;
+  }
+  
+  const activityCost = mode.id === "desk" ? ACTIVITY_COSTS.desk : ACTIVITY_COSTS.day;
+  spendActivityPoints(activityCost, mode.label);
+  
   state.motivation = clamp(state.motivation - mode.motivationCost, 0, 120);
   state.theory = clamp(state.theory + Math.round(mode.theoryBonus * 20), 0, 120);
-  const roll = Math.random();
+  
   const addMinute = Math.random() < Math.max(0, mode.timeBonus);
   const minutes = clamp(idea.baseMinutes + (addMinute ? 1 : 0), 1, 2);
   const basePotential = generatePotential();
+  
+  // Flow state bonus
+  const flowBonus = state.flowState?.active ? 0.1 : 0;
+  
   const adjustedPotential = clamp(
-    basePotential + (state.theory / 220) + (state.motivation - 60) / 400 + mode.theoryBonus,
+    basePotential + (state.theory / 220) + (state.motivation - 60) / 400 + mode.theoryBonus + flowBonus,
     0.2,
     0.95
   );
+  
   const label =
-    adjustedPotential > 0.75 ? "🔥 perigosa porém promissora" : adjustedPotential > 0.5 ? "🙂 tem caminho" : "😬 parece frágil";
-  const structurePool = mode.id === "desk" ? ["storytelling", "bit"] : ["oneliner", "prop"];
-  const structure =
-    structurePool[Math.floor(Math.random() * structurePool.length)] ||
-    structures[Math.floor(Math.random() * structures.length)];
+    adjustedPotential > 0.75 ? "🔥 perigosa porém promissora" : 
+    adjustedPotential > 0.5 ? "🙂 tem caminho" : 
+    "😶 parece frágil";
+  
+  const chosenTone = window.selectedTone || idea.tone;
+  const chosenStructure = window.selectedStructure || structures[0];
+  
   const newJoke = {
     id: createId(),
     title: formatIdeaTitle(idea),
-    tone: idea.tone,
-    structure,
+    tone: chosenTone,
+    structure: chosenStructure,
     minutes,
     lastResult: "⏱️ ainda não testada",
     freshness: "nova",
@@ -1505,21 +2776,30 @@ function createJokeFromMode(modeId) {
     truePotential: adjustedPotential,
     writingMode: mode.id
   };
+  
   state.jokes.push(newJoke);
+  
+  // Clean up
+  window.pendingJokeIdea = null;
+  window.pendingJokeMode = null;
+  window.selectedTone = null;
+  window.selectedStructure = null;
+  
   exitWritingMode();
   renderJokeList({ selectable: false });
   updateStats();
   setScene("writing");
   
-  // Celebration for new joke!
   flashScreen('rgba(212, 168, 75, 0.2)');
   if (adjustedPotential > 0.7) {
     spawnConfetti(15);
   }
   
+  const costText = mode.id === "desk" ? "(-1 ponto)" : "(-0.5 ponto)";
   displayNarration(
-    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada sobre ${idea.seed}. Ela tem ${minutes} min e parece ${label}.`
+    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada sobre ${idea.seed}. Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText}`
   );
+  
   if (state.jokes.length === 5) {
     maybeTriggerEvent("jokes5", { source: "writing" });
   }
@@ -1533,24 +2813,221 @@ function handleSearchShow() {
     return;
   }
   
-  // Show searching animation
-  flashScreen('rgba(139, 115, 85, 0.2)');
+  // Check if already has a scheduled show
+  if (state.scheduledShow) {
+    const existingShow = findShowById(state.scheduledShow.showId);
+    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+    showDialog(`📅 Você já tem um show marcado: ${existingShow?.name || 'Show'} em ${daysUntil} dia(s). Quer cancelar para buscar outro?`, [
+      { label: "Cancelar e buscar outro", handler: () => {
+        state.scheduledShow = null;
+        state.network = Math.max(0, (state.network || 10) - 3);
+        hideDialog();
+        searchForNewShow();
+      }},
+      { label: "Manter show atual", handler: hideDialog }
+    ]);
+    return;
+  }
   
-  const randomShow = showPool[Math.floor(Math.random() * showPool.length)];
-  beginShowPreparation(randomShow);
+  searchForNewShow();
 }
 
-function beginShowPreparation(show) {
-  currentShow = show;
+function searchForNewShow() {
+  flashScreen('rgba(139, 115, 85, 0.2)');
+  
+  // Generate available shows based on day of week and level
+  const availableShows = generateAvailableShows();
+  
+  if (availableShows.length === 0) {
+    displayNarration("😔 Não há shows disponíveis no momento. Tente novamente amanhã ou aumente seu network.");
+    return;
+  }
+  
+  // Show options to the player
+  presentShowOptions(availableShows);
+}
+
+function generateAvailableShows() {
+  const shows = [];
+  const level = state.level || "open";
+  const network = state.network || 10;
+  const weekDay = state.currentWeekDay;
+  
+  // Filter shows by level
+  let eligibleShows = showPool.filter(show => {
+    // Some shows require certain levels
+    if (show.requiresLevel && show.requiresLevel !== level && 
+        (show.requiresLevel === "headliner" || (show.requiresLevel === "elenco" && level === "open"))) {
+      return false;
+    }
+    return true;
+  });
+  
+  // Add special shows based on conditions
+  // 5 a 5 is available on Sundays (weekDay === 0)
+  const is5a5Day = weekDay === 0 || (state.currentDay + 1) % 7 === 0 || (state.currentDay + 2) % 7 === 0;
+  
+  // Pague 15 is on Thursdays (weekDay === 4) - only if unlocked
+  const isPague15Day = state.pague15Unlocked && (weekDay === 4 || (state.currentDay + 1) % 7 === 4 || (state.currentDay + 2) % 7 === 4);
+  
+  // Randomly select 2-4 shows based on network
+  const numShows = Math.min(eligibleShows.length, 2 + Math.floor(network / 20));
+  
+  // Shuffle and pick
+  const shuffled = [...eligibleShows].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < numShows && i < shuffled.length; i++) {
+    const daysAhead = Math.random() < 0.3 ? 1 : (Math.random() < 0.6 ? 2 : 3);
+    shows.push({
+      show: shuffled[i],
+      daysAhead,
+      showType: "normal"
+    });
+  }
+  
+  // Add 5 a 5 if available
+  if (is5a5Day && level === "open") {
+    const daysTo5a5 = findDaysToWeekday(0); // Sunday
+    if (daysTo5a5 <= 3) {
+      shows.unshift({
+        show: create5a5Show(),
+        daysAhead: daysTo5a5,
+        showType: "5a5"
+      });
+    }
+  }
+  
+  // Add Pague 15 if unlocked and available
+  if (isPague15Day) {
+    const daysToPague15 = findDaysToWeekday(4); // Thursday
+    if (daysToPague15 <= 3) {
+      shows.unshift({
+        show: createPague15Show(),
+        daysAhead: daysToPague15,
+        showType: "pague15"
+      });
+    }
+  }
+  
+  return shows;
+}
+
+function findDaysToWeekday(targetWeekday) {
+  let days = 0;
+  let checkDay = state.currentWeekDay;
+  while (checkDay !== targetWeekday && days < 7) {
+    checkDay = (checkDay + 1) % 7;
+    days++;
+  }
+  return days === 0 ? 7 : days; // If today is the day, next occurrence is in 7 days
+}
+
+function create5a5Show() {
+  return {
+    id: "5a5",
+    name: "5 a 5 - Copo Sujo",
+    minMinutes: 1,
+    maxMinutes: 3,
+    difficulty: 0.2,
+    crowd: "Plateia escassa, parte dela de opens como você. Ambiente de teste.",
+    intro: "Domingo à tarde no Copo Sujo. Você começa com 1 minuto e se for bem, ganha mais 2.",
+    image: "coposujo.jpg",
+    vibeHint: "Material conciso e punchlines claras são essenciais para ganhar os 2 minutos extras.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.5,
+      vulgar: 0.1,
+      "humor negro": 0.2,
+      limpo: 0.3,
+      hack: 0.2
+    },
+    special: "5a5"
+  };
+}
+
+function createPague15Show() {
+  return {
+    id: "pague15",
+    name: "Pague 15 Leve 10 - Copo Sujo",
+    minMinutes: 5,
+    maxMinutes: 5,
+    difficulty: 0.35,
+    crowd: "Plateia experiente e crítica. O produtor olha o relógio.",
+    intro: "Quinta-feira de Pague 15. Você tem exatamente 5 minutos. Nem mais, nem menos.",
+    image: "coposujo.jpg",
+    vibeHint: "Timing preciso é tudo. O produtor corta quem passa do tempo.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.6,
+      vulgar: 0.2,
+      "humor negro": 0.3,
+      limpo: 0.2,
+      hack: 0.3
+    },
+    special: "pague15"
+  };
+}
+
+function presentShowOptions(availableShows) {
+  uiMode = "showBrowse";
+  
+  const options = availableShows.map((item, index) => {
+    const { show, daysAhead, showType } = item;
+    const scheduledDay = state.currentDay + daysAhead;
+    const dayName = getDayName(scheduledDay);
+    const offeredTime = calculateOfferedTime(show, { showType });
+    
+    let label = `🎭 ${show.name}`;
+    if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
+    if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
+    
+    return {
+      label: `${label}\n📅 ${dayName} (${daysAhead}d) | ⏱️ ${offeredTime}min oferecidos`,
+      handler: () => {
+        hideDialog();
+        scheduleShow(show, scheduledDay, showType);
+      }
+    };
+  });
+  
+  options.push({ label: "❌ Cancelar busca", handler: hideDialog });
+  
+  showDialog("🔍 Shows disponíveis para você:", options);
+}
+
+function scheduleShow(show, scheduledDay, showType = "normal") {
+  state.scheduledShow = {
+    showId: show.id,
+    dayScheduled: scheduledDay,
+    showType
+  };
+  
+  state.network = (state.network || 10) + 1; // Booking shows increases network
+  updateStats();
+  
+  const dayName = getDayName(scheduledDay);
+  const daysUntil = scheduledDay - state.currentDay;
+  
+  displayNarration(`✅ Show marcado! ${show.name} em ${daysUntil} dia(s) (${dayName}). Prepare seu material!`);
+  setScene("home");
+}
+
+function beginShowPreparationWithTime(show, offeredMinutes) {
+  currentShow = { ...show, offeredMinutes };
   uiMode = "showSelection";
   selectedJokeIds.clear();
-  elements.subTitle.textContent = `🎭 Monte pelo menos ${show.minMinutes} min para ${show.name}`;
+  
+  elements.subTitle.textContent = `🎭 Monte até ${offeredMinutes} min para ${show.name}`;
   renderJokeList({ selectable: true });
   renderSetSummary();
   setScene("club", show.name, show.image);
-  displayNarration(`🎤 ${show.intro} ${show.crowd}`);
   
-  // Animate button in
+  let introText = `🎤 ${show.intro} ${show.crowd}`;
+  if (show.special === "5a5") {
+    introText = `🎤 ${show.intro}\n\n⚡ REGRA 5 A 5: Escolha UMA piada de até 1 minuto. Se o resultado for nota 3+, você ganha +2 minutos para continuar o set!`;
+  }
+  
+  displayNarration(introText);
+  
   elements.btnContinuar.style.opacity = '0';
   elements.btnContinuar.style.transform = 'translateY(20px)';
   elements.btnContinuar.style.display = "block";
@@ -1561,6 +3038,12 @@ function beginShowPreparation(show) {
     elements.btnContinuar.style.opacity = '1';
     elements.btnContinuar.style.transform = 'translateY(0)';
   }, 400);
+}
+
+function beginShowPreparation(show) {
+  // Calculate offered time for legacy calls
+  const offeredMinutes = calculateOfferedTime(show, { showType: "normal" });
+  beginShowPreparationWithTime(show, offeredMinutes);
 }
 
 function startSpecialShow(showId) {
@@ -1596,24 +3079,63 @@ function handleCreateContent() {
     return;
   }
   exitSelectionMode();
-  const reach = Math.max(3, Math.round(state.stageTime + getTotalMinutes() + Math.random() * 10));
-  const fanGain = reach + Math.round(state.theory / 3);
+  
+  // Show content type options
+  showDialog("📱 Que tipo de conteúdo você quer criar?", [
+    { 
+      label: "📹 Conteúdo longo (1 ponto)", 
+      handler: () => { hideDialog(); createContentLong(); }
+    },
+    { 
+      label: "⚡ Conteúdo rápido (0.5 ponto)", 
+      handler: () => { hideDialog(); createContentQuick(); }
+    },
+    { label: "Voltar", handler: hideDialog }
+  ]);
+}
+
+function createContentLong() {
+  if (!spendActivityPoints(ACTIVITY_COSTS.contentLong, "criar conteúdo longo")) {
+    return;
+  }
+  
+  const reach = Math.max(5, Math.round(state.stageTime * 2 + getTotalMinutes() + Math.random() * 15));
+  const fanGain = reach + Math.round(state.theory / 2);
   state.fans += fanGain;
-  state.motivation = clamp(state.motivation - 6 + Math.round(Math.random() * 4), 0, 120);
+  state.network = (state.network || 10) + 2;
+  state.motivation = clamp(state.motivation - 8 + Math.round(Math.random() * 4), 0, 120);
   setScene("content");
   
-  // Content creation effect
   flashScreen('rgba(245, 230, 200, 0.15)');
-  if (fanGain > 15) {
-    spawnConfetti(12);
+  if (fanGain > 20) {
+    spawnConfetti(15);
   }
   
   displayNarration(
-    `📱 Você grava clipes e posta nas redes. ${fanGain} novas pessoas começam a te seguir e aguardam o próximo set.`
+    `📹 Você grava um vídeo elaborado. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade)`
   );
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
   maybeTriggerEvent("fans20");
+}
+
+function createContentQuick() {
+  if (!spendActivityPoints(ACTIVITY_COSTS.contentQuick, "criar conteúdo rápido")) {
+    return;
+  }
+  
+  const reach = Math.max(2, Math.round(state.stageTime + getTotalMinutes() / 2 + Math.random() * 8));
+  const fanGain = reach + Math.round(state.theory / 4);
+  state.fans += fanGain;
+  state.motivation = clamp(state.motivation - 2, 0, 120);
+  setScene("content");
+  
+  flashScreen('rgba(245, 230, 200, 0.1)');
+  
+  displayNarration(
+    `⚡ Um story rápido e uma foto. ${fanGain} novas pessoas te seguem. (-0.5 ponto de atividade)`
+  );
+  updateStats();
 }
 
 function handleStudy() {
@@ -1621,6 +3143,12 @@ function handleStudy() {
     return;
   }
   exitSelectionMode();
+  
+  // Check activity points
+  if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) {
+    return;
+  }
+  
   state.theory = clamp(state.theory + 12, 0, 150);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   setScene("study");
@@ -1628,7 +3156,7 @@ function handleStudy() {
   // Study effect - warm glow
   flashScreen('rgba(245, 230, 200, 0.2)');
   
-  displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno.");
+  displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade)");
   updateStats();
 }
 
@@ -1770,18 +3298,107 @@ function rewriteJoke(jokeId) {
   if (!joke) {
     return;
   }
-  state.motivation = clamp(state.motivation - 4, 0, 120);
-  const potentialDelta = (Math.random() * 0.2 - 0.05) + state.theory / 500;
-  joke.truePotential = clamp((joke.truePotential || 0.4) + potentialDelta, 0.2, 0.99);
-  joke.structure = structures[Math.floor(Math.random() * structures.length)];
-  joke.minutes = Math.random() > 0.8 ? 2 : 1;
-  joke.freshness = "reescrita";
   
-  // Rewrite effect
+  // Show rewrite options dialog
+  window.rewritingJoke = joke;
+  uiMode = "rewriting";
+  
+  const toneOptions = allowedTones.map(tone => 
+    `<button class="tone-btn ${joke.tone === tone ? 'selected current' : ''}" data-tone="${tone}">${tone === joke.tone ? '📍 ' : ''}${tone}</button>`
+  ).join('');
+  
+  const structureOptions = structures.map(struct =>
+    `<button class="structure-btn ${joke.structure === struct ? 'selected current' : ''}" data-structure="${struct}">${struct === joke.structure ? '📍 ' : ''}${struct.toUpperCase()}</button>`
+  ).join('');
+  
+  elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.innerHTML = `
+    <div class="joke-customization">
+      <h4>🎨 Novo tom (atual: ${joke.tone}):</h4>
+      <div class="tone-buttons">${toneOptions}</div>
+      <h4>🏗️ Nova estrutura (atual: ${joke.structure?.toUpperCase()}):</h4>
+      <div class="structure-buttons">${structureOptions}</div>
+      <div class="customization-hint">💡 Reescrever gasta 4 de motivação e gera novo potencial base aleatório</div>
+    </div>
+  `;
+  
+  window.newTone = joke.tone;
+  window.newStructure = joke.structure;
+  
+  elements.btnDivLow.querySelectorAll('.tone-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      elements.btnDivLow.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      window.newTone = btn.dataset.tone;
+    });
+  });
+  
+  elements.btnDivLow.querySelectorAll('.structure-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      elements.btnDivLow.querySelectorAll('.structure-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      window.newStructure = btn.dataset.structure;
+    });
+  });
+  
+  showDialog(`Reescrever "${joke.title}"?`, [
+    { label: "✅ Reescrever", handler: () => { hideDialog(); finalizeRewrite(); }},
+    { label: "❌ Cancelar", handler: () => { 
+      hideDialog(); 
+      exitWritingMode();
+      window.rewritingJoke = null;
+      handleViewMaterial();
+    }}
+  ]);
+}
+
+function finalizeRewrite() {
+  const joke = window.rewritingJoke;
+  if (!joke) {
+    exitWritingMode();
+    return;
+  }
+  
+  // Check motivation
+  if (state.motivation < 4) {
+    shakeScreen();
+    displayNarration("⚠️ Você precisa de pelo menos 4 de motivação para reescrever. Descanse ou faça shows bem-sucedidos.");
+    exitWritingMode();
+    handleViewMaterial();
+    return;
+  }
+  
+  state.motivation = clamp(state.motivation - 4, 0, 120);
+  
+  // Generate completely new potential (random, but influenced by theory)
+  const basePotential = generatePotential();
+  const flowBonus = state.flowState?.active ? 0.1 : 0;
+  joke.truePotential = clamp(
+    basePotential + (state.theory / 250) + flowBonus,
+    0.2,
+    0.95
+  );
+  
+  joke.tone = window.newTone || joke.tone;
+  joke.structure = window.newStructure || joke.structure;
+  joke.minutes = Math.random() > 0.7 ? 2 : 1;
+  joke.freshness = "reescrita";
+  joke.history = []; // Reset history
+  joke.lastResult = "⏱️ reescrita, ainda não testada";
+  
+  const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
+  
+  // Cleanup
+  window.rewritingJoke = null;
+  window.newTone = null;
+  window.newStructure = null;
+  
+  exitWritingMode();
   flashScreen('rgba(212, 168, 75, 0.15)');
   
-  displayNarration(`✏️ ${joke.title} ganhou um novo ritmo ${joke.structure.toUpperCase()} e foi atualizado.`);
-  renderJokeList({ selectable: false });
+  displayNarration(`✏️ "${joke.title}" foi completamente reescrita! Tom: ${joke.tone}, estrutura: ${joke.structure.toUpperCase()}. ${joke.minutes} min. Parece ${label}.`);
+  
+  handleViewMaterial();
   updateStats();
 }
 
@@ -1824,61 +3441,148 @@ function performShow() {
     return;
   }
   const showPlayed = currentShow;
+  const showType = state.scheduledShow?.showType || currentShow.special || "normal";
   const setList = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
   const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0);
+  
   if (!setList.length) {
     shakeScreen();
     displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir.");
     return;
   }
   
-  // Stage entrance effect - spotlight flash
+  // 5 a 5 special rule: only 1 joke for first minute
+  if (showType === "5a5" && !currentShow.phase2) {
+    if (setList.length > 1 || totalMinutes > 1) {
+      shakeScreen();
+      displayNarration("⚠️ No 5 a 5 você só pode escolher UMA piada de até 1 minuto na primeira fase!");
+      return;
+    }
+  }
+  
+  // Check time limit
+  const offeredMinutes = currentShow.offeredMinutes || currentShow.minMinutes;
+  if (totalMinutes > offeredMinutes) {
+    shakeScreen();
+    displayNarration(`⚠️ Você só tem ${offeredMinutes} minutos oferecidos, mas selecionou ${totalMinutes}min de material!`);
+    return;
+  }
+  
+  // Stage entrance effect
   flashScreen('rgba(255, 248, 220, 0.3)');
-  const evaluation = evaluateShow(setList, currentShow);
+  
+  // Flow state bonus
+  const flowBonus = state.flowState?.active ? 0.08 : 0;
+  
+  const evaluation = evaluateShow(setList, currentShow, flowBonus);
   const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
     const mood = scoreToEmoji(entry.score);
-    return { ...entry, emoji: mood.emoji, label: mood.label };
+    return { ...entry, emoji: mood.emoji, label: mood.label, nota: mood.nota };
   });
+  
   const timeImpact = evaluateStageTime(totalMinutes, currentShow.minMinutes, evaluation.averageScore);
   const adjustedScore = evaluation.averageScore + timeImpact.adjustment;
-  const outcome = classifyOutcome(adjustedScore);
-  applyOutcome(setList, outcome, breakdownWithEmoji);
-  state.stageTime += 1;
-  const fanGain =
-    outcome === "kill"
-      ? Math.max(3, Math.round(totalMinutes * 2))
-      : outcome === "ok"
-      ? Math.max(1, Math.round(totalMinutes * 0.6))
-      : 0;
+  const nota = classifyOutcome(adjustedScore);
+  const outcomeType = getOutcomeType(nota);
+  
+  applyOutcome(setList, outcomeType, breakdownWithEmoji);
+  
+  // Stage time counting (flow state = 2x)
+  const stageTimeGain = state.flowState?.active ? 2 : 1;
+  state.stageTime += stageTimeGain;
+  
+  // Track show in history
+  state.showHistory = state.showHistory || [];
+  state.showHistory.push({
+    showId: showPlayed.id,
+    day: state.currentDay,
+    nota,
+    showType
+  });
+  
+  // Check level progression and flow state
+  checkLevelProgression(nota, showType);
+  checkFlowState(nota);
+  
+  // Fan and motivation gains based on nota (1-5)
+  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8));
   state.fans += fanGain;
-  const motivationShift = outcome === "kill" ? 12 : outcome === "ok" ? -1 : -10;
+  
+  const motivationShift = nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12;
   state.motivation = clamp(state.motivation + motivationShift, 0, 120);
+  
+  // Network bonus for good shows
+  if (nota >= 4) {
+    state.network = (state.network || 10) + 2;
+  }
+  
   updateStats();
   renderJokeList({ selectable: false });
   exitSelectionMode();
-  showResultNarrative(outcome, breakdownWithEmoji, timeImpact, {
+  
+  // Handle 5 a 5 special mechanic
+  if (showType === "5a5" && !currentShow.phase2 && nota >= 3) {
+    handle5a5Phase2(showPlayed, nota, breakdownWithEmoji, timeImpact);
+    return;
+  }
+  
+  showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
     fans: fanGain,
-    motivation: motivationShift
+    motivation: motivationShift,
+    stageTimeGain
   });
+  
   const eventContext = {
-    outcome,
+    outcome: outcomeType,
+    nota,
     show: showPlayed,
     averageScore: evaluation.averageScore,
-    adjustedScore
+    adjustedScore,
+    showType
   };
-  if (outcome === "kill") {
+  
+  if (outcomeType === "kill") {
     maybeTriggerEvent("showKill", eventContext);
-  } else if (outcome === "bomb") {
+  } else if (outcomeType === "bomb") {
     maybeTriggerEvent("showBomb", eventContext);
   } else {
     maybeTriggerEvent("random", eventContext);
   }
+  
   if (state.fans >= 20) {
     maybeTriggerEvent("fans20");
   }
 }
 
-function evaluateShow(setList, show) {
+function handle5a5Phase2(showPlayed, nota, breakdown, timeImpact) {
+  spawnConfetti(20);
+  flashScreen('rgba(90, 143, 90, 0.3)');
+  
+  showDialog(`🎉 PARABÉNS! Nota ${nota} no primeiro minuto!\n\nVocê ganhou mais 2 minutos! Escolha piadas para completar seu set de até 3 minutos total.`, [
+    {
+      label: "Continuar set (+2min)",
+      handler: () => {
+        hideDialog();
+        // Setup phase 2
+        currentShow = {
+          ...showPlayed,
+          phase2: true,
+          offeredMinutes: 3,
+          minMinutes: 2
+        };
+        uiMode = "showSelection";
+        selectedJokeIds.clear();
+        elements.subTitle.textContent = `🎭 Escolha mais piadas para completar 3 min no 5 a 5`;
+        renderJokeList({ selectable: true });
+        renderSetSummary();
+        elements.btnContinuar.style.display = "block";
+        displayNarration("🎤 O apresentador te dá o sinal para continuar. Escolha piadas para os próximos 2 minutos!");
+      }
+    }
+  ]);
+}
+
+function evaluateShow(setList, show, flowBonus = 0) {
   let totalScore = 0;
   const breakdown = [];
   setList.forEach((joke) => {
@@ -1886,7 +3590,7 @@ function evaluateShow(setList, show) {
     const typeComponent = getTypeAffinity(show, joke.tone) * 0.2;
     const chaosComponent = (Math.random() * 2 - 1) * 0.2;
     const difficultyPenalty = show.difficulty || 0;
-    const jokeScore = potencyComponent + typeComponent + chaosComponent - difficultyPenalty;
+    const jokeScore = potencyComponent + typeComponent + chaosComponent - difficultyPenalty + flowBonus;
     totalScore += jokeScore;
     breakdown.push({
       title: joke.title,
@@ -1943,13 +3647,82 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
 }
 
 function classifyOutcome(score) {
-  if (score >= 0.35) {
-    return "kill";
-  }
-  if (score >= 0.18) {
-    return "ok";
-  }
+  // Returns nota 1-5 based on score
+  const tier = SCORE_EMOJI_SCALE.find(t => score >= t.threshold) || SCORE_EMOJI_SCALE[SCORE_EMOJI_SCALE.length - 1];
+  return tier.nota;
+}
+
+function getOutcomeType(nota) {
+  if (nota >= 4) return "kill";
+  if (nota >= 3) return "ok";
   return "bomb";
+}
+
+function checkLevelProgression(nota, showType) {
+  // Open -> Elenco: 5 shows com nota 4+ 
+  if (state.level === "open" && nota >= 4) {
+    state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
+    
+    // Track 5a5 shows specifically for Pague15 unlock
+    if (showType === "5a5") {
+      state.shows5a5AtLevel4 = (state.shows5a5AtLevel4 || 0) + 1;
+      
+      // Unlock Pague 15 after 3 successful 5a5 shows
+      if (state.shows5a5AtLevel4 >= 3 && !state.pague15Unlocked) {
+        state.pague15Unlocked = true;
+        spawnConfetti(40);
+        showDialog("🎉 DESBLOQUEADO: Pague 15 Leve 10!\n\nPaulo Araújo te convidou para participar do 'Pague 15'! Você pode encontrar esse show às quintas-feiras.");
+      }
+    }
+    
+    if (state.showsAtLevel4 >= 5) {
+      state.level = "elenco";
+      state.showsAtLevel4 = 0;
+      spawnConfetti(50);
+      flashScreen('rgba(212, 168, 75, 0.4)');
+      showDialog("🎊 VOCÊ EVOLUIU PARA ELENCO!\n\nParabéns! Agora você pode fazer shows de até 15 minutos e tem acesso a novas oportunidades.");
+    }
+  }
+  
+  // Elenco -> Headliner: 5 shows com nota 5
+  if (state.level === "elenco" && nota >= 5) {
+    state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
+    
+    if (state.showsAtLevel4 >= 5) {
+      state.level = "headliner";
+      state.showsAtLevel4 = 0;
+      spawnConfetti(100);
+      flashScreen('rgba(255, 215, 0, 0.5)');
+      showDialog("👑 VOCÊ É UM HEADLINER!\n\nO circuito te reconhece como um artista de destaque. Shows de até 20 minutos e convites especiais te esperam.");
+    }
+  }
+}
+
+function checkFlowState(nota) {
+  // Track consecutive good shows
+  if (nota >= 5) {
+    state.consecutiveGoodShows = (state.consecutiveGoodShows || 0) + 1;
+  } else {
+    state.consecutiveGoodShows = 0;
+  }
+  
+  // Activate flow state after 5 consecutive nota 5 shows AND high theory
+  if (!state.flowState?.active && 
+      state.consecutiveGoodShows >= 5 && 
+      state.theory >= 50) {
+    state.flowState = {
+      active: true,
+      daysRemaining: 12,
+      endChance: 0.2
+    };
+    
+    spawnConfetti(60);
+    flashScreen('rgba(255, 100, 0, 0.4)');
+    showDialog("🔥 ESTADO DE FLOW ATIVADO!\n\nVocê está em sintonia total. Cada stage time conta como 2x, suas piadas ganham boost na escrita e performance. Aproveite enquanto dura!");
+    
+    // Add flow animation class to body
+    document.body.classList.add('flow-active');
+  }
 }
 
 function applyOutcome(setList, outcome, breakdown = []) {
@@ -1966,41 +3739,55 @@ function applyOutcome(setList, outcome, breakdown = []) {
   });
 }
 
-function showResultNarrative(outcome, breakdown, timeImpact, deltas = {}) {
+function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   let message = "";
-  if (outcome === "kill") {
+  const outcomeType = getOutcomeType(nota);
+  
+  // Messages based on nota 1-5
+  const messages = {
+    5: "🤯 EXPLODIU! A plateia em pé, gritos de 'mais uma!'. Uma noite histórica que todos vão lembrar.",
+    4: "🔥 Você matou no palco! Risadas constantes, aplausos calorosos. O produtor já te quer de volta.",
+    3: "🙂 Segurou bem. Algumas risadas fortes, o público ficou com você. Dá pra crescer em cima disso.",
+    2: "😶 Risinhos nervosos. Alguns momentos funcionaram, outros caíram no vazio. Hora de ajustar.",
+    1: "💧 Silêncio constrangedor. O garçom falou mais alto que você. Aceite que faz parte e reescreva."
+  };
+  
+  message = messages[nota] || messages[3];
+  
+  // Set scene based on outcome
+  if (nota >= 4) {
     setScene("kill");
-    message =
-      "🔥 Você matou no palco! A plateia pediu mais uma e você nem acreditou. Algumas piadas renovaram a confiança.";
-    // Celebration effects!
     setTimeout(() => {
-      spawnConfetti(50);
+      spawnConfetti(nota === 5 ? 70 : 40);
       flashScreen('rgba(212, 168, 75, 0.35)');
     }, 300);
-  } else if (outcome === "ok") {
+  } else if (nota >= 3) {
     setScene("ok");
-    message =
-      "🙂 Foi honesto. Algumas risadas fortes, alguns silêncios constrangedores. Dá pra refinar o set e tentar de novo.";
     flashScreen('rgba(245, 230, 200, 0.15)');
   } else {
     setScene("bomb");
-    message =
-      "💧 Silêncio mortal. O garçom falou mais alto que você. Aceite que faz parte do processo e ajuste o texto.";
     shakeScreen();
     flashScreen('rgba(166, 68, 68, 0.25)');
   }
+  
   const detalhes = breakdown.length
     ? breakdown.map((entry) => `${entry.title} ${entry.emoji}`).join(" | ")
     : "";
   const tempoNota = timeImpact?.note ? ` ${timeImpact.note}` : "";
   const breakdownText = detalhes ? ` (${detalhes})` : "";
+  
   const statFragments = [];
+  statFragments.push(`Nota ${nota}/5`);
   if (deltas.fans) {
     statFragments.push(`Fãs ${formatSigned(deltas.fans)}`);
   }
   if (deltas.motivation) {
     statFragments.push(`Motivação ${formatSigned(deltas.motivation)}`);
   }
+  if (deltas.stageTimeGain && deltas.stageTimeGain > 1) {
+    statFragments.push(`Stage Time +${deltas.stageTimeGain} (FLOW!)`);
+  }
+  
   const statsText = statFragments.length ? ` [${statFragments.join(" | ")}]` : "";
   displayNarration(`${message}${tempoNota}${breakdownText}${statsText}`);
 }

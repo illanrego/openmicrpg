@@ -883,3 +883,210 @@ button:active {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, var(--gold) 0%, var(--menu-border) 100%);
 }
+
+/* ========== DAY CONTROLS ========== */
+#dayControls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+  background: var(--menu-bg);
+  border-top: 2px solid var(--menu-border);
+}
+
+.day-btn {
+  flex: 1;
+  max-width: 200px;
+}
+
+.show-btn {
+  background: linear-gradient(180deg, var(--success) 0%, #4a7a4a 100%) !important;
+  color: var(--cream) !important;
+  animation: bounce-small 1.5s ease-in-out infinite;
+}
+
+.show-btn:hover {
+  background: linear-gradient(180deg, #6aaf6a 0%, var(--success) 100%) !important;
+}
+
+#scheduledShowInfo {
+  text-align: center;
+  padding: 8px;
+  background: var(--wood-dark);
+  border-top: 2px solid var(--menu-border);
+  color: var(--gold);
+  font-size: 1.1rem;
+}
+
+/* Day stat styling */
+.stat-day, .stat-points {
+  background: rgba(212, 168, 75, 0.1);
+  border-radius: 3px;
+  margin-bottom: 4px;
+}
+
+.stat-points[style*="--neon-pink"] {
+  background: rgba(166, 68, 68, 0.2);
+}
+
+/* ========== FLOW STATE ========== */
+@keyframes flow-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 10px rgba(255, 100, 0, 0.5);
+    border-color: #ff6400;
+  }
+  50% { 
+    box-shadow: 0 0 25px rgba(255, 100, 0, 0.8);
+    border-color: #ffa500;
+  }
+}
+
+@keyframes flow-glow {
+  0%, 100% { 
+    text-shadow: 0 0 10px rgba(255, 100, 0, 0.8);
+    color: #ff6400;
+  }
+  50% { 
+    text-shadow: 0 0 20px rgba(255, 165, 0, 1);
+    color: #ffa500;
+  }
+}
+
+@keyframes flow-bg {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.stat-flow {
+  background: linear-gradient(90deg, rgba(255, 100, 0, 0.3), rgba(255, 165, 0, 0.3), rgba(255, 100, 0, 0.3));
+  background-size: 200% 200%;
+  animation: flow-bg 2s ease infinite;
+  border-radius: 3px;
+}
+
+.stat-flow.flow-active {
+  animation: flow-bg 2s ease infinite, bounce-small 1s ease-in-out infinite;
+}
+
+.stat-flow strong {
+  animation: flow-glow 1.5s ease-in-out infinite;
+}
+
+/* Flow state body effect */
+body.flow-active {
+  animation: none;
+}
+
+body.flow-active::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(255, 100, 0, 0.15) 100%);
+  animation: flow-pulse 2s ease-in-out infinite;
+  border: 4px solid transparent;
+}
+
+body.flow-active #game {
+  animation: flow-pulse 2s ease-in-out infinite;
+}
+
+/* ========== JOKE CUSTOMIZATION ========== */
+.joke-customization {
+  padding: 8px;
+}
+
+.joke-customization h4 {
+  color: var(--gold);
+  margin: 8px 0;
+  font-size: 1.1rem;
+}
+
+.tone-buttons, .structure-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tone-btn, .structure-btn {
+  font-size: 0.95rem !important;
+  padding: 6px 12px !important;
+  background: linear-gradient(180deg, var(--wood-medium) 0%, var(--wood-dark) 100%) !important;
+  color: var(--cream) !important;
+}
+
+.tone-btn:hover, .structure-btn:hover {
+  background: linear-gradient(180deg, var(--brick-medium) 0%, var(--brick-dark) 100%) !important;
+}
+
+.tone-btn.selected, .structure-btn.selected {
+  background: linear-gradient(180deg, var(--gold) 0%, var(--highlight) 100%) !important;
+  color: var(--text-dark) !important;
+  border-color: var(--gold-bright) !important;
+}
+
+.tone-btn.suggested {
+  border-color: var(--success);
+}
+
+.tone-btn.current, .structure-btn.current {
+  border-color: var(--gold);
+}
+
+.customization-hint {
+  color: var(--cream-dark);
+  font-size: 0.95rem;
+  padding: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+/* ========== SHAKE ANIMATION ========== */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* ========== NEON COLORS FOR STATS ========== */
+:root {
+  --neon-cyan: #00d4ff;
+  --neon-pink: #ff6b9d;
+  --accent-gold: #ffd700;
+}
+
+/* ========== SHOW BROWSER ========== */
+#dialogActions button {
+  white-space: pre-line;
+  line-height: 1.4;
+  min-height: 50px;
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+@media (max-width: 500px) {
+  #dayControls {
+    flex-direction: column;
+  }
+  
+  .day-btn {
+    max-width: 100%;
+  }
+  
+  .tone-buttons, .structure-buttons {
+    justify-content: center;
+  }
+  
+  .tone-btn, .structure-btn {
+    flex: 1 1 40%;
+  }
+}
