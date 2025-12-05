@@ -181,6 +181,7 @@ h3 {
     inset -2px -2px 0 rgba(0,0,0,0.3),
     0 8px 32px rgba(0,0,0,0.5);
   overflow: hidden;
+  margin-bottom: 20px;
 }
 
 /* Intro Screen */
@@ -190,7 +191,7 @@ h3 {
   align-items: center;
   gap: 15px;
   text-align: center;
-  padding: 20px;
+  padding: 24px 20px;
   animation: menu-open 0.3s ease-out;
 }
 
@@ -204,6 +205,8 @@ h3 {
     0 4px 12px rgba(0,0,0,0.4);
   animation: float-gentle 3s ease-in-out infinite;
   transition: transform 0.2s ease;
+  max-width: 100px;
+  height: auto;
 }
 
 #mentorImg:hover {
@@ -887,16 +890,19 @@ button:active {
 /* ========== DAY CONTROLS ========== */
 #dayControls {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   justify-content: center;
-  padding: 8px;
+  padding: 12px 16px;
   background: var(--menu-bg);
   border-top: 2px solid var(--menu-border);
+  margin-top: 8px;
 }
 
 .day-btn {
   flex: 1;
   max-width: 200px;
+  padding: 10px 16px;
+  font-size: 1.1rem;
 }
 
 .show-btn {
@@ -911,11 +917,12 @@ button:active {
 
 #scheduledShowInfo {
   text-align: center;
-  padding: 8px;
+  padding: 10px 12px;
   background: var(--wood-dark);
   border-top: 2px solid var(--menu-border);
   color: var(--gold);
   font-size: 1.1rem;
+  margin: 4px 0;
 }
 
 /* Day stat styling */
@@ -923,6 +930,8 @@ button:active {
   background: rgba(212, 168, 75, 0.1);
   border-radius: 3px;
   margin-bottom: 4px;
+  padding: 3px 6px;
+  font-size: 0.95rem;
 }
 
 .stat-points[style*="--neon-pink"] {

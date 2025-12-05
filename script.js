@@ -1,7 +1,10 @@
 const showText = (target, message, index, interval, callback) => {
   if (index < message.length) {
-    document.querySelector(target).append(message[index++]);
-    setTimeout(() => showText(target, message, index, interval, callback), interval);
+    const element = document.querySelector(target);
+    if (element) {
+      element.textContent = message.substring(0, index + 1);
+    }
+    setTimeout(() => showText(target, message, index + 1, interval, callback), interval);
   } else if (callback) {
     callback();
   }
@@ -130,6 +133,32 @@ document.head.appendChild(style);
 const STORAGE_KEY = "openMicRPG.save.v2";
 const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😶 risinhos | 💧 deu água";
 
+// ========== SOUND SYSTEM ==========
+const sounds = {
+  click: new Audio('pokemonsoundeffects/click.wav'),
+  save: new Audio('pokemonsoundeffects/save.wav'),
+  getSomething: new Audio('pokemonsoundeffects/get something.wav'),
+  victory: new Audio('pokemonsoundeffects/victory1.wav'),
+  boom: new Audio('pokemonsoundeffects/boom.wav'),
+  menu: new Audio('pokemonsoundeffects/menu.wav'),
+  pokeball: new Audio('pokemonsoundeffects/pokeball.wav'),
+  findSomething: new Audio('pokemonsoundeffects/find something.wav'),
+  comeWithMe: new Audio('pokemonsoundeffects/come with me.wav')
+};
+
+// Preload sounds
+Object.values(sounds).forEach(sound => {
+  sound.volume = 0.3; // 30% volume
+  sound.load();
+});
+
+function playSound(soundName) {
+  if (sounds[soundName]) {
+    sounds[soundName].currentTime = 0;
+    sounds[soundName].play().catch(e => console.log('Audio play failed:', e));
+  }
+}
+
 // ========== TIME SYSTEM ==========
 const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const MAX_ACTIVITY_POINTS = 2;
@@ -145,11 +174,13 @@ const ACTIVITY_COSTS = {
 const createInitialTimeState = () => ({
   currentDay: 1,
   currentWeekDay: 1, // Segunda
+  currentWeek: 1,
   activityPoints: MAX_ACTIVITY_POINTS,
   scheduledShow: null, // { showId, dayScheduled }
   showHistory: [],     // track shows done for progression
   consecutiveGoodShows: 0, // for flow state
-  flowState: null      // { active: true, daysRemaining: X, endChance: 0.2 }
+  flowState: null,     // { active: true, daysRemaining: X, endChance: 0.2 }
+  eventsThisWeek: 0    // track events per week (max 1-3)
 });
 
 const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack"];
@@ -579,8 +610,8 @@ const showPool = [
       "Plateia mão-de-vaca, cerveja morna e gargalhadas que só aparecem com bobagens ditas com convicção.",
     intro:
       "Você conseguiu uma vaga no Copo Sujo. Pague 15, leve 10. Escolha seu set sem estourar o tempo e prepare o ego.",
-    image: "coposujo.jpg",
-    vibeHint: "Hoje eles riem de confissões do cotidiano e piadas idiotas que parecem verdade.",
+    image: "copo-sujo-comedy.png",
+    vibeHint: "A plateia parece estar rindo mais de confissões do cotidiano e piadas idiotas que parecem verdade.",
     typeAffinity: {
       default: -0.05,
       besteirol: 0.8,
@@ -598,7 +629,7 @@ const showPool = [
     crowd: "Clientes distraídos, olhando pra TV, só param pra ouvir causos pessoais que parecem verdade.",
     intro:
       "Tony te chamou pra completar a noite. Plateia espalhada, TV ligada no jogo. Só sobe quem confia no próprio texto.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Narrativas sinceras e paranoias do dia a dia seguram a atenção.",
     typeAffinity: {
       default: -0.1,
@@ -617,7 +648,7 @@ const showPool = [
     crowd: "Executivos que riem só pra aliviar a tensão antes de falar de metas e planilhas.",
     intro:
       "Um RH desesperado quer 'algo leve' antes da palestra sobre metas. Não fale palavrão e tente parecer profissional.",
-    image: "killing-it.jpg",
+    image: "corporativo.png",
     vibeHint: "Comentários sobre trabalho e situações absurdas salvam sua pele.",
     typeAffinity: {
       default: -0.2,
@@ -636,7 +667,7 @@ const showPool = [
     crowd: "Galera barulhenta que grita com o jogo e só escuta confidentes que parecem amigos.",
     intro:
       "O dono do boteco libera o microfone durante o intervalo do futebol. Você tem poucos minutos antes da próxima rodada de chope.",
-    image: "coposujo.jpg",
+    image: "barzinho.png",
     vibeHint: "Piadas toscas e confissões pessoais se destacam.",
     typeAffinity: {
       default: -0.05,
@@ -712,7 +743,7 @@ const showPool = [
     crowd: "Plateia educada, paga e extremamente crítica.",
     intro:
       "A prefeitura convidou novos talentos para um mini-festival. Som perfeito, mas você precisa merecer cada aplauso.",
-    image: "killing-it.jpg",
+    image: "teatro-municipal.png",
     vibeHint: "Estruturas sólidas e bits inteligentes brilham.",
     typeAffinity: {
       default: -0.05,
@@ -769,7 +800,7 @@ const showPool = [
     crowd: "Artistas indie que apreciam textos autorais.",
     intro:
       "Você foi convidado para quebrar a seriedade de um sarau. Precisa ser inteligente sem desrespeitar ninguém.",
-    image: "agua1.jpg",
+    image: "art-gallery.png",
     vibeHint: "Storytelling poético e humor reflexivo ganham destaque.",
     typeAffinity: {
       default: 0.05,
@@ -845,7 +876,7 @@ const showPool = [
     crowd: "Fãs fiéis do headliner, exigentes com quem abre o show.",
     intro:
       "Um veterano te entrega 7 minutos antes do set principal. Não desperdice o palco lotado.",
-    image: "killing-it.jpg",
+    image: "comedy-turne-veterano.png",
     vibeHint: "Bits bem estruturados e humor profissional impressionam.",
     typeAffinity: {
       default: -0.1,
@@ -901,7 +932,7 @@ const showPool = [
     difficulty: 0.3,
     crowd: "Intelectuais com café na mão, buscando humor sofisticado.",
     intro: "Uma livraria cult quer animar as noites de sábado com stand-up entre as estantes.",
-    image: "normal-show.jpg",
+    image: "biblioteca.png",
     vibeHint: "Referências culturais e humor inteligente impressionam.",
     typeAffinity: {
       default: 0,
@@ -955,7 +986,7 @@ const showPool = [
     difficulty: 0.38,
     crowd: "Plateia cult que curte o underground e detesta o mainstream.",
     intro: "Um teatro de porão te convida para a noite experimental. Vale tudo.",
-    image: "bombing-show.jpg",
+    image: "teatro-legal.png",
     vibeHint: "Ousadia e originalidade são mais importantes que punchlines perfeitas.",
     typeAffinity: {
       default: 0.1,
@@ -1228,7 +1259,7 @@ const showPool = [
     requiresLevel: "headliner",
     crowd: "Seus fãs que pagaram ingresso para te ver.",
     intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
-    image: "killing-it.jpg",
+    image: "Pedestal-Matriz.png",
     vibeHint: "É hora de mostrar quem você é. Autenticidade máxima.",
     typeAffinity: {
       default: 0.15,
@@ -1309,8 +1340,9 @@ const eventPool = [
     id: "bombMentor",
     trigger: "showBomb",
     cooldown: 5, // só acontece a cada 5 dias no mínimo
+    requiresCopoSujo: true, // only after bombing at Copo Sujo
     text:
-      "Depois de uma água absurda no Copo Sujo, Illan Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
+      "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
     image: "carvalho.png",
     choices: [
       {
@@ -1567,6 +1599,15 @@ function maybeTriggerEvent(trigger, context = {}) {
   if (!state || !Array.isArray(eventPool)) {
     return;
   }
+  
+  // Check weekly event limit for random events
+  if (trigger === "random") {
+    const maxEventsPerWeek = 3;
+    if ((state.eventsThisWeek || 0) >= maxEventsPerWeek) {
+      return; // Already had max events this week
+    }
+  }
+  
   const candidates = eventPool.filter((event) => {
     return event && eventMatchesTrigger(event, trigger, context);
   });
@@ -1575,6 +1616,10 @@ function maybeTriggerEvent(trigger, context = {}) {
   }
   const event = candidates[Math.floor(Math.random() * candidates.length)];
   if (event && event.text) {
+    // Increment weekly event counter for random events
+    if (trigger === "random") {
+      state.eventsThisWeek = (state.eventsThisWeek || 0) + 1;
+    }
     showEvent(event);
   }
 }
@@ -1596,6 +1641,17 @@ function eventMatchesTrigger(event, trigger, context = {}) {
   if (event.trigger !== trigger) {
     return false;
   }
+  
+  // Special requirement: only trigger at Copo Sujo shows
+  if (event.requiresCopoSujo && context.show) {
+    const isCopoSujo = context.show.id === "copo-sujo" || 
+                       context.show.id === "5a5" || 
+                       context.show.id === "pague15";
+    if (!isCopoSujo) {
+      return false;
+    }
+  }
+  
   switch (event.trigger) {
     case "showKill":
       return true;
@@ -1648,6 +1704,11 @@ function handleEventChoiceIndex(index) {
     state.eventsSeen.push(eventRef.id);
   }
   
+  // Track last triggered for cooldown events
+  if (eventRef.cooldown) {
+    eventRef.lastTriggered = state.currentDay;
+  }
+  
   const hasStartShow = !!choice.startShowId;
   const hasNarration = !!choice.narration;
   
@@ -1655,24 +1716,58 @@ function handleEventChoiceIndex(index) {
   activeEvent = null;
   uiMode = "idle";
   
+  // Apply effects and show what changed
+  const effectsSummary = formatEffectsSummary(choice.effects || {});
   applyEventEffects(choice.effects || {});
   updateStats();
   
   if (hasStartShow) {
-    showDialog(choice.narration || "Convite aceito! Hora de subir no palco.", [
-      {
-        label: "Montar set",
-        handler: () => {
-          hideDialog();
-          startSpecialShow(choice.startShowId);
-        }
-      }
-    ]);
+    // Schedule the show instead of playing immediately
+    const show = findShowById(choice.startShowId);
+    if (show) {
+      const daysAhead = Math.random() < 0.5 ? 1 : 2; // 1-2 days ahead
+      const scheduledDay = state.currentDay + daysAhead;
+      state.scheduledShow = {
+        showId: show.id,
+        dayScheduled: scheduledDay,
+        showType: "normal"
+      };
+      updateStats();
+      
+      const dayName = getDayName(scheduledDay);
+      const fullNarration = `${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${dayName} (${daysAhead} dia(s)).`;
+      showDialog(fullNarration);
+    }
     return;
   }
   if (hasNarration) {
-    showDialog(choice.narration);
+    showDialog(`${choice.narration}${effectsSummary}`);
   }
+}
+
+function formatEffectsSummary(effects) {
+  if (!effects || Object.keys(effects).length === 0) {
+    return "";
+  }
+  
+  const changes = [];
+  if (effects.fans) {
+    changes.push(`Fãs ${formatSigned(effects.fans)}`);
+  }
+  if (effects.motivation) {
+    changes.push(`Motivação ${formatSigned(effects.motivation)}`);
+  }
+  if (effects.theory) {
+    changes.push(`Teoria ${formatSigned(effects.theory)}`);
+  }
+  if (effects.network) {
+    changes.push(`Network ${formatSigned(effects.network)}`);
+  }
+  if (effects.stageTime) {
+    changes.push(`Stage Time ${formatSigned(effects.stageTime)}`);
+  }
+  
+  return changes.length > 0 ? `\n\n📊 [${changes.join(" | ")}]` : "";
 }
 
 function applyEventEffects(effects) {
@@ -1696,16 +1791,25 @@ function applyEventEffects(effects) {
   }
 }
 
+// Map weekdays to room images (1-5 cycle through quartos)
+function getQuartoForWeekday(weekday) {
+  const quartos = ['quarto1.png', 'quarto2.png', 'quarto3.png', 'quarto4.png', 'quarto5.png'];
+  // Cycle through: Segunda=1, Terça=2, Quarta=3, Quinta=4, Sexta=5, Sábado=1, Domingo=2
+  if (weekday === 0) return quartos[1]; // Domingo = quarto2
+  if (weekday === 6) return quartos[0]; // Sábado = quarto1
+  return quartos[weekday - 1]; // Segunda-Sexta = quarto1-5
+}
+
 const scenes = {
-  home: { title: "Apartamentinho", image: "writing-at-home.jpg" },
-  writing: { title: "Bloco de notas", image: "writing-at-home.jpg" },
-  club: { title: "Clube", image: "coposujo.jpg" },
+  home: { title: "Apartamentinho", image: null }, // Dynamic based on day
+  writing: { title: "Bloco de notas", image: null }, // Dynamic
+  club: { title: "Clube", image: "copo-sujo-comedy.png" },
   bomb: { title: "Deu Água", image: "bombing-show.jpg" },
   ok: { title: "Sobreviveu", image: "normal-show.jpg" },
   kill: { title: "Matou no Palco", image: "killing-it.jpg" },
-  content: { title: "Conteúdo em casa", image: "bedroom.jpg" },
-  study: { title: "Estudos e referências", image: "agua2.jpg" },
-  event: { title: "Convite inesperado", image: "agua1.jpg" },
+  content: { title: "Conteúdo em casa", image: null }, // Dynamic
+  study: { title: "Estudos e referências", image: null }, // Dynamic
+  event: { title: "Convite inesperado", image: null }, // Dynamic
   intro: { title: "Professor Carvalho", image: "carvalho.png" }
 };
 
@@ -1762,8 +1866,9 @@ let lastLevelLabel = null;
 let dialogTimeout = null;
 const selectedJokeIds = new Set();
 const avatarImages = {
-  boy: "avatar.png",
-  girl: "normal-show.jpg"
+  avatar1: "avatar.png",
+  avatar2: "avatar2.png",
+  avatar3: "avatar3.png"
 };
 
 const elements = {};
@@ -1840,6 +1945,7 @@ function attachEvents() {
   // Add ripple effects to all buttons
   const addButtonEffects = (button, handler) => {
     button.addEventListener("click", (e) => {
+      playSound('click');
       createRipple(e, button);
       button.style.transform = 'scale(0.95)';
       setTimeout(() => {
@@ -1946,7 +2052,7 @@ function selectAvatar(key) {
 }
 
 function setAvatarImage(key) {
-  const src = avatarImages[key] || avatarImages.boy;
+  const src = avatarImages[key] || avatarImages.avatar1;
   elements.avatarImg.src = src;
 }
 
@@ -1997,6 +2103,8 @@ function showDialog(message, actions = []) {
     dialogTimeout = null;
   }
   
+  playSound('menu'); // Menu sound when opening dialog
+  
   elements.dialogText.textContent = message || "";
   elements.dialogActions.innerHTML = "";
   
@@ -2045,6 +2153,11 @@ function showDialog(message, actions = []) {
     elements.dialogBox.style.opacity = '1';
     elements.dialogBox.style.transform = 'scale(1) translateY(0)';
   }, 10);
+  
+  // Scroll to dialog
+  setTimeout(() => {
+    elements.dialogBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
 }
 
 function hideDialog() {
@@ -2127,11 +2240,13 @@ function loadGameState() {
       // Time system
       currentDay: parsed.currentDay ?? baseState.currentDay,
       currentWeekDay: parsed.currentWeekDay ?? baseState.currentWeekDay,
+      currentWeek: parsed.currentWeek ?? baseState.currentWeek,
       activityPoints: parsed.activityPoints ?? baseState.activityPoints,
       scheduledShow: parsed.scheduledShow || baseState.scheduledShow,
       showHistory: Array.isArray(parsed.showHistory) ? parsed.showHistory : [],
       consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
       flowState: parsed.flowState || null,
+      eventsThisWeek: parsed.eventsThisWeek ?? 0,
       // Level progression
       level: parsed.level || baseState.level,
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
@@ -2161,11 +2276,13 @@ function saveGameState() {
     // Time system
     currentDay: state.currentDay,
     currentWeekDay: state.currentWeekDay,
+    currentWeek: state.currentWeek,
     activityPoints: state.activityPoints,
     scheduledShow: state.scheduledShow,
     showHistory: state.showHistory,
     consecutiveGoodShows: state.consecutiveGoodShows,
     flowState: state.flowState,
+    eventsThisWeek: state.eventsThisWeek,
     // Level progression
     level: state.level,
     showsAtLevel4: state.showsAtLevel4,
@@ -2210,7 +2327,14 @@ function setScene(sceneKey, customTitle, customImage) {
   elements.image.style.transform = 'scale(0.95)';
   
   setTimeout(() => {
-    elements.image.src = customImage || scene.image || "writing-at-home.jpg";
+    let imageToUse = customImage || scene.image;
+    
+    // Use dynamic quarto image for home scenes based on weekday
+    if (!customImage && !scene.image && state && typeof state.currentWeekDay !== 'undefined') {
+      imageToUse = getQuartoForWeekday(state.currentWeekDay);
+    }
+    
+    elements.image.src = imageToUse || "writing-at-home.jpg";
     elements.image.onload = () => {
       elements.image.style.opacity = '1';
       elements.image.style.transform = 'scale(1)';
@@ -2400,6 +2524,12 @@ function advanceDay() {
   state.currentWeekDay = (state.currentWeekDay + 1) % 7;
   state.activityPoints = MAX_ACTIVITY_POINTS;
   
+  // Check if new week started (when returning to Monday/weekday 1)
+  if (state.currentWeekDay === 1) {
+    state.currentWeek = (state.currentWeek || 1) + 1;
+    state.eventsThisWeek = 0; // Reset weekly event counter
+  }
+  
   // Motivation recovery
   state.motivation = clamp(state.motivation + 5, 0, 120);
   
@@ -2409,11 +2539,16 @@ function advanceDay() {
   updateStats();
   setScene("home");
   
+  playSound('findSomething'); // New day sound
+  
   const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
   displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${MAX_ACTIVITY_POINTS} pontos de atividade.`);
   
-  // Chance for random events
-  if (Math.random() < 0.2) {
+  // Reduced chance for random events (max 1-3 per week)
+  const maxEventsPerWeek = 3;
+  const canTriggerEvent = (state.eventsThisWeek || 0) < maxEventsPerWeek;
+  
+  if (canTriggerEvent && Math.random() < 0.15) { // Reduced from 0.2
     maybeTriggerEvent("random", { source: "newDay" });
   }
   
@@ -2438,6 +2573,8 @@ function handleGoToScheduledShow() {
     displayNarration("❌ O show foi cancelado de última hora.");
     return;
   }
+  
+  playSound('comeWithMe'); // Going to show sound
   
   // Clear the scheduled show and start show preparation
   const scheduledShow = state.scheduledShow;
@@ -2609,6 +2746,11 @@ function presentWritingModes() {
         setTimeout(() => createJokeFromMode(btn.dataset.mode), 150);
       });
     });
+  
+  // Scroll to the options
+  setTimeout(() => {
+    elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function exitWritingMode() {
@@ -2725,6 +2867,11 @@ function showJokeCustomization(idea, mode) {
       window.pendingJokeMode = null;
     }}
   ]);
+  
+  // Scroll to customization area
+  setTimeout(() => {
+    elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function finalizeJokeCreation() {
@@ -2790,6 +2937,7 @@ function finalizeJokeCreation() {
   updateStats();
   setScene("writing");
   
+  playSound('pokeball'); // Sound for creating joke
   flashScreen('rgba(212, 168, 75, 0.2)');
   if (adjustedPotential > 0.7) {
     spawnConfetti(15);
@@ -2833,6 +2981,7 @@ function handleSearchShow() {
 }
 
 function searchForNewShow() {
+  playSound('findSomething'); // Sound when finding shows
   flashScreen('rgba(139, 115, 85, 0.2)');
   
   // Generate available shows based on day of week and level
@@ -2863,14 +3012,38 @@ function generateAvailableShows() {
     return true;
   });
   
-  // Add special shows based on conditions
-  // 5 a 5 is available on Sundays (weekDay === 0)
-  const is5a5Day = weekDay === 0 || (state.currentDay + 1) % 7 === 0 || (state.currentDay + 2) % 7 === 0;
+  // Check for 5 a 5 (always Sunday, weekday 0)
+  if (level === "open") {
+    const daysTo5a5 = findDaysToWeekday(0); // Sunday
+    if (daysTo5a5 >= 0 && daysTo5a5 <= 3) {
+      // If today is Sunday and no show scheduled, offer for today
+      const actualDaysAhead = daysTo5a5 === 0 ? (state.scheduledShow ? 7 : 0) : daysTo5a5;
+      if (actualDaysAhead >= 0 && actualDaysAhead <= 3) {
+        shows.unshift({
+          show: create5a5Show(),
+          daysAhead: Math.max(actualDaysAhead, 1), // At least 1 day ahead if not today
+          showType: "5a5"
+        });
+      }
+    }
+  }
   
-  // Pague 15 is on Thursdays (weekDay === 4) - only if unlocked
-  const isPague15Day = state.pague15Unlocked && (weekDay === 4 || (state.currentDay + 1) % 7 === 4 || (state.currentDay + 2) % 7 === 4);
+  // Check for Pague 15 (always Thursday, weekday 4) - only if unlocked
+  if (state.pague15Unlocked) {
+    const daysToPague15 = findDaysToWeekday(4); // Thursday
+    if (daysToPague15 >= 0 && daysToPague15 <= 3) {
+      const actualDaysAhead = daysToPague15 === 0 ? (state.scheduledShow ? 7 : 0) : daysToPague15;
+      if (actualDaysAhead >= 0 && actualDaysAhead <= 3) {
+        shows.unshift({
+          show: createPague15Show(),
+          daysAhead: Math.max(actualDaysAhead, 1),
+          showType: "pague15"
+        });
+      }
+    }
+  }
   
-  // Randomly select 2-4 shows based on network
+  // Randomly select 2-4 regular shows based on network
   const numShows = Math.min(eligibleShows.length, 2 + Math.floor(network / 20));
   
   // Shuffle and pick
@@ -2884,41 +3057,25 @@ function generateAvailableShows() {
     });
   }
   
-  // Add 5 a 5 if available
-  if (is5a5Day && level === "open") {
-    const daysTo5a5 = findDaysToWeekday(0); // Sunday
-    if (daysTo5a5 <= 3) {
-      shows.unshift({
-        show: create5a5Show(),
-        daysAhead: daysTo5a5,
-        showType: "5a5"
-      });
-    }
-  }
-  
-  // Add Pague 15 if unlocked and available
-  if (isPague15Day) {
-    const daysToPague15 = findDaysToWeekday(4); // Thursday
-    if (daysToPague15 <= 3) {
-      shows.unshift({
-        show: createPague15Show(),
-        daysAhead: daysToPague15,
-        showType: "pague15"
-      });
-    }
-  }
-  
   return shows;
 }
 
 function findDaysToWeekday(targetWeekday) {
   let days = 0;
   let checkDay = state.currentWeekDay;
+  
+  // If today is the target day, return 0 (today)
+  if (checkDay === targetWeekday) {
+    return 0;
+  }
+  
+  // Find next occurrence
   while (checkDay !== targetWeekday && days < 7) {
     checkDay = (checkDay + 1) % 7;
     days++;
   }
-  return days === 0 ? 7 : days; // If today is the day, next occurrence is in 7 days
+  
+  return days;
 }
 
 function create5a5Show() {
@@ -2930,7 +3087,7 @@ function create5a5Show() {
     difficulty: 0.2,
     crowd: "Plateia escassa, parte dela de opens como você. Ambiente de teste.",
     intro: "Domingo à tarde no Copo Sujo. Você começa com 1 minuto e se for bem, ganha mais 2.",
-    image: "coposujo.jpg",
+    image: "copo-sujo-comedy.png",
     vibeHint: "Material conciso e punchlines claras são essenciais para ganhar os 2 minutos extras.",
     typeAffinity: {
       default: 0,
@@ -2953,7 +3110,7 @@ function createPague15Show() {
     difficulty: 0.35,
     crowd: "Plateia experiente e crítica. O produtor olha o relógio.",
     intro: "Quinta-feira de Pague 15. Você tem exatamente 5 minutos. Nem mais, nem menos.",
-    image: "coposujo.jpg",
+    image: "copo-sujo-comedy.png",
     vibeHint: "Timing preciso é tudo. O produtor corta quem passa do tempo.",
     typeAffinity: {
       default: 0.1,
@@ -2981,7 +3138,7 @@ function presentShowOptions(availableShows) {
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
     
     return {
-      label: `${label}\n📅 ${dayName} (${daysAhead}d) | ⏱️ ${offeredTime}min oferecidos`,
+      label: `${label}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
       handler: () => {
         hideDialog();
         scheduleShow(show, scheduledDay, showType);
@@ -3001,6 +3158,7 @@ function scheduleShow(show, scheduledDay, showType = "normal") {
     showType
   };
   
+  playSound('getSomething'); // Got something sound
   state.network = (state.network || 10) + 1; // Booking shows increases network
   updateStats();
   
@@ -3016,7 +3174,6 @@ function beginShowPreparationWithTime(show, offeredMinutes) {
   uiMode = "showSelection";
   selectedJokeIds.clear();
   
-  elements.subTitle.textContent = `🎭 Monte até ${offeredMinutes} min para ${show.name}`;
   renderJokeList({ selectable: true });
   renderSetSummary();
   setScene("club", show.name, show.image);
@@ -3054,6 +3211,9 @@ function startSpecialShow(showId) {
     return;
   }
   hideDialog();
+  
+  // If this is from an event, schedule it instead of playing immediately
+  // (This function is now mainly used for backward compatibility)
   beginShowPreparation(specialShow);
 }
 
@@ -3070,6 +3230,7 @@ function handleViewMaterial() {
 
 function handleSaveGame() {
   saveGameState();
+  playSound('save');
   flashScreen('rgba(90, 143, 90, 0.25)');
   displayNarration("💾 Jogo salvo no seu navegador. Pode fechar o bloco e voltar quando quiser.");
 }
@@ -3168,7 +3329,14 @@ function renderJokeList({ selectable }) {
   if (!shouldDisplay) {
     elements.jokeList.style.display = "none";
     elements.legend.style.display = "none";
+    elements.subTitle.style.display = "block";
     return;
+  }
+
+  // Show "Material" title
+  if (uiMode === "showSelection") {
+    elements.subTitle.textContent = "📝 Material";
+    elements.subTitle.style.display = "block";
   }
 
   elements.legend.textContent = LEGEND_TEXT;
@@ -3350,6 +3518,11 @@ function rewriteJoke(jokeId) {
       handleViewMaterial();
     }}
   ]);
+  
+  // Scroll to customization area
+  setTimeout(() => {
+    elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function finalizeRewrite() {
@@ -3412,15 +3585,33 @@ function renderSetSummary() {
   const tones =
     [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   
-  const meetsMinimum = currentShow && minutes >= currentShow.minMinutes;
-  const minuteColor = meetsMinimum ? 'var(--neon-cyan)' : 'var(--neon-pink)';
+  const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
+  
+  // Color code based on how close to offered time
+  let minuteColor = 'var(--neon-cyan)';
+  let timeWarning = '';
+  
+  if (minutes < offeredMinutes * 0.7) {
+    minuteColor = 'var(--neon-pink)';
+    timeWarning = ' ⚠️ MUITO POUCO';
+  } else if (minutes < offeredMinutes * 0.9) {
+    minuteColor = 'var(--accent-gold)';
+    timeWarning = ' ⚡ Pouco';
+  } else if (minutes > offeredMinutes * 1.5) {
+    minuteColor = 'var(--neon-pink)';
+    timeWarning = ' ⚠️ MUITO LONGO';
+  } else if (minutes > offeredMinutes * 1.2) {
+    minuteColor = 'var(--accent-gold)';
+    timeWarning = ' ⚡ Estourando';
+  }
   
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}</strong> min</span></div>
+    <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
     ${currentShow?.vibeHint ? `<div>💡 ${currentShow.vibeHint}</div>` : ""}
+    <div style="font-size: 0.95rem; color: var(--cream-dark);">💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências.</div>
   `;
 }
 
@@ -3460,13 +3651,9 @@ function performShow() {
     }
   }
   
-  // Check time limit
+  // Time validation - allow going over or under, but with consequences
   const offeredMinutes = currentShow.offeredMinutes || currentShow.minMinutes;
-  if (totalMinutes > offeredMinutes) {
-    shakeScreen();
-    displayNarration(`⚠️ Você só tem ${offeredMinutes} minutos oferecidos, mas selecionou ${totalMinutes}min de material!`);
-    return;
-  }
+  // No hard limit, player can choose freely
   
   // Stage entrance effect
   flashScreen('rgba(255, 248, 220, 0.3)');
@@ -3618,29 +3805,58 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
   const ratio = actualMinutes / expectedMinutes;
   let adjustment = 0;
   let note = "Tempo na medida, produtor sorriu pra você.";
-
-  if (ratio < 0.6) {
-    adjustment -= 0.25;
-    note = "Você saiu cedo demais e deixou a plateia confusa.";
+  
+  // More severe penalties/bonuses based on performance
+  if (ratio < 0.5) {
+    // Way too short
+    if (baseScore >= 0.35) {
+      adjustment -= 0.15;
+      note = "Você fez muito pouco tempo, mas o material era tão bom que compensou.";
+    } else {
+      adjustment -= 0.35;
+      note = "Você entregou muito menos que o esperado E o material não foi bom. Péssima impressão.";
+    }
+  } else if (ratio < 0.7) {
+    if (baseScore >= 0.35) {
+      adjustment -= 0.05;
+      note = "Você fez menos tempo, mas estava matando então tá perdoado.";
+    } else {
+      adjustment -= 0.25;
+      note = "Pouco tempo e qualidade duvidosa. O produtor não gostou.";
+    }
   } else if (ratio < 0.9) {
-    adjustment -= 0.12;
-    note = "Você entregou menos tempo que o combinado.";
-  } else if (ratio > 1.6) {
-    adjustment -= 0.2;
-    note = "Passou demais do tempo e o produtor te cortou o microfone.";
+    if (baseScore >= 0.3) {
+      adjustment += 0.02;
+      note = "Você entregou um pouco menos, mas com qualidade. Deixa o público querendo mais.";
+    } else {
+      adjustment -= 0.12;
+      note = "Você entregou menos tempo que o combinado.";
+    }
+  } else if (ratio > 2.0) {
+    // Way too long
+    if (baseScore >= 0.35) {
+      adjustment -= 0.1;
+      note = "Você passou MUITO do tempo. Mesmo sendo bom, o produtor ficou puto.";
+    } else {
+      adjustment -= 0.4;
+      note = "Material fraco E tempo estourado. Você foi cortado no microfone. Desastre total.";
+    }
+  } else if (ratio > 1.5) {
+    if (baseScore >= 0.35) {
+      adjustment += 0.05;
+      note = "Você passou do tempo, mas a plateia te segurou no palco. O produtor relevou.";
+    } else {
+      adjustment -= 0.25;
+      note = "Passou demais do tempo e o material não justificava. Constrangedor.";
+    }
   } else if (ratio > 1.2) {
-    adjustment -= 0.08;
-    note = "Você estourou alguns minutos e o clima ficou tenso.";
-  }
-
-  if (ratio < 0.9 && baseScore >= 0.35) {
-    adjustment += 0.07;
-    note = "Você fez menos tempo, mas foi tão bom que ninguém reclamou.";
-  }
-
-  if (ratio > 1.2 && baseScore >= 0.35) {
-    adjustment += 0.12;
-    note = "Você passou do tempo porque a plateia te segurou no palco.";
+    if (baseScore >= 0.3) {
+      adjustment += 0.12;
+      note = "Você estourou, mas estava matando então valeu cada segundo extra.";
+    } else {
+      adjustment -= 0.15;
+      note = "Você estourou alguns minutos e o clima ficou tenso.";
+    }
   }
 
   return { adjustment, note, ratio };
@@ -3757,15 +3973,18 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   // Set scene based on outcome
   if (nota >= 4) {
     setScene("kill");
+    playSound('victory'); // Victory sound for good show
     setTimeout(() => {
       spawnConfetti(nota === 5 ? 70 : 40);
       flashScreen('rgba(212, 168, 75, 0.35)');
     }, 300);
   } else if (nota >= 3) {
     setScene("ok");
+    playSound('getSomething'); // Okay sound
     flashScreen('rgba(245, 230, 200, 0.15)');
   } else {
     setScene("bomb");
+    playSound('boom'); // Bomb sound for bad show
     shakeScreen();
     flashScreen('rgba(166, 68, 68, 0.25)');
   }
