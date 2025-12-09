@@ -3778,7 +3778,9 @@ function handleShowCredits() {
     "Thiago Grinberg,"
   ];
   
-  const creditsText = `⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\nAgradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível! Essa é a versão beta então teoricamente se você está jogando seu nome tá na lista hahaha Contribua: carvalhoillan@gmail.com (pix)`;
+  const creditsText = `⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\n
+Agradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível! Essa é a versão beta então teoricamente se você está jogando seu nome tá na lista hahaha \n
+Contribua: carvalhoillan@gmail.com (pix)`;
   
   showDialog(creditsText);
 }
