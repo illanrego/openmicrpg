@@ -1435,12 +1435,35 @@ const eventPool = [
         label: "Aceitar o convite",
         effects: { motivation: 8, theory: 3, network: 5 },
         scheduleShow: "5a5", // This will schedule the 5a5 show
-        narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco."
+        narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.",
+        unlock5a5: true // Unlock 5a5 show availability
       },
       {
         label: "Quero mais material primeiro",
         effects: { motivation: -2 },
         narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar."
+      }
+    ]
+  },
+  {
+    id: "pauloAraujoPague15",
+    trigger: "pague15Invite",
+    once: true,
+    isCharacterEvent: true,
+    text:
+      "Paulo Araújo te manda mensagem: 'E aí, vi que você tá mandando bem no 5 a 5! Que tal fazer parte do elenco fixo do Pague 15? É um show mais sério, com plateia pagante. Você topa?'",
+    image: "paulo-araujo.png",
+    choices: [
+      {
+        label: "Aceitar fazer parte do elenco fixo",
+        effects: { motivation: 10, network: 8, theory: 5 },
+        unlockPague15: true,
+        narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!"
+      },
+      {
+        label: "Ainda não me sinto pronto",
+        effects: { motivation: -3 },
+        narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta."
       }
     ]
   },
@@ -1690,7 +1713,7 @@ const eventPool = [
 ];
 
 function maybeTriggerEvent(trigger, context = {}) {
-  if (activeEvent || !trigger || typeof trigger !== "string") {
+  if (activeEvent || pendingEvent || !trigger || typeof trigger !== "string") {
     return;
   }
   if (!state || !Array.isArray(eventPool)) {
@@ -1722,7 +1745,13 @@ function maybeTriggerEvent(trigger, context = {}) {
     if (trigger === "random") {
       state.eventsThisWeek = (state.eventsThisWeek || 0) + 1;
     }
-    showEvent(event);
+    // Store as pending to avoid conflicting with current activity outcomes
+    // Only show immediately for newDay events (no conflicting outcome)
+    if (context.source === "newDay") {
+      showEvent(event);
+    } else {
+      pendingEvent = event;
+    }
   }
 }
 
@@ -1776,11 +1805,46 @@ function eventMatchesTrigger(event, trigger, context = {}) {
       return typeof state.fans === "number" && state.fans >= 50;
     case "jokes5":
       return Array.isArray(state.jokes) && state.jokes.length === 5;
+    case "pague15Invite":
+      // Trigger after 3 successful 5a5 shows (nota 4+)
+      return (state.shows5a5AtLevel4 || 0) >= 3 && !state.pague15Unlocked;
     case "random":
       return Math.random() < 0.25; // Reduced from 0.35 since we have more events
     default:
       return false;
   }
+}
+
+function showPendingEvent() {
+  if (!pendingEvent || activeEvent) {
+    return;
+  }
+  
+  const event = pendingEvent;
+  pendingEvent = null;
+  activeEvent = event;
+  uiMode = "event";
+  
+  // Set scene to event's own image/scene, not the show outcome
+  if (event.isCharacterEvent && event.image) {
+    setScene("event", "", event.image, true); // true = isCharacter
+  } else if (event.image) {
+    setScene("event", "", event.image, false);
+  } else {
+    // Default to home scene if no event image
+    setScene("home");
+  }
+  
+  // Play special sound for good events
+  if (event.isGoodEvent) {
+    playSound('findSomething');
+  }
+  
+  const actions = (event.choices || []).map((choice, index) => ({
+    label: choice.label,
+    handler: () => handleEventChoiceIndex(index)
+  }));
+  showDialog(event.text, actions);
 }
 
 function showEvent(event) {
@@ -1835,14 +1899,28 @@ function handleEventChoiceIndex(index) {
   const hasStartShow = !!choice.startShowId;
   const hasScheduleShow = !!choice.scheduleShow;
   const hasNarration = !!choice.narration;
+  const unlock5a5 = !!choice.unlock5a5;
+  const unlockPague15 = !!choice.unlockPague15;
   
   hideDialog();
   activeEvent = null;
   uiMode = "idle";
   
+  // Return to home scene after event
+  setScene("home");
+  
   // Apply effects and show what changed
   const effectsSummary = formatEffectsSummary(choice.effects || {});
   applyEventEffects(choice.effects || {});
+  
+  // Handle unlocks
+  if (unlock5a5) {
+    state.fiveA5Unlocked = true;
+  }
+  if (unlockPague15) {
+    state.pague15Unlocked = true;
+  }
+  
   updateStats();
   
   if (hasStartShow) {
@@ -2024,6 +2102,7 @@ let currentShow = null;
 let uiMode = "idle";
 let introStep = 0;
 let activeEvent = null;
+let pendingEvent = null;
 let lastLevelLabel = null;
 let dialogTimeout = null;
 const selectedJokeIds = new Set();
@@ -2080,7 +2159,8 @@ function cacheElements() {
     save: document.querySelector("#button4"),
     content: document.querySelector("#button5"),
     study: document.querySelector("#button6"),
-    history: document.querySelector("#button7")
+    history: document.querySelector("#button7"),
+    credits: document.querySelector("#button8")
   };
   elements.stats = {
     name: document.querySelector("#nameText"),
@@ -2105,7 +2185,7 @@ function hydrateUI() {
 }
 
 function resetSubtitle() {
-  elements.subTitle.textContent = "Monte sua vida de palco";
+  elements.subTitle.textContent = "Construa sua jornada de Comic";
 }
 
 function attachEvents() {
@@ -2129,6 +2209,9 @@ function attachEvents() {
   addButtonEffects(elements.buttons.content, handleCreateContent);
   addButtonEffects(elements.buttons.study, handleStudy);
   addButtonEffects(elements.buttons.history, handleViewHistory);
+  if (elements.buttons.credits) {
+    addButtonEffects(elements.buttons.credits, handleShowCredits);
+  }
   addButtonEffects(elements.btnContinuar, performShow);
   
   elements.jokeList.addEventListener("click", handleJokeListClick);
@@ -2408,6 +2491,7 @@ function loadGameState() {
     level: "open",
     showsAtLevel4: 0,       // contagem de shows nota 4+ no nível atual
     shows5a5AtLevel4: 0,    // contagem de shows 5a5 nota 4+
+    fiveA5Unlocked: false,  // unlocked after paulo araujo evento surpresa
     pague15Unlocked: false,
     // Network (hidden metric)
     network: 10
@@ -2449,6 +2533,7 @@ function loadGameState() {
       level: parsed.level || baseState.level,
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
+      fiveA5Unlocked: parsed.fiveA5Unlocked ?? false,
       pague15Unlocked: parsed.pague15Unlocked ?? false,
       // Network
       network: parsed.network ?? baseState.network
@@ -2486,6 +2571,7 @@ function saveGameState() {
     level: state.level,
     showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4,
+    fiveA5Unlocked: state.fiveA5Unlocked,
     pague15Unlocked: state.pague15Unlocked,
     // Network
     network: state.network,
@@ -3119,7 +3205,7 @@ function showJokeCustomization(idea, mode) {
   const defaultTitle = formatIdeaTitle(idea);
   
   const toneOptions = allowedTones.map(tone => 
-    `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}" title="${toneDescriptionsLong[tone] || ''}">${tone === idea.tone ? '⭐ ' : ''}${tone}</button>`
+    `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}" title="${toneDescriptionsLong[tone] || ''}">${tone}</button>`
   ).join('');
   
   const structureOptions = structures.map(struct =>
@@ -3287,6 +3373,9 @@ function finalizeJokeCreation() {
     maybeTriggerEvent("jokes5", { source: "writing" });
   }
   maybeTriggerEvent("random", { source: "writing" });
+  
+  // Check for pending event and show button to access it
+  checkAndShowPendingEvent();
 }
 
 const MAX_SHOWS_PER_WEEK = 3;
@@ -3362,8 +3451,8 @@ function generateAvailableShows() {
     return true;
   });
   
-  // Check for 5 a 5 (always Sunday, weekday 0) - 75% chance (25% cancelled)
-  if (level === "open") {
+  // Check for 5 a 5 (always Sunday, weekday 0) - only if unlocked via evento surpresa
+  if (level === "open" && state.fiveA5Unlocked) {
     const daysTo5a5 = findDaysToWeekday(0); // Sunday
     const show5a5 = findShowById("5a5");
     
@@ -3615,6 +3704,9 @@ function createContentLong() {
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
   maybeTriggerEvent("fans20");
+  
+  // Check for pending event and show button to access it
+  checkAndShowPendingEvent();
 }
 
 function createContentQuick() {
@@ -3656,6 +3748,26 @@ function handleStudy() {
   
   displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade)");
   updateStats();
+}
+
+function handleShowCredits() {
+  const contributors = [
+    "Andre Foster,",
+    "Bruno Henrique,",
+    "Dhesme Gabriel,",
+    "Douglao,",
+    "Gabriel Andrade,",
+    "Iago Maia,",
+    "Luis Maia,",
+    "Paulo Araújo,",
+    "Rossini Luz,",
+    "Stevan Gaipo,",
+    "Thiago Grinberg,"
+  ];
+  
+  const creditsText = `⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\nAgradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível!`;
+  
+  showDialog(creditsText);
 }
 
 function handleViewHistory() {
@@ -4146,6 +4258,11 @@ function performShow() {
     maybeTriggerEvent("random", eventContext);
   }
   
+  // Check for Pague15 invite after successful 5a5 shows
+  if (showType === "5a5" && nota >= 4) {
+    maybeTriggerEvent("pague15Invite", eventContext);
+  }
+  
   if (state.fans >= 20) {
     maybeTriggerEvent("fans20");
   }
@@ -4261,16 +4378,9 @@ function checkLevelProgression(nota, showType) {
   if (state.level === "open" && nota >= 4) {
     state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
     
-    // Track 5a5 shows specifically for Pague15 unlock
+    // Track 5a5 shows for Pague15 invite event
     if (showType === "5a5") {
       state.shows5a5AtLevel4 = (state.shows5a5AtLevel4 || 0) + 1;
-      
-      // Unlock Pague 15 after 3 successful 5a5 shows
-      if (state.shows5a5AtLevel4 >= 3 && !state.pague15Unlocked) {
-        state.pague15Unlocked = true;
-        spawnConfetti(40);
-        showDialog("🎉 DESBLOQUEADO: Pague 15 Leve 10!\n\nPaulo Araújo te convidou para participar do 'Pague 15'! Você pode encontrar esse show às quintas-feiras.");
-      }
     }
     
     if (state.showsAtLevel4 >= 5) {
@@ -4402,6 +4512,31 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   
   const statsText = statFragments.length ? ` [${statFragments.join(" | ")}]` : "";
   displayNarration(`${message}${tempoNota}${breakdownText}${statsText}`);
+  
+  // Check for pending event and show button to access it
+  checkAndShowPendingEvent();
+}
+
+function checkAndShowPendingEvent() {
+  if (pendingEvent) {
+    setTimeout(() => {
+      showDialog("🎲 Algo aconteceu...", [
+        { 
+          label: "Ver Evento Surpresa", 
+          handler: () => {
+            hideDialog();
+            showPendingEvent();
+          }
+        },
+        { 
+          label: "Depois", 
+          handler: () => {
+            hideDialog();
+          }
+        }
+      ]);
+    }, 1000);
+  }
 }
 
 function fallbackEmojiForOutcome(outcome) {
