@@ -3606,6 +3606,11 @@ function beginShowPreparationWithTime(show, offeredMinutes) {
     elements.btnContinuar.style.opacity = '1';
     elements.btnContinuar.style.transform = 'translateY(0)';
   }, 400);
+  
+  // Scroll to joke selection area
+  setTimeout(() => {
+    elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 150);
 }
 
 function beginShowPreparation(show) {
@@ -3653,6 +3658,11 @@ function handleViewMaterial() {
   const notebookImage = getNotebookImageForTheory(theory);
   setScene("event", "", notebookImage, false);
   displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
+  
+  // Scroll to joke list
+  setTimeout(() => {
+    elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function handleSaveGame() {
@@ -3851,6 +3861,11 @@ function handleViewHistory() {
   `;
   
   displayNarration(`📊 Seu histórico de shows: ${totalShows} apresentações com média ${avgNota}. Você matou em ${showsNota4Plus} deles!`);
+  
+  // Scroll to history section
+  setTimeout(() => {
+    elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function renderJokeList({ selectable }) {

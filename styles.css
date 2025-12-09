@@ -470,7 +470,7 @@ button:active {
 #locationImg {
   display: block;
   margin: 0 auto 12px;
-  max-width: 280px;
+  max-width: 380px;
   width: 100%;
   border: 4px solid var(--menu-border);
   border-radius: 4px;
@@ -926,7 +926,7 @@ button:active {
   }
   
   #locationImg {
-    max-width: 160px;
+    max-width: 280px;
   }
 }
 
