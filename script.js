@@ -1080,7 +1080,7 @@ const showPool = [
     difficulty: 0.24,
     crowd: "Hipsters com barba provando IPAs e falando de lúpulo.",
     intro: "Uma cervejaria artesanal faz noite de stand-up entre as torneiras.",
-    image: "copo-sujo-comedy.png",
+    image: "cervejaria.png",
     vibeHint: "Observações sobre comportamento urbano e tendências funcionam.",
     typeAffinity: {
       default: 0.1,
@@ -4411,15 +4411,15 @@ function checkLevelProgression(nota, showType) {
 
 function checkFlowState(nota) {
   // Track consecutive good shows
-  if (nota >= 5) {
+  if (nota >= 4) {  // Changed from 5 to 4
     state.consecutiveGoodShows = (state.consecutiveGoodShows || 0) + 1;
   } else {
     state.consecutiveGoodShows = 0;
   }
   
-  // Activate flow state after 5 consecutive nota 5 shows AND high theory
+  // Activate flow state after 4 consecutive nota 4+ shows AND high theory
   if (!state.flowState?.active && 
-      state.consecutiveGoodShows >= 5 && 
+      state.consecutiveGoodShows >= 3 &&  // Changed from 5 to 4
       state.theory >= 50) {
     state.flowState = {
       active: true,
