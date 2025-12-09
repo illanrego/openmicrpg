@@ -161,7 +161,7 @@ function playSound(soundName) {
 
 // ========== TIME SYSTEM ==========
 const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const MAX_ACTIVITY_POINTS = 2;
+const MAX_ACTIVITY_POINTS = 1;
 
 const ACTIVITY_COSTS = {
   study: 1,
@@ -170,6 +170,10 @@ const ACTIVITY_COSTS = {
   contentLong: 1,    // criar conteúdo longo
   contentQuick: 0.5  // criar conteúdo rápido
 };
+
+// Note: With MAX_ACTIVITY_POINTS = 1, player can do:
+// - 1 major activity (study, desk write, content long) per day
+// - OR 2 minor activities (day notes, quick content) per day
 
 const createInitialTimeState = () => ({
   currentDay: 1,
@@ -180,7 +184,8 @@ const createInitialTimeState = () => ({
   showHistory: [],     // track shows done for progression
   consecutiveGoodShows: 0, // for flow state
   flowState: null,     // { active: true, daysRemaining: X, endChance: 0.2 }
-  eventsThisWeek: 0    // track events per week (max 1-3)
+  eventsThisWeek: 0,   // track events per week (max 1-3)
+  showsThisWeek: 0     // track shows per week (max 3)
 });
 
 const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack"];
@@ -217,11 +222,27 @@ const scoreToEmoji = (score) => {
 
 const structures = ["oneliner", "storytelling", "bit", "prop"];
 
+const structureDescriptions = {
+  oneliner: "Piada curta e direta, que não necessita de mais contexto.",
+  storytelling: "Uma narrativa, uma história com vários punchs.",
+  bit: "Sequência de piadas conectadas sobre um mesmo tema.",
+  prop: "Usa objetos ou elementos visuais para complementar a piada."
+};
+
+const toneDescriptionsLong = {
+  besteirol: "Humor bobo e descompromissado. Funciona bem com plateias relaxadas que querem rir sem pensar.",
+  vulgar: "Piadas pesadas, linguagem explícita. Pode dividir a sala, mas conecta com quem curte.",
+  limpo: "Humor família, sem palavrões. Ideal para corporativos e eventos diversos.",
+  "humor negro": "Piadas sobre temas tabu. Pode ser brilhante ou desastroso dependendo da plateia.",
+  hack: "Observações batidas mas eficientes. Todo mundo já ouviu, mas ainda funciona."
+};
+
 const writingModes = {
   desk: {
     id: "desk",
     label: "Sentar e escrever",
     desc: "Gasta motivação mas aumenta a chance de gerar algo sólido.",
+    costLabel: "⚡ 1 ponto",
     motivationCost: 8,
     theoryBonus: 0.05,
     timeBonus: 0.4
@@ -230,6 +251,7 @@ const writingModes = {
     id: "day",
     label: "Anotar durante o dia",
     desc: "Mais leve, rende ideias rápidas e mantém motivação em alta.",
+    costLabel: "⚡ 0.5 ponto",
     motivationCost: -5,
     theoryBonus: 0,
     timeBonus: 0
@@ -686,7 +708,7 @@ const showPool = [
     crowd: "Turistas queimados de sol, crianças correndo e ninguém muito sóbrio.",
     intro:
       "Uma tenda cultural te chama para preencher a programação. O vento leva metade das palavras, então precisa ser direto.",
-    image: "bombing-show.jpg",
+    image: "outdoor-gig.png",
     vibeHint: "Storytelling curto com finais absurdos prende a atenção.",
     typeAffinity: {
       default: -0.15,
@@ -705,7 +727,7 @@ const showPool = [
     crowd: "Casais com crianças e seguranças atentos.",
     intro:
       "O shopping resolveu apostar em stand-up 'para toda a família'. Microfone impecável, tolerância a palavrões próxima de zero.",
-    image: "normal-show.jpg",
+    image: "corporativo.png",
     vibeHint: "Material limpo com observações sobre cotidiano ganha pontos.",
     typeAffinity: {
       default: 0,
@@ -724,7 +746,7 @@ const showPool = [
     crowd: "Comediantes cansados e insônia coletiva às 2h da manhã.",
     intro:
       "Você caiu na lista do show secreto após a meia-noite. Só funciona se você ousar testar as coisas mais estranhas.",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     vibeHint: "Humor negro e bits experimentais são esperados.",
     typeAffinity: {
       default: -0.1,
@@ -762,7 +784,7 @@ const showPool = [
     crowd: "Fãs de comédia que conhecem cada referência.",
     intro:
       "Um podcast famoso abre espaço para sets curtos entre entrevistas. Tudo vira clipe em segundos.",
-    image: "normal-show.jpg",
+    image: "quarto3.png",
     vibeHint: "Piadas autorreferenciais e material sobre bastidores funcionam.",
     typeAffinity: {
       default: 0.1,
@@ -781,7 +803,7 @@ const showPool = [
     crowd: "Clientes esperando corte e barbeiros que comentam o set.",
     intro:
       "Uma barbearia hipster decidiu fazer stand-up entre cortes de cabelo. Espaço apertado, vibe íntima.",
-    image: "bedroom.jpg",
+    image: "barzinho.png",
     vibeHint: "Observações hack e bits sobre aparência conectam.",
     typeAffinity: {
       default: 0,
@@ -819,7 +841,7 @@ const showPool = [
     crowd: "Startupeiros ansiosos que só falam de app e rodadas de investimento.",
     intro:
       "Uma startup contratou comediantes para descontrair o happy hour. Cuidado para não ofender futuros contratantes.",
-    image: "killing-it.jpg",
+    image: "corporativo.png",
     vibeHint: "Piadas sobre tecnologia e trabalho remoto pontuam bem.",
     typeAffinity: {
       default: 0,
@@ -838,7 +860,7 @@ const showPool = [
     crowd: "Passageiros cansados que só querem chegar em casa.",
     intro:
       "Uma ação cultural leva stand-up para o vagão especial. Você tem pouco tempo entre as estações.",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     vibeHint: "One-liners rápidos e humor sobre transporte são essenciais.",
     typeAffinity: {
       default: -0.1,
@@ -857,7 +879,7 @@ const showPool = [
     crowd: "Plateia engajada que valoriza autenticidade.",
     intro:
       "Você foi convidado para uma noite temática com curadoria cuidadosa. Respeito e vulnerabilidade são chave.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Storytelling sincero e observações afiadas funcionam bem.",
     typeAffinity: {
       default: 0.1,
@@ -895,7 +917,7 @@ const showPool = [
     crowd: "Equipe exausta de vendas que precisa sorrir para continuar.",
     intro:
       "O RH te liga de última hora: o palestrante principal atrasou e você precisa segurar o clima.",
-    image: "killing-it.jpg",
+    image: "corporativo.png",
     vibeHint: "Piadas limpas sobre trabalho e improvisos corporativos salvam.",
     typeAffinity: {
       default: -0.2,
@@ -914,7 +936,7 @@ const showPool = [
     difficulty: 0.18,
     crowd: "Estudantes bêbados que riem de qualquer coisa depois das 23h.",
     intro: "Um bar perto da faculdade abre espaço para novatos. Público jovem e barulhento.",
-    image: "coposujo.jpg",
+    image: "copo-sujo-comedy.png",
     vibeHint: "Besteirol e vulgaridade funcionam bem com essa galera.",
     typeAffinity: {
       default: 0,
@@ -950,7 +972,7 @@ const showPool = [
     difficulty: 0.28,
     crowd: "Gringos expatriados e brasileiros que fingem entender inglês.",
     intro: "Um pub irlandês faz noite de comédia bilíngue. Sotaque não é problema.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Piadas universais sobre comportamento funcionam em qualquer língua.",
     typeAffinity: {
       default: 0.1,
@@ -968,7 +990,7 @@ const showPool = [
     difficulty: 0.22,
     crowd: "Famílias em rodízio que não vieram pra prestar atenção.",
     intro: "Uma churrascaria resolveu colocar entretenimento. Concorra com a picanha.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Material limpo e observações sobre comida ganham a mesa.",
     typeAffinity: {
       default: -0.1,
@@ -1004,7 +1026,7 @@ const showPool = [
     difficulty: 0.25,
     crowd: "Fãs de sertanejo entre uma música e outra do show principal.",
     intro: "Uma casa de shows sertaneja quer esquentar a plateia antes da banda.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Piadas sobre interior, família e relacionamento agradam.",
     typeAffinity: {
       default: 0,
@@ -1022,7 +1044,7 @@ const showPool = [
     difficulty: 0.2,
     crowd: "Mochileiros de todas as idades compartilhando histórias de viagem.",
     intro: "Um hostel faz noite de talentos. Qualquer um pode subir.",
-    image: "coposujo.jpg",
+    image: "copo-sujo-comedy.png",
     vibeHint: "Histórias de perrengue e observações culturais conectam.",
     typeAffinity: {
       default: 0.1,
@@ -1040,7 +1062,7 @@ const showPool = [
     difficulty: 0.45,
     crowd: "Parentes que não se veem há anos e amigos bêbados dos noivos.",
     intro: "Os noivos te contrataram para o brinde. Não estrague o dia mais importante deles.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     vibeHint: "Piadas sobre relacionamento e família, mas sem ser ofensivo.",
     typeAffinity: {
       default: -0.1,
@@ -1058,7 +1080,7 @@ const showPool = [
     difficulty: 0.3,
     crowd: "Pessoas generosas que pagaram ingresso caro por uma boa causa.",
     intro: "Um evento beneficente te convida. A causa é nobre, a pressão também.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Humor leve e positivo. Nada que estrague o clima de caridade.",
     typeAffinity: {
       default: 0.1,
@@ -1076,7 +1098,7 @@ const showPool = [
     difficulty: 0.24,
     crowd: "Hipsters com barba provando IPAs e falando de lúpulo.",
     intro: "Uma cervejaria artesanal faz noite de stand-up entre as torneiras.",
-    image: "coposujo.jpg",
+    image: "copo-sujo-comedy.png",
     vibeHint: "Observações sobre comportamento urbano e tendências funcionam.",
     typeAffinity: {
       default: 0.1,
@@ -1094,7 +1116,7 @@ const showPool = [
     difficulty: 0.35,
     crowd: "Trabalhadores em assembleia que querem descontrair.",
     intro: "O sindicato te chamou para a confraternização anual. Público exigente.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Piadas sobre trabalho e patrão funcionam. Evite política direta.",
     typeAffinity: {
       default: 0,
@@ -1112,7 +1134,7 @@ const showPool = [
     difficulty: 0.2,
     crowd: "Famílias em festa com quentão na mão e chapéu de palha.",
     intro: "Uma festa junina de bairro te convida para animar entre as quadrilhas.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Humor família e piadas sobre tradições caem bem.",
     typeAffinity: {
       default: 0.1,
@@ -1130,7 +1152,7 @@ const showPool = [
     difficulty: 0.28,
     crowd: "Comunidade LGBTQ+ que valoriza autenticidade e ousadia.",
     intro: "Uma casa noturna LGBTQ+ faz noite de stand-up. Seja você mesmo.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     vibeHint: "Autenticidade e humor sobre experiências pessoais conectam.",
     typeAffinity: {
       default: 0.15,
@@ -1148,7 +1170,7 @@ const showPool = [
     difficulty: 0.15,
     crowd: "Universitários em festa que só querem rir e beber.",
     intro: "Uma república estudantil abriu as portas para um show informal.",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     vibeHint: "Qualquer coisa que seja escandalosa ou boba funciona.",
     typeAffinity: {
       default: 0.1,
@@ -1166,7 +1188,7 @@ const showPool = [
     difficulty: 0.32,
     crowd: "Clientes de restaurante japonês sofisticado.",
     intro: "Um restaurante japonês chique quer inovar com entretenimento.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Humor sutil e observações refinadas agradam.",
     typeAffinity: {
       default: 0,
@@ -1184,7 +1206,7 @@ const showPool = [
     difficulty: 0.26,
     crowd: "Mulheres em noite só delas, celebrando juntas.",
     intro: "Uma noite de comédia só para mulheres. Ambiente acolhedor e empoderado.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     vibeHint: "Experiências genuínas e observações sobre o dia a dia conectam.",
     typeAffinity: {
       default: 0.1,
@@ -1202,7 +1224,7 @@ const showPool = [
     difficulty: 0.35,
     crowd: "Famílias passeando no domingo, crianças correndo.",
     intro: "Um evento cultural no parque te chama. Som ao ar livre, público disperso.",
-    image: "bombing-show.jpg",
+    image: "outdoor-gig.png",
     vibeHint: "Material limpo e energia alta para segurar atenção.",
     typeAffinity: {
       default: -0.1,
@@ -1221,7 +1243,7 @@ const showPool = [
     requiresLevel: "elenco",
     crowd: "Passageiros de cruzeiro de todas as idades e origens.",
     intro: "Um cruzeiro te contrata para a temporada. Público cativo e variado.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     vibeHint: "Humor universal, nada muito local ou nichado.",
     typeAffinity: {
       default: 0.05,
@@ -1240,7 +1262,7 @@ const showPool = [
     requiresLevel: "elenco",
     crowd: "Plateia de programa de TV, câmeras ligadas.",
     intro: "Você foi chamado para um quadro de comédia na TV. É sua chance de aparecer.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     vibeHint: "Material polido e timing perfeito. Cada segundo conta.",
     typeAffinity: {
       default: 0,
@@ -1269,6 +1291,45 @@ const showPool = [
       limpo: 0.3,
       hack: 0.2
     }
+  },
+  // ========== SPECIAL RECURRING SHOWS ==========
+  {
+    id: "5a5",
+    name: "5 a 5 - Copo Sujo",
+    minMinutes: 3,
+    difficulty: 0.15,
+    isSpecialShow: true,
+    crowd: "Plateia escassa, parte dela de opens como você. Ambiente de teste.",
+    intro: "Domingo à tarde no Copo Sujo. Um palco tranquilo para testar material novo.",
+    image: "copo-sujo-comedy.png",
+    vibeHint: "Material conciso e punchlines claras. Ótimo para testar piadas novas.",
+    typeAffinity: {
+      default: 0,
+      besteirol: 0.5,
+      vulgar: 0.1,
+      "humor negro": 0.2,
+      limpo: 0.3,
+      hack: 0.2
+    }
+  },
+  {
+    id: "pague15",
+    name: "Pague 15 Leve 10 - Copo Sujo",
+    minMinutes: 5,
+    difficulty: 0.35,
+    isSpecialShow: true,
+    crowd: "Plateia pagante que espera profissionalismo. O produtor cronometra.",
+    intro: "Quinta-feira no Copo Sujo. Show de iniciantes com plateia pagante. O produtor é rígido com tempo.",
+    image: "copo-sujo-comedy.png",
+    vibeHint: "Tempo é sagrado aqui. Não estoure os 5 minutos ou vai ser cortado.",
+    typeAffinity: {
+      default: 0.1,
+      besteirol: 0.3,
+      vulgar: 0,
+      "humor negro": 0.2,
+      limpo: 0.4,
+      hack: 0.3
+    }
   }
 ];
 
@@ -1281,19 +1342,22 @@ const eventPool = [
     id: "veterano",
     trigger: "showKill",
     once: true,
+    requiresGoodPerformance: true,
+    isGoodEvent: true,
+    isCharacterEvent: true,
     text:
-      "O veterano que fechou a noite te chama para abrir a turnê dele. Quer subir com ele ainda esta semana?",
-    image: "killing-it.jpg",
+      "Depois do show, Stevan Gaipo te aborda: 'Pô, curti teu set! Cê tem timing bom. To saindo em turnê pelo interior e preciso de alguém pra abrir. Topa vir comigo? São 7 minutos num palco lotado.'",
+    image: "stevan-gaipo.png",
     choices: [
       {
-        label: "Partiu estrada",
+        label: "Aceitar o convite",
         startShowId: "veterano-turne",
-        narration: "Você aceita o convite e ganha acesso ao palco mais nervoso da carreira."
+        narration: "Você aceita o convite do Stevan! É a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada."
       },
       {
-        label: "Ainda não estou pronto",
+        label: "Agradecer mas recusar",
         effects: { fans: -5, motivation: 6 },
-        narration: "Você recusa com honestidade e ganha tempo para fortalecer o set."
+        narration: "Você agradece o convite mas prefere se preparar mais. Stevan entende e diz que a porta tá aberta."
       }
     ]
   },
@@ -1301,18 +1365,18 @@ const eventPool = [
     id: "corporativoConvite",
     trigger: "random",
     text:
-      "Um RH desesperado te liga: o palestrante sumiu e eles precisam de stand-up durante o coffee break. Topa o perrengue?",
-    image: "killing-it.jpg",
+      "Seu telefone toca: é uma pessoa do RH de uma empresa. 'O palestrante sumiu e precisamos de alguém pra animar o coffee break! Paga bem, mas é pra agora!'",
+    image: "corporativo.png",
     choices: [
       {
-        label: "Segurar o corporativo",
+        label: "Aceitar o desafio",
         startShowId: "corporativo-surpresa",
-        narration: "Você aceita a bronca e vai direto montar o set profissional."
+        narration: "Você aceita e já começa a pensar em piadas sobre trabalho. O cachê vai ajudar nas contas!"
       },
       {
-        label: "Indicar outra pessoa",
+        label: "Indicar outro comediante",
         effects: { theory: 6, motivation: 4, network: 5 },
-        narration: "Você indica um amigo, ganha gratidão e network. Volta para casa estudando referencias."
+        narration: "Você passa o contato de um amigo. Ele agradece muito e te deve uma. Você usa o tempo livre pra estudar."
       }
     ]
   },
@@ -1322,7 +1386,7 @@ const eventPool = [
     once: true,
     text:
       "Um podcast de comédia quer te entrevistar. Você pode focar em piadas prontas ou falar sério sobre o processo.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     choices: [
       {
         label: "Mandar punchline atrás de punchline",
@@ -1341,6 +1405,7 @@ const eventPool = [
     trigger: "showBomb",
     cooldown: 5, // só acontece a cada 5 dias no mínimo
     requiresCopoSujo: true, // only after bombing at Copo Sujo
+    isCharacterEvent: true,
     text:
       "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
     image: "carvalho.png",
@@ -1361,19 +1426,21 @@ const eventPool = [
     id: "cincoPiadas",
     trigger: "jokes5",
     once: true,
+    isCharacterEvent: true,
     text:
-      "Você já tem 5 piadas no caderno! Professor Carvalho te liga: 'Parabéns, mas agora é hora de testar esse material no palco. Quer que eu te indique um open mic?'",
-    image: "carvalho.png",
+      "Você já tem 5 piadas no caderno! Paulo Araújo, um comediante que você conheceu num bar, te manda mensagem: 'E aí, vi que tu tá escrevendo! Tenho um slot sobrando no 5 a 5 desse domingo, quer testar esse material?'",
+    image: "paulo-araujo.png",
     choices: [
       {
-        label: "Aceitar a indicação",
+        label: "Aceitar o convite",
         effects: { motivation: 8, theory: 3, network: 5 },
-        narration: "Você ganha confiança, uma dica valiosa sobre timing e um contato importante."
+        scheduleShow: "5a5", // This will schedule the 5a5 show
+        narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco."
       },
       {
         label: "Quero mais material primeiro",
         effects: { motivation: -2 },
-        narration: "Você prefere escrever mais antes de encarar a plateia."
+        narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar."
       }
     ]
   },
@@ -1381,19 +1448,48 @@ const eventPool = [
   {
     id: "stevanEstrada",
     trigger: "random",
+    requiresGoodPerformance: true,
+    isGoodEvent: true,
+    isCharacterEvent: true,
     text:
-      "Stevan Gaipo te chamou para fazer show com ele na estrada! Você vai focar no seu texto durante o dia ou vai fazer network e relaxar à tarde?",
-    image: "normal-show.jpg",
+      "Stevan Gaipo te manda mensagem: 'E aí, vi teus shows, curti. To indo fazer uns gigs no interior semana que vem, quer vir junto?' A viagem é longa. Como você aproveita o tempo?",
+    image: "stevan-gaipo.png",
     choices: [
       {
-        label: "Focar no texto",
+        label: "Revisar material no trajeto",
         effects: { theory: 8, motivation: -3 },
-        narration: "Você revisa o material no trajeto. Pequeno boost no resultado do show, mas menos conexões."
+        narration: "Você passa a viagem revisando piadas e estruturando o set. Chega mais preparado, mas meio cansado."
       },
       {
-        label: "Network e relaxar",
+        label: "Fazer amizade com a galera",
         effects: { motivation: 5, network: 12 },
-        narration: "Você faz amizade com a galera. Seu network dispara e novas portas se abrem."
+        narration: "Você troca ideia com todo mundo, conta histórias, ouve outras. Sai com vários contatos novos e animado."
+      }
+    ]
+  },
+  {
+    id: "gabrielAndradeDicas",
+    trigger: "random",
+    isGoodEvent: true,
+    isCharacterEvent: true,
+    text:
+      "Gabriel Andrade, conhecido pelo humor de oneliners afiados e prop comedy maluca, te manda uma DM: 'Ei, vi seu material. Teus oneliners têm potencial mas falta punch! E já pensou em usar objetos no palco? Te ensino uns truques se quiser.'",
+    image: "gabriel-andrade.png",
+    choices: [
+      {
+        label: "Aprender técnica de oneliners",
+        effects: { theory: 12, motivation: 5 },
+        narration: "Gabriel te explica a estrutura perfeita do oneliner: setup curto, punch inesperado. 'A graça tá na economia de palavras', ele diz. Você anota tudo."
+      },
+      {
+        label: "Aprender prop comedy",
+        effects: { theory: 8, motivation: 8, fans: 3 },
+        narration: "Gabriel te mostra como um objeto simples pode virar 5 minutos de material. 'O prop não é muleta, é amplificador!' Você já começa a ter ideias."
+      },
+      {
+        label: "Só trocar ideia mesmo",
+        effects: { motivation: 6, network: 8 },
+        narration: "Vocês ficam trocando ideia sobre comédia por horas. Gabriel é gente boa demais e promete te indicar pra alguns shows."
       }
     ]
   },
@@ -1401,18 +1497,18 @@ const eventPool = [
     id: "criseCriativa",
     trigger: "random",
     text:
-      "Você está há dias sem conseguir escrever nada que preste. A página em branco te assombra. O que fazer?",
-    image: "bedroom.jpg",
+      "Você olha pro caderno em branco há horas. Nada vem. Tenta escrever, apaga, tenta de novo. Bloqueio criativo bateu forte.",
+    image: "quarto1.png",
     choices: [
       {
-        label: "Forçar e escrever qualquer coisa",
+        label: "Forçar até sair algo",
         effects: { motivation: -10, theory: 5 },
-        narration: "Você sofre, mas algo sai. A disciplina é importante, mesmo quando dói."
+        narration: "Você se obriga a escrever, mesmo que seja lixo. Depois de muito sofrimento, algumas ideias começam a aparecer."
       },
       {
-        label: "Dar um tempo e viver a vida",
+        label: "Sair e fazer outra coisa",
         effects: { motivation: 12, fans: 3 },
-        narration: "Você sai, encontra amigos, vive experiências. O material vai vir naturalmente."
+        narration: "Você fecha o caderno e vai viver. Encontra um amigo, passeia, observa as pessoas. Amanhã você volta com a cabeça fresca."
       }
     ]
   },
@@ -1422,7 +1518,7 @@ const eventPool = [
     once: true,
     text:
       "Um produtor de TV te viu num show e quer te chamar para um quadro. É uma oportunidade única, mas exige compromisso.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     choices: [
       {
         label: "Aceitar imediatamente",
@@ -1441,7 +1537,7 @@ const eventPool = [
     trigger: "random",
     text:
       "Você descobre que um 'amigo' comediante está usando piadas muito parecidas com as suas no set dele. Confronta?",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     choices: [
       {
         label: "Confrontar diretamente",
@@ -1460,7 +1556,7 @@ const eventPool = [
     trigger: "random",
     text:
       "Um vídeo seu bombou na internet... por motivos ruins. Uma piada foi tirada de contexto e você está sendo cancelado.",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     choices: [
       {
         label: "Se explicar publicamente",
@@ -1479,7 +1575,7 @@ const eventPool = [
     trigger: "random",
     text:
       "Uma empresa te oferece um bom dinheiro para fazer uma publi no palco. O produto é... questionável.",
-    image: "normal-show.jpg",
+    image: "bar-do-tony.png",
     choices: [
       {
         label: "Aceitar o dinheiro",
@@ -1498,7 +1594,7 @@ const eventPool = [
     trigger: "showKill",
     text:
       "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     choices: [
       {
         label: "Ir para a festa",
@@ -1516,24 +1612,25 @@ const eventPool = [
     id: "doencaDiaShow",
     trigger: "random",
     text:
-      "Você acordou mal no dia do show. Dor de garganta, febre baixa. Cancelar ou ir assim mesmo?",
-    image: "bombing-show.jpg",
+      "Você acorda se sentindo péssimo. Garganta arranhando, corpo mole, febre baixa. Tem um show marcado pra hoje...",
+    image: "quarto2.png",
     choices: [
       {
-        label: "Ir assim mesmo",
-        effects: { motivation: -8, network: 5, fans: -3 },
-        narration: "Você vai, mas não está 100%. O show é mediano, mas o produtor respeita o compromisso."
+        label: "Ir mesmo assim",
+        effects: { motivation: -8, network: 5 },
+        narration: "Você toma um remédio, vai e faz o set no automático. Não foi seu melhor dia, mas o produtor respeita quem cumpre compromisso."
       },
       {
-        label: "Cancelar e descansar",
+        label: "Avisar que não vai",
         effects: { motivation: 5, network: -8 },
-        narration: "Você cancela. Sua saúde agradece, mas o produtor fica na mão."
+        narration: "Você avisa o produtor que não tem condição. Ele não fica feliz, mas pelo menos você não piorou a doença."
       }
     ]
   },
   {
     id: "mentorOferece",
     trigger: "random",
+    isCharacterEvent: true,
     text:
       "Um comediante mais experiente te oferece mentoria. Mas ele é conhecido por ser duro e exigente.",
     image: "carvalho.png",
@@ -1556,7 +1653,7 @@ const eventPool = [
     once: true,
     text:
       "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
-    image: "killing-it.jpg",
+    image: "teatro-legal.png",
     choices: [
       {
         label: "Se inscrever",
@@ -1576,7 +1673,7 @@ const eventPool = [
     once: true,
     text:
       "Alguém gravou seu set inteiro e postou na internet sem permissão. Suas piadas estão expostas.",
-    image: "bombing-show.jpg",
+    image: "barzinho.png",
     choices: [
       {
         label: "Pedir para remover",
@@ -1600,9 +1697,14 @@ function maybeTriggerEvent(trigger, context = {}) {
     return;
   }
   
-  // Check weekly event limit for random events
+  // Events only happen after first show
+  if (!state.showHistory || state.showHistory.length === 0) {
+    return; // No events until first show is done
+  }
+  
+  // Check weekly event limit for random events (max 1-2 per week)
   if (trigger === "random") {
-    const maxEventsPerWeek = 3;
+    const maxEventsPerWeek = 2;
     if ((state.eventsThisWeek || 0) >= maxEventsPerWeek) {
       return; // Already had max events this week
     }
@@ -1652,6 +1754,14 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     }
   }
   
+  // Requires good performance: at least 3 shows with nota 4+
+  if (event.requiresGoodPerformance) {
+    const goodShows = (state.showHistory || []).filter(s => s.nota >= 4).length;
+    if (goodShows < 3) {
+      return false;
+    }
+  }
+  
   switch (event.trigger) {
     case "showKill":
       return true;
@@ -1679,7 +1789,20 @@ function showEvent(event) {
   }
   activeEvent = event;
   uiMode = "event";
-  setScene("event", "Evento surpresa", event.image || "agua1.jpg");
+  
+  // Character events show the character image (smaller)
+  if (event.isCharacterEvent && event.image) {
+    setScene("event", "", event.image, true); // true = isCharacter
+  }
+  // For non-character events after a show, keep the outcome image visible
+  // (don't change to quarto - the outcome image is more relevant context)
+  // Only change scene if we're not showing a show outcome
+  
+  // Play special sound for good events
+  if (event.isGoodEvent) {
+    playSound('findSomething');
+  }
+  
   const actions = (event.choices || []).map((choice, index) => ({
     label: choice.label,
     handler: () => handleEventChoiceIndex(index)
@@ -1710,6 +1833,7 @@ function handleEventChoiceIndex(index) {
   }
   
   const hasStartShow = !!choice.startShowId;
+  const hasScheduleShow = !!choice.scheduleShow;
   const hasNarration = !!choice.narration;
   
   hideDialog();
@@ -1740,6 +1864,42 @@ function handleEventChoiceIndex(index) {
     }
     return;
   }
+  
+  if (hasScheduleShow) {
+    // Schedule a specific special show (like 5a5)
+    const show = findShowById(choice.scheduleShow);
+    if (show) {
+      let daysAhead = 1;
+      let showType = "normal";
+      
+      // For 5a5, find next Sunday
+      if (choice.scheduleShow === "5a5") {
+        daysAhead = findDaysToWeekday(0); // Sunday
+        if (daysAhead === 0) daysAhead = 7; // If today is Sunday, next Sunday
+        showType = "5a5";
+      }
+      // For pague15, find next Thursday
+      else if (choice.scheduleShow === "pague15") {
+        daysAhead = findDaysToWeekday(4); // Thursday
+        if (daysAhead === 0) daysAhead = 7;
+        showType = "pague15";
+      }
+      
+      const scheduledDay = state.currentDay + daysAhead;
+      state.scheduledShow = {
+        showId: show.id,
+        dayScheduled: scheduledDay,
+        showType: showType
+      };
+      updateStats();
+      
+      const dayName = getDayName(scheduledDay);
+      const fullNarration = `${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${dayName} (${daysAhead} dia(s)).`;
+      showDialog(fullNarration);
+    }
+    return;
+  }
+  
   if (hasNarration) {
     showDialog(`${choice.narration}${effectsSummary}`);
   }
@@ -1804,12 +1964,14 @@ const scenes = {
   home: { title: "Apartamentinho", image: null }, // Dynamic based on day
   writing: { title: "Bloco de notas", image: null }, // Dynamic
   club: { title: "Clube", image: "copo-sujo-comedy.png" },
-  bomb: { title: "Deu Água", image: "bombing-show.jpg" },
-  ok: { title: "Sobreviveu", image: "normal-show.jpg" },
-  kill: { title: "Matou no Palco", image: "killing-it.jpg" },
+  bomb: { title: "Deu Água", image: "awful-show-1-out-5.png" },      // Nota 1
+  risinhos: { title: "Risinhos", image: "bad-show-2-out-5.png" },     // Nota 2
+  ok: { title: "Segurou", image: "good-show-3-out-5.png" },           // Nota 3
+  kill: { title: "Matou no Palco", image: "great-show-4-out-5.png" }, // Nota 4
+  explode: { title: "Explodiu!", image: "excellent-show-5-out-5.png" }, // Nota 5
   content: { title: "Conteúdo em casa", image: null }, // Dynamic
   study: { title: "Estudos e referências", image: null }, // Dynamic
-  event: { title: "Convite inesperado", image: null }, // Dynamic
+  event: { title: "", image: null }, // No title for events, use quarto
   intro: { title: "Professor Carvalho", image: "carvalho.png" }
 };
 
@@ -1907,13 +2069,18 @@ function cacheElements() {
   elements.scheduledShowInfo = document.querySelector("#scheduledShowInfo");
   elements.scheduledShowText = document.querySelector("#scheduledShowText");
   elements.flowIndicator = document.querySelector("#flowIndicator");
+  // Name input
+  elements.nameInput = document.querySelector("#nameInput");
+  elements.playerNameInput = document.querySelector("#playerNameInput");
+  elements.confirmNameBtn = document.querySelector("#confirmNameBtn");
   elements.buttons = {
     write: document.querySelector("#button1"),
     show: document.querySelector("#button2"),
     material: document.querySelector("#button3"),
     save: document.querySelector("#button4"),
     content: document.querySelector("#button5"),
-    study: document.querySelector("#button6")
+    study: document.querySelector("#button6"),
+    history: document.querySelector("#button7")
   };
   elements.stats = {
     name: document.querySelector("#nameText"),
@@ -1961,6 +2128,7 @@ function attachEvents() {
   addButtonEffects(elements.buttons.save, handleSaveGame);
   addButtonEffects(elements.buttons.content, handleCreateContent);
   addButtonEffects(elements.buttons.study, handleStudy);
+  addButtonEffects(elements.buttons.history, handleViewHistory);
   addButtonEffects(elements.btnContinuar, performShow);
   
   elements.jokeList.addEventListener("click", handleJokeListClick);
@@ -1982,6 +2150,18 @@ function attachEvents() {
   );
   
   elements.dialogClose.addEventListener("click", hideDialog);
+  
+  // Name input events
+  if (elements.confirmNameBtn) {
+    elements.confirmNameBtn.addEventListener("click", confirmPlayerName);
+  }
+  if (elements.playerNameInput) {
+    elements.playerNameInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        confirmPlayerName();
+      }
+    });
+  }
 }
 
 function bootGame() {
@@ -1998,7 +2178,7 @@ function bootGame() {
 function startIntro() {
   uiMode = "intro";
   introStep = 0;
-  setScene("intro", "Professor Carvalho", "carvalho.png");
+  setScene("intro", "Professor Carvalho", "carvalho.png", true); // true = isCharacter
   elements.introScreen.classList.remove("hidden");
   elements.screen.classList.add("hidden");
   if (elements.mainTitle) {
@@ -2016,8 +2196,25 @@ function playIntroLine() {
   const hasMore = introStep < mentorIntroLines.length - 1;
   elements.introContinue.style.display = hasMore ? "inline-block" : "none";
   if (!hasMore) {
-    elements.avatarSelection.style.display = "flex";
+    // Show name input first
+    elements.nameInput.style.display = "block";
+    elements.playerNameInput.focus();
   }
+}
+
+function confirmPlayerName() {
+  const name = elements.playerNameInput.value.trim();
+  if (!name || name.length < 2) {
+    shakeScreen();
+    return;
+  }
+  
+  playSound('getSomething');
+  state.name = name;
+  
+  // Hide name input, show avatar selection
+  elements.nameInput.style.display = "none";
+  elements.avatarSelection.style.display = "flex";
 }
 
 function advanceIntro() {
@@ -2247,6 +2444,7 @@ function loadGameState() {
       consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
       flowState: parsed.flowState || null,
       eventsThisWeek: parsed.eventsThisWeek ?? 0,
+      showsThisWeek: parsed.showsThisWeek ?? 0,
       // Level progression
       level: parsed.level || baseState.level,
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
@@ -2267,12 +2465,12 @@ function saveGameState() {
     stageTime: state.stageTime,
     jokes: state.jokes,
     language: state.language,
-    avatar: state.avatar,
-    hasStarted: state.hasStarted,
-    fans: state.fans,
-    motivation: state.motivation,
-    theory: state.theory,
-    eventsSeen: state.eventsSeen,
+     avatar: state.avatar,
+     hasStarted: state.hasStarted,
+     fans: state.fans,
+     motivation: state.motivation,
+     theory: state.theory,
+     eventsSeen: state.eventsSeen,
     // Time system
     currentDay: state.currentDay,
     currentWeekDay: state.currentWeekDay,
@@ -2283,6 +2481,7 @@ function saveGameState() {
     consecutiveGoodShows: state.consecutiveGoodShows,
     flowState: state.flowState,
     eventsThisWeek: state.eventsThisWeek,
+    showsThisWeek: state.showsThisWeek,
     // Level progression
     level: state.level,
     showsAtLevel4: state.showsAtLevel4,
@@ -2309,7 +2508,7 @@ function displayNarration(message) {
   }, 100);
 }
 
-function setScene(sceneKey, customTitle, customImage) {
+function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   const scene = scenes[sceneKey] || {};
   
   // Animate title change
@@ -2317,8 +2516,9 @@ function setScene(sceneKey, customTitle, customImage) {
   elements.title.style.transform = 'translateY(-10px)';
   
   setTimeout(() => {
-    elements.title.textContent = customTitle || scene.title || "Na estrada";
-    elements.title.style.opacity = '1';
+    const titleText = customTitle !== undefined ? customTitle : (scene.title || "Na estrada");
+    elements.title.textContent = titleText;
+    elements.title.style.opacity = titleText ? '1' : '0';
     elements.title.style.transform = 'translateY(0)';
   }, 150);
   
@@ -2334,7 +2534,14 @@ function setScene(sceneKey, customTitle, customImage) {
       imageToUse = getQuartoForWeekday(state.currentWeekDay);
     }
     
-    elements.image.src = imageToUse || "writing-at-home.jpg";
+    // Handle character class for NPC images
+    if (isCharacter) {
+      elements.image.classList.add('character-image');
+    } else {
+      elements.image.classList.remove('character-image');
+    }
+    
+    elements.image.src = imageToUse || "quarto1.png";
     elements.image.onload = () => {
       elements.image.style.opacity = '1';
       elements.image.style.transform = 'scale(1)';
@@ -2450,6 +2657,23 @@ function getLevelLabel(level) {
 function updateScheduledShowUI() {
   if (!elements.scheduledShowInfo || !elements.btnGoToShow) return;
   
+  // Update the main show button text based on scheduled show
+  if (elements.buttons.show) {
+    if (state.scheduledShow) {
+      const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+      if (daysUntil === 0) {
+        elements.buttons.show.textContent = "🎤 Ir para Show!";
+        elements.buttons.show.classList.add('show-today');
+      } else {
+        elements.buttons.show.textContent = "🎭 Buscar Show";
+        elements.buttons.show.classList.remove('show-today');
+      }
+    } else {
+      elements.buttons.show.textContent = "🎭 Buscar Show";
+      elements.buttons.show.classList.remove('show-today');
+    }
+  }
+  
   if (state.scheduledShow) {
     const show = findShowById(state.scheduledShow.showId);
     const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
@@ -2460,7 +2684,9 @@ function updateScheduledShowUI() {
       elements.btnGoToShow.textContent = `🎤 Ir para ${show?.name || 'o Show'}!`;
       elements.scheduledShowInfo.classList.add('hidden');
     } else if (daysUntil > 0) {
-      elements.btnGoToShow.classList.add('hidden');
+      // Show is in the future - still show button to skip days
+      elements.btnGoToShow.classList.remove('hidden');
+      elements.btnGoToShow.textContent = `⏩ Pular para ${show?.name || 'o Show'} (${daysUntil}d)`;
       elements.scheduledShowInfo.classList.remove('hidden');
       const showName = show?.name || 'Show';
       const dayName = getDayName(state.scheduledShow.dayScheduled);
@@ -2528,6 +2754,7 @@ function advanceDay() {
   if (state.currentWeekDay === 1) {
     state.currentWeek = (state.currentWeek || 1) + 1;
     state.eventsThisWeek = 0; // Reset weekly event counter
+    state.showsThisWeek = 0;  // Reset weekly show counter
   }
   
   // Motivation recovery
@@ -2539,16 +2766,17 @@ function advanceDay() {
   updateStats();
   setScene("home");
   
-  playSound('findSomething'); // New day sound
+  playSound('click'); // Simple sound for new day
   
   const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
   displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${MAX_ACTIVITY_POINTS} pontos de atividade.`);
   
-  // Reduced chance for random events (max 1-3 per week)
-  const maxEventsPerWeek = 3;
-  const canTriggerEvent = (state.eventsThisWeek || 0) < maxEventsPerWeek;
+  // Reduced chance for random events (max 1-2 per week)
+  const maxEventsPerWeek = 2;
+  const hasHadFirstShow = state.showHistory && state.showHistory.length > 0;
+  const canTriggerEvent = hasHadFirstShow && (state.eventsThisWeek || 0) < maxEventsPerWeek;
   
-  if (canTriggerEvent && Math.random() < 0.15) { // Reduced from 0.2
+  if (canTriggerEvent && Math.random() < 0.1) { // Reduced to 10% chance
     maybeTriggerEvent("random", { source: "newDay" });
   }
   
@@ -2561,9 +2789,11 @@ function handleGoToScheduledShow() {
     return;
   }
   
-  if (state.scheduledShow.dayScheduled !== state.currentDay) {
-    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
-    displayNarration(`⏰ O show é em ${daysUntil} dia(s). Encerre o dia para avançar.`);
+  const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+  
+  // If show is in the future, skip days to get there
+  if (daysUntil > 0) {
+    skipToShowDay();
     return;
   }
   
@@ -2586,19 +2816,76 @@ function handleGoToScheduledShow() {
   beginShowPreparationWithTime(show, offeredMinutes);
 }
 
+function skipToShowDay() {
+  if (!state.scheduledShow) return;
+  
+  const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+  if (daysUntil <= 0) {
+    handleGoToScheduledShow();
+    return;
+  }
+  
+  const show = findShowById(state.scheduledShow.showId);
+  const showName = show?.name || 'o Show';
+  
+  showDialog(`⏩ Pular ${daysUntil} dia(s) até ${showName}?\n\nVocê perderá a chance de escrever, estudar ou criar conteúdo nesses dias.`, [
+    { 
+      label: `✅ Pular para ${showName}`, 
+      handler: () => {
+        hideDialog();
+        // Skip days
+        for (let i = 0; i < daysUntil; i++) {
+          state.currentDay += 1;
+          state.currentWeekDay = (state.currentWeekDay + 1) % 7;
+          
+          // Check if new week
+          if (state.currentWeekDay === 1) {
+            state.currentWeek = (state.currentWeek || 1) + 1;
+            state.eventsThisWeek = 0;
+            state.showsThisWeek = 0;
+          }
+          
+          // Small motivation recovery per skipped day
+          state.motivation = clamp(state.motivation + 3, 0, 120);
+          
+          // Process flow state
+          processFlowState();
+        }
+        
+        state.activityPoints = MAX_ACTIVITY_POINTS;
+        updateStats();
+        
+        playSound('comeWithMe');
+        displayNarration(`⏩ ${daysUntil} dia(s) passaram... É hora do show!`);
+        
+        // Now go to the show
+        setTimeout(() => {
+          handleGoToScheduledShow();
+        }, 1000);
+      }
+    },
+    { label: "❌ Cancelar", handler: hideDialog }
+  ]);
+}
+
 function calculateOfferedTime(show, scheduledShow) {
   const showCount = state.stageTime || 0;
   const level = state.level || "open";
   
-  // Special shows have their own rules
+  // Special shows have fixed times
   if (scheduledShow?.showType === "5a5") {
-    return 1; // 5a5 starts with 1 minute
+    return 3; // 5a5 is always 3 minutes
   }
   if (scheduledShow?.showType === "pague15") {
     return 5; // pague15 is always 5 minutes
   }
   
-  // Standard time calculation
+  // Special event shows (like veteran tour) give their full time - it's a special invite!
+  if (show.minMinutes >= 6) {
+    return show.minMinutes; // Special shows give what they promise
+  }
+  
+  // Standard time calculation based on experience
   let maxTime = 3; // Default for new comics
   
   if (showCount >= 10) {
@@ -2613,8 +2900,8 @@ function calculateOfferedTime(show, scheduledShow) {
     maxTime = Math.max(maxTime, 20);
   }
   
-  // Show minimum requirements
-  return Math.min(maxTime, Math.max(show.minMinutes, 3));
+  // For regular shows, offer what they require or what you've earned, whichever is higher
+  return Math.max(show.minMinutes, Math.min(maxTime, 5));
 }
 
 function canAffordActivity(cost) {
@@ -2625,11 +2912,22 @@ function spendActivityPoints(cost, activityName) {
   if (!canAffordActivity(cost)) {
     const deficit = cost - state.activityPoints;
     shakeScreen();
-    displayNarration(`⚠️ Você não tem pontos de atividade suficientes! Precisa de ${cost}, mas só tem ${state.activityPoints}. Encerre o dia para recuperar seus pontos.`);
+    showDialog(`⚠️ Você não tem pontos de atividade suficientes!\n\nPrecisa de ${cost} ponto(s), mas só tem ${state.activityPoints}.`, [
+      { label: "🌙 Encerrar Dia", handler: () => { hideDialog(); handleEndDay(); }},
+      { label: "Voltar", handler: hideDialog }
+    ]);
     return false;
   }
   
   state.activityPoints = Math.max(0, state.activityPoints - cost);
+  
+  // Suggest ending day when points are very low
+  if (state.activityPoints <= 0) {
+    setTimeout(() => {
+      displayNarration("💤 Seus pontos de atividade acabaram. Considere encerrar o dia.");
+    }, 500);
+  }
+  
   updateStats();
   return true;
 }
@@ -2700,6 +2998,7 @@ function handleWriteJoke() {
     return;
   }
   exitSelectionMode();
+  setScene("home"); // Always use quarto for writing
   presentWritingModes();
 }
 
@@ -2713,13 +3012,13 @@ function presentWritingModes() {
     .map(
       (mode) => `
         <button class="writing-mode-btn" data-mode="${mode.id}">
-          ${mode.id === 'desk' ? '🪑' : '📝'} ${mode.label}<br /><small>${mode.desc}</small>
+          ${mode.id === 'desk' ? '🪑' : '📝'} ${mode.label} <span class="cost-badge">${mode.costLabel}</span><br /><small>${mode.desc}</small>
         </button>
       `
     )
     .join("");
   elements.btnDivLow.innerHTML = `
-    <div>💡 Você pode gastar motivação para lapidar o texto ou coletar ideias rápidas.</div>
+    <div>💡 Você tem <strong>${state.activityPoints}</strong> ponto(s) de atividade disponíveis.</div>
     ${buttons}
   `;
   
@@ -2817,21 +3116,45 @@ function showJokeCustomization(idea, mode) {
   window.pendingJokeIdea = idea;
   window.pendingJokeMode = mode;
   
+  const defaultTitle = formatIdeaTitle(idea);
+  
   const toneOptions = allowedTones.map(tone => 
-    `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}">${tone === idea.tone ? '⭐ ' : ''}${tone}</button>`
+    `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}" title="${toneDescriptionsLong[tone] || ''}">${tone === idea.tone ? '⭐ ' : ''}${tone}</button>`
   ).join('');
   
   const structureOptions = structures.map(struct =>
-    `<button class="structure-btn" data-structure="${struct}">${struct.toUpperCase()}</button>`
+    `<button class="structure-btn" data-structure="${struct}" title="${structureDescriptions[struct] || ''}">${struct.toUpperCase()}</button>`
+  ).join('');
+  
+  // Create legends
+  const toneLegend = allowedTones.map(tone => 
+    `<div class="legend-item"><strong>${tone}:</strong> ${toneDescriptionsLong[tone] || ''}</div>`
+  ).join('');
+  
+  const structureLegend = structures.map(struct =>
+    `<div class="legend-item"><strong>${struct.toUpperCase()}:</strong> ${structureDescriptions[struct] || ''}</div>`
   ).join('');
   
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
     <div class="joke-customization">
+      <h4>📝 Título da piada:</h4>
+      <input type="text" id="jokeTitleInput" class="joke-title-input" value="${defaultTitle}" maxlength="50" placeholder="Ex: Piada sobre..." />
+      
       <h4>🎨 Escolha o tom da piada:</h4>
       <div class="tone-buttons">${toneOptions}</div>
+      <details class="legend-details">
+        <summary>📖 O que significa cada tom?</summary>
+        <div class="legend-content">${toneLegend}</div>
+      </details>
+      
       <h4>🏗️ Escolha a estrutura:</h4>
       <div class="structure-buttons">${structureOptions}</div>
+      <details class="legend-details">
+        <summary>📖 O que significa cada estrutura?</summary>
+        <div class="legend-content">${structureLegend}</div>
+      </details>
+      
       <div class="customization-hint">💡 Ideia original: "${idea.seed}" (${describeTone(idea.tone)})</div>
     </div>
   `;
@@ -2839,6 +3162,15 @@ function showJokeCustomization(idea, mode) {
   // Set default selections
   window.selectedTone = idea.tone;
   window.selectedStructure = structures[0];
+  window.customJokeTitle = defaultTitle;
+  
+  // Title input listener
+  const titleInput = elements.btnDivLow.querySelector('#jokeTitleInput');
+  if (titleInput) {
+    titleInput.addEventListener('input', (e) => {
+      window.customJokeTitle = e.target.value.trim() || defaultTitle;
+    });
+  }
   
   elements.btnDivLow.querySelectorAll('.tone-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2865,6 +3197,7 @@ function showJokeCustomization(idea, mode) {
       exitWritingMode();
       window.pendingJokeIdea = null;
       window.pendingJokeMode = null;
+      window.customJokeTitle = null;
     }}
   ]);
   
@@ -2909,10 +3242,11 @@ function finalizeJokeCreation() {
   
   const chosenTone = window.selectedTone || idea.tone;
   const chosenStructure = window.selectedStructure || structures[0];
+  const chosenTitle = window.customJokeTitle || formatIdeaTitle(idea);
   
   const newJoke = {
     id: createId(),
-    title: formatIdeaTitle(idea),
+    title: chosenTitle,
     tone: chosenTone,
     structure: chosenStructure,
     minutes,
@@ -2931,11 +3265,12 @@ function finalizeJokeCreation() {
   window.pendingJokeMode = null;
   window.selectedTone = null;
   window.selectedStructure = null;
+  window.customJokeTitle = null;
   
   exitWritingMode();
   renderJokeList({ selectable: false });
   updateStats();
-  setScene("writing");
+  setScene("home"); // Use quarto after creating joke
   
   playSound('pokeball'); // Sound for creating joke
   flashScreen('rgba(212, 168, 75, 0.2)');
@@ -2945,7 +3280,7 @@ function finalizeJokeCreation() {
   
   const costText = mode.id === "desk" ? "(-1 ponto)" : "(-0.5 ponto)";
   displayNarration(
-    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada sobre ${idea.seed}. Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText}`
+    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText}`
   );
   
   if (state.jokes.length === 5) {
@@ -2954,6 +3289,8 @@ function finalizeJokeCreation() {
   maybeTriggerEvent("random", { source: "writing" });
 }
 
+const MAX_SHOWS_PER_WEEK = 3;
+
 function handleSearchShow() {
   if (!state.jokes.length) {
     shakeScreen();
@@ -2961,7 +3298,20 @@ function handleSearchShow() {
     return;
   }
   
-  // Check if already has a scheduled show
+  // If show is scheduled for today, go directly to it
+  if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) {
+    handleGoToScheduledShow();
+    return;
+  }
+  
+  // Check weekly show limit
+  if ((state.showsThisWeek || 0) >= MAX_SHOWS_PER_WEEK && !state.scheduledShow) {
+    shakeScreen();
+    displayNarration("📅 Você já fez 3 shows essa semana. Descanse um pouco e espere a próxima semana para mais apresentações.");
+    return;
+  }
+  
+  // Check if already has a scheduled show for another day
   if (state.scheduledShow) {
     const existingShow = findShowById(state.scheduledShow.showId);
     const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
@@ -3012,16 +3362,23 @@ function generateAvailableShows() {
     return true;
   });
   
-  // Check for 5 a 5 (always Sunday, weekday 0)
+  // Check for 5 a 5 (always Sunday, weekday 0) - 75% chance (25% cancelled)
   if (level === "open") {
     const daysTo5a5 = findDaysToWeekday(0); // Sunday
-    if (daysTo5a5 >= 0 && daysTo5a5 <= 3) {
-      // If today is Sunday and no show scheduled, offer for today
-      const actualDaysAhead = daysTo5a5 === 0 ? (state.scheduledShow ? 7 : 0) : daysTo5a5;
-      if (actualDaysAhead >= 0 && actualDaysAhead <= 3) {
+    const show5a5 = findShowById("5a5");
+    
+    // 75% chance show happens (25% cancelled)
+    if (show5a5 && Math.random() < 0.75) {
+      if (weekDay === 0 && !state.scheduledShow) {
         shows.unshift({
-          show: create5a5Show(),
-          daysAhead: Math.max(actualDaysAhead, 1), // At least 1 day ahead if not today
+          show: show5a5,
+          daysAhead: 0,
+          showType: "5a5"
+        });
+      } else if (daysTo5a5 > 0 && daysTo5a5 <= 6) {
+        shows.unshift({
+          show: show5a5,
+          daysAhead: daysTo5a5,
           showType: "5a5"
         });
       }
@@ -3031,20 +3388,32 @@ function generateAvailableShows() {
   // Check for Pague 15 (always Thursday, weekday 4) - only if unlocked
   if (state.pague15Unlocked) {
     const daysToPague15 = findDaysToWeekday(4); // Thursday
-    if (daysToPague15 >= 0 && daysToPague15 <= 3) {
-      const actualDaysAhead = daysToPague15 === 0 ? (state.scheduledShow ? 7 : 0) : daysToPague15;
-      if (actualDaysAhead >= 0 && actualDaysAhead <= 3) {
+    const showPague15 = findShowById("pague15");
+    
+    if (showPague15) {
+      if (weekDay === 4 && !state.scheduledShow) {
         shows.unshift({
-          show: createPague15Show(),
-          daysAhead: Math.max(actualDaysAhead, 1),
+          show: showPague15,
+          daysAhead: 0,
+          showType: "pague15"
+        });
+      } else if (daysToPague15 > 0 && daysToPague15 <= 6) {
+        shows.unshift({
+          show: showPague15,
+          daysAhead: daysToPague15,
           showType: "pague15"
         });
       }
     }
   }
   
-  // Randomly select 2-4 regular shows based on network
-  const numShows = Math.min(eligibleShows.length, 2 + Math.floor(network / 20));
+  // Calculate how many regular shows to add (max 3 total including special shows)
+  const maxTotalShows = 3;
+  const currentShowCount = shows.length;
+  const remainingSlots = Math.max(0, maxTotalShows - currentShowCount);
+  
+  // Randomly select regular shows based on network, but cap at remaining slots
+  const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
   
   // Shuffle and pick
   const shuffled = [...eligibleShows].sort(() => Math.random() - 0.5);
@@ -3057,7 +3426,8 @@ function generateAvailableShows() {
     });
   }
   
-  return shows;
+  // Ensure max 3 shows total
+  return shows.slice(0, maxTotalShows);
 }
 
 function findDaysToWeekday(targetWeekday) {
@@ -3078,52 +3448,17 @@ function findDaysToWeekday(targetWeekday) {
   return days;
 }
 
-function create5a5Show() {
-  return {
-    id: "5a5",
-    name: "5 a 5 - Copo Sujo",
-    minMinutes: 1,
-    maxMinutes: 3,
-    difficulty: 0.2,
-    crowd: "Plateia escassa, parte dela de opens como você. Ambiente de teste.",
-    intro: "Domingo à tarde no Copo Sujo. Você começa com 1 minuto e se for bem, ganha mais 2.",
-    image: "copo-sujo-comedy.png",
-    vibeHint: "Material conciso e punchlines claras são essenciais para ganhar os 2 minutos extras.",
-    typeAffinity: {
-      default: 0,
-      besteirol: 0.5,
-      vulgar: 0.1,
-      "humor negro": 0.2,
-      limpo: 0.3,
-      hack: 0.2
-    },
-    special: "5a5"
-  };
+// 5a5 is now a fixed show in showPool - this function returns the reference
+function get5a5Show() {
+  return findShowById("5a5");
 }
 
-function createPague15Show() {
-  return {
-    id: "pague15",
-    name: "Pague 15 Leve 10 - Copo Sujo",
-    minMinutes: 5,
-    maxMinutes: 5,
-    difficulty: 0.35,
-    crowd: "Plateia experiente e crítica. O produtor olha o relógio.",
-    intro: "Quinta-feira de Pague 15. Você tem exatamente 5 minutos. Nem mais, nem menos.",
-    image: "copo-sujo-comedy.png",
-    vibeHint: "Timing preciso é tudo. O produtor corta quem passa do tempo.",
-    typeAffinity: {
-      default: 0.1,
-      besteirol: 0.6,
-      vulgar: 0.2,
-      "humor negro": 0.3,
-      limpo: 0.2,
-      hack: 0.3
-    },
-    special: "pague15"
-  };
+// Pague15 is now a fixed show in showPool - this function returns the reference
+function getPague15Show() {
+  return findShowById("pague15");
 }
 
+// Legacy function - no longer used
 function presentShowOptions(availableShows) {
   uiMode = "showBrowse";
   
@@ -3174,14 +3509,15 @@ function beginShowPreparationWithTime(show, offeredMinutes) {
   uiMode = "showSelection";
   selectedJokeIds.clear();
   
+  // Set subtitle to show offered time
+  elements.subTitle.textContent = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
+  elements.subTitle.style.display = "block";
+  
   renderJokeList({ selectable: true });
   renderSetSummary();
   setScene("club", show.name, show.image);
   
   let introText = `🎤 ${show.intro} ${show.crowd}`;
-  if (show.special === "5a5") {
-    introText = `🎤 ${show.intro}\n\n⚡ REGRA 5 A 5: Escolha UMA piada de até 1 minuto. Se o resultado for nota 3+, você ganha +2 minutos para continuar o set!`;
-  }
   
   displayNarration(introText);
   
@@ -3240,6 +3576,7 @@ function handleCreateContent() {
     return;
   }
   exitSelectionMode();
+  setScene("home"); // Always use quarto
   
   // Show content type options
   showDialog("📱 Que tipo de conteúdo você quer criar?", [
@@ -3265,7 +3602,7 @@ function createContentLong() {
   state.fans += fanGain;
   state.network = (state.network || 10) + 2;
   state.motivation = clamp(state.motivation - 8 + Math.round(Math.random() * 4), 0, 120);
-  setScene("content");
+  setScene("home"); // Always use quarto
   
   flashScreen('rgba(245, 230, 200, 0.15)');
   if (fanGain > 20) {
@@ -3289,7 +3626,7 @@ function createContentQuick() {
   const fanGain = reach + Math.round(state.theory / 4);
   state.fans += fanGain;
   state.motivation = clamp(state.motivation - 2, 0, 120);
-  setScene("content");
+  setScene("home"); // Always use quarto
   
   flashScreen('rgba(245, 230, 200, 0.1)');
   
@@ -3312,13 +3649,93 @@ function handleStudy() {
   
   state.theory = clamp(state.theory + 12, 0, 150);
   state.motivation = clamp(state.motivation + 4, 0, 120);
-  setScene("study");
+  setScene("home"); // Always use quarto for studying
   
   // Study effect - warm glow
   flashScreen('rgba(245, 230, 200, 0.2)');
   
   displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade)");
   updateStats();
+}
+
+function handleViewHistory() {
+  if (uiMode === "event") {
+    return;
+  }
+  exitSelectionMode();
+  uiMode = "viewHistory";
+  
+  setScene("home"); // Always use quarto
+  elements.subTitle.textContent = "📊 Histórico de Shows";
+  
+  const history = state.showHistory || [];
+  
+  if (history.length === 0) {
+    displayNarration("📊 Você ainda não fez nenhum show. Busque um show e suba no palco!");
+    elements.btnDivLow.style.display = "flex";
+    elements.btnDivLow.innerHTML = `<div>Nenhum show registrado ainda.</div>`;
+    return;
+  }
+  
+  // Calculate stats
+  const totalShows = history.length;
+  const avgNota = (history.reduce((sum, s) => sum + (s.nota || 0), 0) / totalShows).toFixed(1);
+  const showsNota4Plus = history.filter(s => s.nota >= 4).length;
+  const showsNota5 = history.filter(s => s.nota >= 5).length;
+  
+  // Group by nota
+  const notaCounts = [0, 0, 0, 0, 0, 0]; // nota 0-5
+  history.forEach(s => {
+    notaCounts[s.nota || 0]++;
+  });
+  
+  // Build history HTML (last 10 shows)
+  const recentShows = history.slice(-10).reverse();
+  const historyHtml = recentShows.map(entry => {
+    const show = findShowById(entry.showId);
+    const showName = show?.name || entry.showId || "Show desconhecido";
+    const tier = SCORE_EMOJI_SCALE.find(t => t.nota === entry.nota) || SCORE_EMOJI_SCALE[SCORE_EMOJI_SCALE.length - 1];
+    const dayName = getDayName(entry.day);
+    
+    // Show joke performances if available
+    let jokePerf = "";
+    if (entry.jokeResults && entry.jokeResults.length > 0) {
+      jokePerf = `<div class="history-jokes">${entry.jokeResults.map(j => `${j.emoji}`).join(' ')}</div>`;
+    }
+    
+    return `
+      <div class="history-item ${entry.nota >= 4 ? 'history-good' : entry.nota <= 2 ? 'history-bad' : ''}">
+        <div class="history-main">
+          <span class="history-emoji">${tier.emoji}</span>
+          <div class="history-info">
+            <strong>${showName}</strong>
+            <span class="history-date">${dayName}, Dia ${entry.day}</span>
+          </div>
+          <span class="history-nota">Nota ${entry.nota}/5</span>
+        </div>
+        ${jokePerf}
+      </div>
+    `;
+  }).join('');
+  
+  elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.innerHTML = `
+    <div class="history-stats">
+      <div class="stat-box"><strong>${totalShows}</strong><span>Shows</span></div>
+      <div class="stat-box"><strong>${avgNota}</strong><span>Média</span></div>
+      <div class="stat-box"><strong>${showsNota4Plus}</strong><span>Nota 4+</span></div>
+      <div class="stat-box"><strong>${showsNota5}</strong><span>Nota 5</span></div>
+    </div>
+    <div class="history-distribution">
+      💧 ${notaCounts[1]} | 😶 ${notaCounts[2]} | 🙂 ${notaCounts[3]} | 🔥 ${notaCounts[4]} | 🤯 ${notaCounts[5]}
+    </div>
+    <h4>📜 Últimos 10 shows:</h4>
+    <div class="history-list">
+      ${historyHtml || '<div>Nenhum show ainda.</div>'}
+    </div>
+  `;
+  
+  displayNarration(`📊 Seu histórico de shows: ${totalShows} apresentações com média ${avgNota}. Você matou em ${showsNota4Plus} deles!`);
 }
 
 function renderJokeList({ selectable }) {
@@ -3642,15 +4059,6 @@ function performShow() {
     return;
   }
   
-  // 5 a 5 special rule: only 1 joke for first minute
-  if (showType === "5a5" && !currentShow.phase2) {
-    if (setList.length > 1 || totalMinutes > 1) {
-      shakeScreen();
-      displayNarration("⚠️ No 5 a 5 você só pode escolher UMA piada de até 1 minuto na primeira fase!");
-      return;
-    }
-  }
-  
   // Time validation - allow going over or under, but with consequences
   const offeredMinutes = currentShow.offeredMinutes || currentShow.minMinutes;
   // No hard limit, player can choose freely
@@ -3678,14 +4086,22 @@ function performShow() {
   const stageTimeGain = state.flowState?.active ? 2 : 1;
   state.stageTime += stageTimeGain;
   
-  // Track show in history
+  // Track show in history with joke results
   state.showHistory = state.showHistory || [];
   state.showHistory.push({
     showId: showPlayed.id,
     day: state.currentDay,
     nota,
-    showType
+    showType,
+    jokeResults: breakdownWithEmoji.map(j => ({
+      title: j.title,
+      emoji: j.emoji,
+      nota: j.nota
+    }))
   });
+  
+  // Increment weekly show counter
+  state.showsThisWeek = (state.showsThisWeek || 0) + 1;
   
   // Check level progression and flow state
   checkLevelProgression(nota, showType);
@@ -3706,12 +4122,6 @@ function performShow() {
   updateStats();
   renderJokeList({ selectable: false });
   exitSelectionMode();
-  
-  // Handle 5 a 5 special mechanic
-  if (showType === "5a5" && !currentShow.phase2 && nota >= 3) {
-    handle5a5Phase2(showPlayed, nota, breakdownWithEmoji, timeImpact);
-    return;
-  }
   
   showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
     fans: fanGain,
@@ -3739,34 +4149,6 @@ function performShow() {
   if (state.fans >= 20) {
     maybeTriggerEvent("fans20");
   }
-}
-
-function handle5a5Phase2(showPlayed, nota, breakdown, timeImpact) {
-  spawnConfetti(20);
-  flashScreen('rgba(90, 143, 90, 0.3)');
-  
-  showDialog(`🎉 PARABÉNS! Nota ${nota} no primeiro minuto!\n\nVocê ganhou mais 2 minutos! Escolha piadas para completar seu set de até 3 minutos total.`, [
-    {
-      label: "Continuar set (+2min)",
-      handler: () => {
-        hideDialog();
-        // Setup phase 2
-        currentShow = {
-          ...showPlayed,
-          phase2: true,
-          offeredMinutes: 3,
-          minMinutes: 2
-        };
-        uiMode = "showSelection";
-        selectedJokeIds.clear();
-        elements.subTitle.textContent = `🎭 Escolha mais piadas para completar 3 min no 5 a 5`;
-        renderJokeList({ selectable: true });
-        renderSetSummary();
-        elements.btnContinuar.style.display = "block";
-        displayNarration("🎤 O apresentador te dá o sinal para continuar. Escolha piadas para os próximos 2 minutos!");
-      }
-    }
-  ]);
 }
 
 function evaluateShow(setList, show, flowBonus = 0) {
@@ -3805,7 +4187,7 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
   const ratio = actualMinutes / expectedMinutes;
   let adjustment = 0;
   let note = "Tempo na medida, produtor sorriu pra você.";
-  
+
   // More severe penalties/bonuses based on performance
   if (ratio < 0.5) {
     // Way too short
@@ -3821,7 +4203,7 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
       adjustment -= 0.05;
       note = "Você fez menos tempo, mas estava matando então tá perdoado.";
     } else {
-      adjustment -= 0.25;
+    adjustment -= 0.25;
       note = "Pouco tempo e qualidade duvidosa. O produtor não gostou.";
     }
   } else if (ratio < 0.9) {
@@ -3829,8 +4211,8 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
       adjustment += 0.02;
       note = "Você entregou um pouco menos, mas com qualidade. Deixa o público querendo mais.";
     } else {
-      adjustment -= 0.12;
-      note = "Você entregou menos tempo que o combinado.";
+    adjustment -= 0.12;
+    note = "Você entregou menos tempo que o combinado.";
     }
   } else if (ratio > 2.0) {
     // Way too long
@@ -3855,7 +4237,7 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
       note = "Você estourou, mas estava matando então valeu cada segundo extra.";
     } else {
       adjustment -= 0.15;
-      note = "Você estourou alguns minutos e o clima ficou tenso.";
+    note = "Você estourou alguns minutos e o clima ficou tenso.";
     }
   }
 
@@ -3970,21 +4352,32 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   
   message = messages[nota] || messages[3];
   
-  // Set scene based on outcome
-  if (nota >= 4) {
-    setScene("kill");
-    playSound('victory'); // Victory sound for good show
+  // Set scene based on nota (1-5)
+  if (nota === 5) {
+    setScene("explode");
+    playSound('victory');
     setTimeout(() => {
-      spawnConfetti(nota === 5 ? 70 : 40);
-      flashScreen('rgba(212, 168, 75, 0.35)');
+      spawnConfetti(70);
+      flashScreen('rgba(212, 168, 75, 0.4)');
     }, 300);
-  } else if (nota >= 3) {
+  } else if (nota === 4) {
+    setScene("kill");
+    playSound('victory');
+    setTimeout(() => {
+      spawnConfetti(40);
+      flashScreen('rgba(212, 168, 75, 0.3)');
+    }, 300);
+  } else if (nota === 3) {
     setScene("ok");
-    playSound('getSomething'); // Okay sound
+    playSound('getSomething');
     flashScreen('rgba(245, 230, 200, 0.15)');
+  } else if (nota === 2) {
+    setScene("risinhos");
+    playSound('click');
+    flashScreen('rgba(200, 180, 150, 0.15)');
   } else {
     setScene("bomb");
-    playSound('boom'); // Bomb sound for bad show
+    playSound('boom');
     shakeScreen();
     flashScreen('rgba(166, 68, 68, 0.25)');
   }

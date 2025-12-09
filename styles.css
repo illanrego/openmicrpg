@@ -167,7 +167,7 @@ h3 {
 
 /* Main game container - SNES window style */
 #game {
-  max-width: 480px;
+  max-width: 520px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -242,6 +242,43 @@ h3 {
 
 #introContinue {
   display: none;
+}
+
+/* Name input section */
+#nameInput {
+  width: 100%;
+  text-align: center;
+  padding: 10px;
+}
+
+#nameInput h3 {
+  margin-bottom: 12px;
+  color: var(--gold);
+}
+
+#playerNameInput {
+  width: 80%;
+  max-width: 250px;
+  padding: 12px 16px;
+  font-family: 'VT323', monospace;
+  font-size: 1.3rem;
+  border: 3px solid var(--menu-border);
+  border-radius: 4px;
+  background: var(--cream);
+  color: var(--text-dark);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+#playerNameInput:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+#confirmNameBtn {
+  display: block;
+  margin: 0 auto;
 }
 
 #avatarSelection {
@@ -433,7 +470,8 @@ button:active {
 #locationImg {
   display: block;
   margin: 0 auto 12px;
-  max-width: 200px;
+  max-width: 280px;
+  width: 100%;
   border: 4px solid var(--menu-border);
   border-radius: 4px;
   box-shadow: 
@@ -448,6 +486,21 @@ button:active {
   box-shadow: 
     0 6px 24px rgba(0,0,0,0.6),
     0 0 0 2px var(--gold);
+}
+
+/* Character image - smaller for NPCs like Prof Carvalho */
+#locationImg.character-image {
+  max-width: 180px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  box-shadow: 
+    0 4px 16px rgba(0,0,0,0.5),
+    0 0 0 3px var(--menu-border),
+    0 0 20px rgba(212, 168, 75, 0.3);
+}
+
+#locationImg.character-image:hover {
+  transform: scale(1.05);
 }
 
 /* Narration text box - Pokemon dialog style */
@@ -763,6 +816,16 @@ button:active {
   margin-top: 4px;
 }
 
+.cost-badge {
+  background: var(--gold);
+  color: var(--text-dark);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  margin-left: 6px;
+  font-weight: bold;
+}
+
 /* Continue/Present Button - Big action button */
 #btnContinuar {
   display: none;
@@ -915,6 +978,18 @@ button:active {
   background: linear-gradient(180deg, #6aaf6a 0%, var(--success) 100%) !important;
 }
 
+/* Show today button in main menu */
+#button2.show-today {
+  background: linear-gradient(180deg, var(--success) 0%, #4a7a4a 100%) !important;
+  color: var(--cream) !important;
+  animation: bounce-small 1.5s ease-in-out infinite;
+  border-color: #3a5a3a !important;
+}
+
+#button2.show-today:hover {
+  background: linear-gradient(180deg, #6aaf6a 0%, var(--success) 100%) !important;
+}
+
 #scheduledShowInfo {
   text-align: center;
   padding: 10px 12px;
@@ -1060,6 +1135,90 @@ body.flow-active #game {
   margin-top: 8px;
 }
 
+/* Joke title input */
+.joke-title-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: 'VT323', monospace;
+  font-size: 1.2rem;
+  border: 3px solid var(--menu-border);
+  border-radius: 4px;
+  background: var(--cream);
+  color: var(--text-dark);
+  margin-bottom: 12px;
+}
+
+.joke-title-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+/* Legend details */
+.legend-details {
+  margin: 8px 0 12px 0;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.legend-details summary {
+  cursor: pointer;
+  color: var(--gold);
+  font-size: 0.95rem;
+  padding: 4px 0;
+}
+
+.legend-details summary:hover {
+  color: var(--gold-bright);
+}
+
+.legend-content {
+  padding: 8px 0;
+  font-size: 0.9rem;
+  color: var(--cream-dark);
+}
+
+.legend-item {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.legend-item:last-child {
+  border-bottom: none;
+}
+
+.legend-item strong {
+  color: var(--gold);
+}
+
+/* Tooltip for buttons */
+.tone-btn[title], .structure-btn[title] {
+  position: relative;
+}
+
+.tone-btn[title]:hover::after, .structure-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--menu-bg);
+  color: var(--cream);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 2px solid var(--menu-border);
+  font-size: 0.85rem;
+  white-space: normal;
+  width: max-content;
+  max-width: 200px;
+  z-index: 100;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* ========== SHAKE ANIMATION ========== */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -1081,6 +1240,112 @@ body.flow-active #game {
   min-height: 50px;
 }
 
+/* ========== HISTORY STYLES ========== */
+.history-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--menu-border);
+}
+
+.stat-box {
+  text-align: center;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  min-width: 60px;
+}
+
+.stat-box strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--gold);
+}
+
+.stat-box span {
+  font-size: 0.85rem;
+  color: var(--cream-dark);
+}
+
+.history-distribution {
+  text-align: center;
+  padding: 8px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.history-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history-item {
+  background: var(--wood-medium);
+  border: 2px solid var(--menu-border);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.history-item.history-good {
+  border-color: var(--success);
+  background: linear-gradient(180deg, var(--wood-medium) 0%, rgba(90, 143, 90, 0.2) 100%);
+}
+
+.history-item.history-bad {
+  border-color: var(--danger);
+  background: linear-gradient(180deg, var(--wood-medium) 0%, rgba(166, 68, 68, 0.2) 100%);
+}
+
+.history-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-emoji {
+  font-size: 1.8rem;
+}
+
+.history-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-info strong {
+  color: var(--cream);
+  font-size: 1rem;
+}
+
+.history-date {
+  font-size: 0.85rem;
+  color: var(--cream-dark);
+}
+
+.history-nota {
+  background: var(--gold);
+  color: var(--text-dark);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.history-jokes {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  font-size: 1.2rem;
+  letter-spacing: 3px;
+}
+
 /* ========== RESPONSIVE ADJUSTMENTS ========== */
 @media (max-width: 500px) {
   #dayControls {
@@ -1096,6 +1361,14 @@ body.flow-active #game {
   }
   
   .tone-btn, .structure-btn {
+    flex: 1 1 40%;
+  }
+  
+  .history-stats {
+    flex-wrap: wrap;
+  }
+  
+  .stat-box {
     flex: 1 1 40%;
   }
 }
