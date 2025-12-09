@@ -623,26 +623,8 @@ const ideaPool = [
 ];
 
 const showPool = [
-  {
-    id: "copo-sujo",
-    name: "Copo Sujo Comedy Club",
-    minMinutes: 4,
-    difficulty: 0.15,
-    crowd:
-      "Plateia mão-de-vaca, cerveja morna e gargalhadas que só aparecem com bobagens ditas com convicção.",
-    intro:
-      "Você conseguiu uma vaga no Copo Sujo. Pague 15, leve 10. Escolha seu set sem estourar o tempo e prepare o ego.",
-    image: "copo-sujo-comedy.png",
-    vibeHint: "A plateia parece estar rindo mais de confissões do cotidiano e piadas idiotas que parecem verdade.",
-    typeAffinity: {
-      default: -0.05,
-      besteirol: 0.8,
-      vulgar: 0.3,
-      "humor negro": 0.1,
-      limpo: -0.3,
-      hack: -0.2
-    }
-  },
+  // NOTE: "Copo Sujo" shows (5a5, pague15) are special and defined at the end of this pool
+  // They are unlocked via Paulo Araújo eventos surpresa, not available in regular rotation
   {
     id: "bar-do-tony",
     name: "Bar do Tony - Quarta do Riso",
@@ -727,7 +709,7 @@ const showPool = [
     crowd: "Casais com crianças e seguranças atentos.",
     intro:
       "O shopping resolveu apostar em stand-up 'para toda a família'. Microfone impecável, tolerância a palavrões próxima de zero.",
-    image: "corporativo.png",
+    image: "mall.png",
     vibeHint: "Material limpo com observações sobre cotidiano ganha pontos.",
     typeAffinity: {
       default: 0,
@@ -746,7 +728,7 @@ const showPool = [
     crowd: "Comediantes cansados e insônia coletiva às 2h da manhã.",
     intro:
       "Você caiu na lista do show secreto após a meia-noite. Só funciona se você ousar testar as coisas mais estranhas.",
-    image: "barzinho.png",
+    image: "motorcycle-club.png",
     vibeHint: "Humor negro e bits experimentais são esperados.",
     typeAffinity: {
       default: -0.1,
@@ -784,7 +766,7 @@ const showPool = [
     crowd: "Fãs de comédia que conhecem cada referência.",
     intro:
       "Um podcast famoso abre espaço para sets curtos entre entrevistas. Tudo vira clipe em segundos.",
-    image: "quarto3.png",
+    image: "podcast.png",
     vibeHint: "Piadas autorreferenciais e material sobre bastidores funcionam.",
     typeAffinity: {
       default: 0.1,
@@ -803,7 +785,7 @@ const showPool = [
     crowd: "Clientes esperando corte e barbeiros que comentam o set.",
     intro:
       "Uma barbearia hipster decidiu fazer stand-up entre cortes de cabelo. Espaço apertado, vibe íntima.",
-    image: "barzinho.png",
+    image: "barber-shop.png",
     vibeHint: "Observações hack e bits sobre aparência conectam.",
     typeAffinity: {
       default: 0,
@@ -841,7 +823,7 @@ const showPool = [
     crowd: "Startupeiros ansiosos que só falam de app e rodadas de investimento.",
     intro:
       "Uma startup contratou comediantes para descontrair o happy hour. Cuidado para não ofender futuros contratantes.",
-    image: "corporativo.png",
+    image: "rooftop-tech-meetup.png",
     vibeHint: "Piadas sobre tecnologia e trabalho remoto pontuam bem.",
     typeAffinity: {
       default: 0,
@@ -917,7 +899,7 @@ const showPool = [
     crowd: "Equipe exausta de vendas que precisa sorrir para continuar.",
     intro:
       "O RH te liga de última hora: o palestrante principal atrasou e você precisa segurar o clima.",
-    image: "corporativo.png",
+    image: "coffee-break.png",
     vibeHint: "Piadas limpas sobre trabalho e improvisos corporativos salvam.",
     typeAffinity: {
       default: -0.2,
@@ -936,7 +918,7 @@ const showPool = [
     difficulty: 0.18,
     crowd: "Estudantes bêbados que riem de qualquer coisa depois das 23h.",
     intro: "Um bar perto da faculdade abre espaço para novatos. Público jovem e barulhento.",
-    image: "copo-sujo-comedy.png",
+    image: "open-universitario.png",
     vibeHint: "Besteirol e vulgaridade funcionam bem com essa galera.",
     typeAffinity: {
       default: 0,
@@ -972,7 +954,7 @@ const showPool = [
     difficulty: 0.28,
     crowd: "Gringos expatriados e brasileiros que fingem entender inglês.",
     intro: "Um pub irlandês faz noite de comédia bilíngue. Sotaque não é problema.",
-    image: "bar-do-tony.png",
+    image: "pub.png",
     vibeHint: "Piadas universais sobre comportamento funcionam em qualquer língua.",
     typeAffinity: {
       default: 0.1,
@@ -1062,7 +1044,7 @@ const showPool = [
     difficulty: 0.45,
     crowd: "Parentes que não se veem há anos e amigos bêbados dos noivos.",
     intro: "Os noivos te contrataram para o brinde. Não estrague o dia mais importante deles.",
-    image: "teatro-legal.png",
+    image: "wedding.png",
     vibeHint: "Piadas sobre relacionamento e família, mas sem ser ofensivo.",
     typeAffinity: {
       default: -0.1,
@@ -1134,7 +1116,7 @@ const showPool = [
     difficulty: 0.2,
     crowd: "Famílias em festa com quentão na mão e chapéu de palha.",
     intro: "Uma festa junina de bairro te convida para animar entre as quadrilhas.",
-    image: "bar-do-tony.png",
+    image: "arraia.png",
     vibeHint: "Humor família e piadas sobre tradições caem bem.",
     typeAffinity: {
       default: 0.1,
@@ -1170,7 +1152,7 @@ const showPool = [
     difficulty: 0.15,
     crowd: "Universitários em festa que só querem rir e beber.",
     intro: "Uma república estudantil abriu as portas para um show informal.",
-    image: "barzinho.png",
+    image: "republica.png",
     vibeHint: "Qualquer coisa que seja escandalosa ou boba funciona.",
     typeAffinity: {
       default: 0.1,
@@ -1188,7 +1170,7 @@ const showPool = [
     difficulty: 0.32,
     crowd: "Clientes de restaurante japonês sofisticado.",
     intro: "Um restaurante japonês chique quer inovar com entretenimento.",
-    image: "bar-do-tony.png",
+    image: "sushi-restaurant.png",
     vibeHint: "Humor sutil e observações refinadas agradam.",
     typeAffinity: {
       default: 0,
@@ -1207,6 +1189,7 @@ const showPool = [
     crowd: "Mulheres em noite só delas, celebrando juntas.",
     intro: "Uma noite de comédia só para mulheres. Ambiente acolhedor e empoderado.",
     image: "bar-do-tony.png",
+    requiresAvatar: ["avatar3", "avatar4"],
     vibeHint: "Experiências genuínas e observações sobre o dia a dia conectam.",
     typeAffinity: {
       default: 0.1,
@@ -1281,7 +1264,7 @@ const showPool = [
     requiresLevel: "headliner",
     crowd: "Seus fãs que pagaram ingresso para te ver.",
     intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
-    image: "Pedestal-Matriz.png",
+    image: "pedestal.png",
     vibeHint: "É hora de mostrar quem você é. Autenticidade máxima.",
     typeAffinity: {
       default: 0.15,
@@ -1386,7 +1369,7 @@ const eventPool = [
     once: true,
     text:
       "Um podcast de comédia quer te entrevistar. Você pode focar em piadas prontas ou falar sério sobre o processo.",
-    image: "bar-do-tony.png",
+    image: "podcast.png",
     choices: [
       {
         label: "Mandar punchline atrás de punchline",
@@ -1541,7 +1524,6 @@ const eventPool = [
     once: true,
     text:
       "Um produtor de TV te viu num show e quer te chamar para um quadro. É uma oportunidade única, mas exige compromisso.",
-    image: "teatro-legal.png",
     choices: [
       {
         label: "Aceitar imediatamente",
@@ -1560,7 +1542,7 @@ const eventPool = [
     trigger: "random",
     text:
       "Você descobre que um 'amigo' comediante está usando piadas muito parecidas com as suas no set dele. Confronta?",
-    image: "barzinho.png",
+    image: "comic-stealing-jokes.png",
     choices: [
       {
         label: "Confrontar diretamente",
@@ -1579,7 +1561,6 @@ const eventPool = [
     trigger: "random",
     text:
       "Um vídeo seu bombou na internet... por motivos ruins. Uma piada foi tirada de contexto e você está sendo cancelado.",
-    image: "barzinho.png",
     choices: [
       {
         label: "Se explicar publicamente",
@@ -1598,7 +1579,6 @@ const eventPool = [
     trigger: "random",
     text:
       "Uma empresa te oferece um bom dinheiro para fazer uma publi no palco. O produto é... questionável.",
-    image: "bar-do-tony.png",
     choices: [
       {
         label: "Aceitar o dinheiro",
@@ -1617,7 +1597,6 @@ const eventPool = [
     trigger: "showKill",
     text:
       "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
-    image: "teatro-legal.png",
     choices: [
       {
         label: "Ir para a festa",
@@ -1676,7 +1655,6 @@ const eventPool = [
     once: true,
     text:
       "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
-    image: "teatro-legal.png",
     choices: [
       {
         label: "Se inscrever",
@@ -1696,7 +1674,6 @@ const eventPool = [
     once: true,
     text:
       "Alguém gravou seu set inteiro e postou na internet sem permissão. Suas piadas estão expostas.",
-    image: "barzinho.png",
     choices: [
       {
         label: "Pedir para remover",
@@ -1773,11 +1750,9 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     return false;
   }
   
-  // Special requirement: only trigger at Copo Sujo shows
+  // Special requirement: only trigger at Copo Sujo shows (5a5 or Pague 15)
   if (event.requiresCopoSujo && context.show) {
-    const isCopoSujo = context.show.id === "copo-sujo" || 
-                       context.show.id === "5a5" || 
-                       context.show.id === "pague15";
+    const isCopoSujo = context.show.id === "5a5" || context.show.id === "pague15";
     if (!isCopoSujo) {
       return false;
     }
@@ -2109,7 +2084,8 @@ const selectedJokeIds = new Set();
 const avatarImages = {
   avatar1: "avatar.png",
   avatar2: "avatar2.png",
-  avatar3: "avatar3.png"
+  avatar3: "avatar3.png",
+  avatar4: "avatar4.png"
 };
 
 const elements = {};
@@ -3441,11 +3417,21 @@ function generateAvailableShows() {
   const network = state.network || 10;
   const weekDay = state.currentWeekDay;
   
-  // Filter shows by level
+  // Filter shows by level and avatar
+  // IMPORTANT: Exclude special shows (5a5, pague15) from regular pool
+  // They are ONLY available via their special unlock mechanism (Paulo Araújo eventos surpresa)
   let eligibleShows = showPool.filter(show => {
+    // Exclude special shows - they have their own unlock/scheduling logic below
+    if (show.isSpecialShow) {
+      return false;
+    }
     // Some shows require certain levels
     if (show.requiresLevel && show.requiresLevel !== level && 
         (show.requiresLevel === "headliner" || (show.requiresLevel === "elenco" && level === "open"))) {
+      return false;
+    }
+    // Some shows require certain avatars
+    if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) {
       return false;
     }
     return true;
@@ -3642,6 +3628,20 @@ function startSpecialShow(showId) {
   beginShowPreparation(specialShow);
 }
 
+function getNotebookImageForTheory(theory) {
+  if (theory >= 120) {
+    return "notebook5.png";
+  } else if (theory >= 90) {
+    return "notebook4.png";
+  } else if (theory >= 60) {
+    return "notebook3.png";
+  } else if (theory >= 30) {
+    return "notebook2.png";
+  } else {
+    return "notebook1.png";
+  }
+}
+
 function handleViewMaterial() {
   exitSelectionMode();
   uiMode = "viewMaterial";
@@ -3649,7 +3649,9 @@ function handleViewMaterial() {
   renderJokeList({ selectable: false });
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
-  setScene("home");
+  const theory = state.theory || 10;
+  const notebookImage = getNotebookImageForTheory(theory);
+  setScene("event", "", notebookImage, false);
   displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
 }
 
@@ -3758,6 +3760,7 @@ function handleShowCredits() {
     "Douglao,",
     "Gabriel Andrade,",
     "Iago Maia,",
+    "Júnior Rasec,",
     "Luis Maia,",
     "Paulo Araújo,",
     "Rossini Luz,",
@@ -3765,7 +3768,7 @@ function handleShowCredits() {
     "Thiago Grinberg,"
   ];
   
-  const creditsText = `⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\nAgradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível!`;
+  const creditsText = `⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\nAgradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível! Essa é a versão beta então teoricamente se você está jogando seu nome tá na lista hahaha Contribua: carvalhoillan@gmail.com (pix)`;
   
   showDialog(creditsText);
 }
