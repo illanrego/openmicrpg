@@ -1458,7 +1458,7 @@ const eventPool = [
     isGoodEvent: true,
     isCharacterEvent: true,
     text:
-      "Stevan Gaipo te manda mensagem: 'E aí, vi teus shows, curti. To indo fazer uns gigs no interior semana que vem, quer vir junto?' A viagem é longa. Como você aproveita o tempo?",
+      "Stevan Gaipo te manda mensagem: 'E aí, vi teus shows, curti. To indo fazer uns shows no interior semana que vem, quer vir junto?' A viagem é longa. Como você aproveita o tempo?",
     image: "stevan-gaipo.png",
     choices: [
       {
@@ -2788,6 +2788,12 @@ function getDayName(dayNumber) {
 function handleEndDay() {
   if (uiMode === "event" || uiMode === "showSelection") return;
   
+  // Check if game has ended (day 30)
+  if (state.currentDay >= 30) {
+    showBetaEndMessage();
+    return;
+  }
+  
   // Check if there's a show scheduled for today
   if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) {
     showDialog("⚠️ Você tem um show marcado para hoje! Vá para o show ou cancele antes de encerrar o dia.", [
@@ -2809,6 +2815,13 @@ function handleEndDay() {
 
 function advanceDay() {
   state.currentDay += 1;
+  
+  // Check if game should end on day 30 (beta version)
+  if (state.currentDay > 30) {
+    showBetaEndMessage();
+    return;
+  }
+  
   state.currentWeekDay = (state.currentWeekDay + 1) % 7;
   state.activityPoints = MAX_ACTIVITY_POINTS;
   
@@ -2830,6 +2843,12 @@ function advanceDay() {
   
   playSound('click'); // Simple sound for new day
   
+  // Check if this is day 30 - show beta end message
+  if (state.currentDay === 30) {
+    showBetaEndMessage();
+    return;
+  }
+  
   const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
   displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${MAX_ACTIVITY_POINTS} pontos de atividade.`);
   
@@ -2842,6 +2861,45 @@ function advanceDay() {
     maybeTriggerEvent("random", { source: "newDay" });
   }
   
+  saveGameState();
+}
+
+function showBetaEndMessage() {
+  const betaMessage = `🎮 FIM DA VERSÃO BETA
+
+Você chegou ao dia 30! O jogo ainda está em versão beta.
+
+Se você gostou e quer apoiar o desenvolvimento, considere fazer uma doação!
+
+💳 Chave PIX: carvalhoillan@gmail.com
+
+💰 A partir de R$ 10,00 você já ganha seu nome nos créditos!
+🎁 Acima de R$ 50,00 tem prêmios exclusivos!
+
+Obrigado por jogar! 🎭`;
+
+  showDialog(betaMessage, [
+    { 
+      label: "🔄 Reiniciar Jogo", 
+      handler: () => {
+        if (confirm("Tem certeza que deseja reiniciar o jogo? Todo o progresso será perdido.")) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        } else {
+          hideDialog();
+        }
+      }
+    },
+    { 
+      label: "✅ Entendi", 
+      handler: () => {
+        hideDialog();
+      }
+    }
+  ]);
+  
+  // Prevent further day progression
+  state.currentDay = 30;
   saveGameState();
 }
 
@@ -2898,6 +2956,13 @@ function skipToShowDay() {
         // Skip days
         for (let i = 0; i < daysUntil; i++) {
           state.currentDay += 1;
+          
+          // Check if we've reached day 30 (beta end)
+          if (state.currentDay > 30) {
+            showBetaEndMessage();
+            return;
+          }
+          
           state.currentWeekDay = (state.currentWeekDay + 1) % 7;
           
           // Check if new week
@@ -2912,6 +2977,12 @@ function skipToShowDay() {
           
           // Process flow state
           processFlowState();
+          
+          // Check if this is exactly day 30
+          if (state.currentDay === 30) {
+            showBetaEndMessage();
+            return;
+          }
         }
         
         state.activityPoints = MAX_ACTIVITY_POINTS;
