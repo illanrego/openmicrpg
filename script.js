@@ -207,6 +207,85 @@ const SCORE_EMOJI_SCALE = [
   { threshold: -Infinity, emoji: "💧", label: "Deu água", nota: 1 }
 ];
 
+// ========== XP & LEVELING SYSTEM ==========
+const XP_TOTAL_BY_LEVEL = [
+  0,    // index 0 (unused)
+  0,    // level 1
+  150,  // level 2
+  330,  // level 3
+  540,  // level 4
+  800,  // level 5
+  1120, // level 6
+  1500, // level 7
+  1950, // level 8
+  2470, // level 9
+  3050, // level 10
+  3750, // level 11
+  4560, // level 12
+  5480, // level 13
+  6510, // level 14
+  7650, // level 15
+  8900, // level 16
+  10260, // level 17
+  11730, // level 18
+  13310, // level 19
+  15000  // level 20
+];
+
+const XP_GAIN = {
+  show: { 1: 5, 2: 15, 3: 30, 4: 60, 5: 100 },
+  jokeNew: 10,
+  jokeRewrite: 5,
+  study: 20
+};
+
+function getTotalXpForLevel(level) {
+  if (level <= 1) return 0;
+  if (level < XP_TOTAL_BY_LEVEL.length) {
+    return XP_TOTAL_BY_LEVEL[level];
+  }
+  const lastLevel = XP_TOTAL_BY_LEVEL.length - 1;
+  const lastTotal = XP_TOTAL_BY_LEVEL[lastLevel];
+  const lastIncrement = XP_TOTAL_BY_LEVEL[lastLevel] - XP_TOTAL_BY_LEVEL[lastLevel - 1];
+  const extraLevels = level - lastLevel;
+  const extraGrowth = extraLevels * (lastIncrement + 120 * (extraLevels - 1));
+  return lastTotal + extraGrowth;
+}
+
+function getLevelFromXp(xp) {
+  const safeXp = Math.max(0, Math.round(xp || 0));
+  const lastTableLevel = XP_TOTAL_BY_LEVEL.length - 1;
+  for (let level = lastTableLevel; level >= 1; level -= 1) {
+    if (safeXp >= XP_TOTAL_BY_LEVEL[level]) {
+      let computedLevel = level;
+      while (safeXp >= getTotalXpForLevel(computedLevel + 1)) {
+        computedLevel += 1;
+      }
+      return computedLevel;
+    }
+  }
+  return 1;
+}
+
+function getLevelTier(levelNumber) {
+  if (levelNumber >= 11) return "headliner";
+  if (levelNumber >= 6) return "elenco";
+  return "open";
+}
+
+function getXpForNextLevel(levelNumber) {
+  return getTotalXpForLevel(levelNumber + 1);
+}
+
+function applyXp(amount) {
+  const gain = Math.max(0, Math.round(amount || 0));
+  if (gain <= 0) return 0;
+  state.xp = Math.max(0, Math.round((state.xp || 0) + gain));
+  state.levelNumber = getLevelFromXp(state.xp);
+  state.level = getLevelTier(state.levelNumber);
+  return gain;
+}
+
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const formatSigned = (value) => (value > 0 ? `+${value}` : `${value}`);
 
@@ -2461,6 +2540,8 @@ function loadGameState() {
     theory: 10,
     eventsSeen: [],
     lastSave: null,
+    xp: 0,
+    levelNumber: 1,
     // Time system
     ...createInitialTimeState(),
     // Level progression
@@ -2478,6 +2559,15 @@ function loadGameState() {
       return baseState;
     }
     const parsed = JSON.parse(raw);
+    const legacyLevelNumber = parsed.level === "headliner" ? 11 : parsed.level === "elenco" ? 6 : 1;
+    const resolvedLevelNumber =
+      typeof parsed.levelNumber === "number" && parsed.levelNumber > 0
+        ? parsed.levelNumber
+        : legacyLevelNumber;
+    const resolvedXp =
+      typeof parsed.xp === "number" && parsed.xp >= 0
+        ? parsed.xp
+        : getTotalXpForLevel(resolvedLevelNumber);
     return {
       ...baseState,
       name: parsed.name || baseState.name,
@@ -2494,6 +2584,8 @@ function loadGameState() {
       theory: parsed.theory ?? baseState.theory,
       eventsSeen: Array.isArray(parsed.eventsSeen) ? parsed.eventsSeen : [],
       lastSave: parsed.lastSave || baseState.lastSave,
+      xp: resolvedXp,
+      levelNumber: resolvedLevelNumber,
       // Time system
       currentDay: parsed.currentDay ?? baseState.currentDay,
       currentWeekDay: parsed.currentWeekDay ?? baseState.currentWeekDay,
@@ -2506,7 +2598,7 @@ function loadGameState() {
       eventsThisWeek: parsed.eventsThisWeek ?? 0,
       showsThisWeek: parsed.showsThisWeek ?? 0,
       // Level progression
-      level: parsed.level || baseState.level,
+      level: getLevelTier(resolvedLevelNumber),
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
       fiveA5Unlocked: parsed.fiveA5Unlocked ?? false,
@@ -2532,6 +2624,8 @@ function saveGameState() {
      motivation: state.motivation,
      theory: state.theory,
      eventsSeen: state.eventsSeen,
+    xp: state.xp,
+    levelNumber: state.levelNumber,
     // Time system
     currentDay: state.currentDay,
     currentWeekDay: state.currentWeekDay,
@@ -2615,17 +2709,22 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   elements.image.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
 }
 
-let previousStats = { fans: 0, motivation: 60, theory: 10, stageTime: 0 };
+let previousStats = { fans: 0, motivation: 60, theory: 10, stageTime: 0, xp: 0 };
+let lastLevelNumber = null;
 
 function updateStats(animate = true) {
   const oldFans = previousStats.fans;
   const oldMotivation = previousStats.motivation;
   const oldTheory = previousStats.theory;
   const oldStageTime = previousStats.stageTime;
+  const oldXp = previousStats.xp;
   
   state.fans = Math.max(0, Math.round(state.fans || 0));
   state.motivation = clamp(state.motivation ?? 60, 0, 120);
   state.theory = clamp(state.theory ?? 10, 0, 120);
+  state.xp = Math.max(0, Math.round(state.xp || 0));
+  state.levelNumber = getLevelFromXp(state.xp);
+  state.level = getLevelTier(state.levelNumber);
   
   elements.stats.name.textContent = state.name;
   
@@ -2658,19 +2757,24 @@ function updateStats(animate = true) {
   }
   elements.stats.stage.textContent = `${state.stageTime}x`;
   
-  const totalMinutes = getTotalMinutes();
-  elements.stats.material.textContent = `${totalMinutes}min`;
+  const xpForNextLevel = getXpForNextLevel(state.levelNumber);
+  const xpDisplay = `${state.xp}/${xpForNextLevel} XP`;
+  if (animate && state.xp !== oldXp) {
+    animateStatChange('material', state.xp > oldXp);
+  }
+  elements.stats.material.textContent = xpDisplay;
   
   // Level is now based on progression, not just material
-  const levelLabel = getLevelLabel(state.level);
+  const levelLabel = getLevelLabel(state.level, state.levelNumber);
   elements.stats.level.textContent = levelLabel;
   
-  if (lastLevelLabel && levelLabel !== lastLevelLabel) {
-    showDialog(`🎉 Você evoluiu para o nível ${levelLabel}!`);
+  if (lastLevelNumber && state.levelNumber > lastLevelNumber) {
+    showDialog(`🎉 Você evoluiu para o nível ${state.levelNumber} (${getLevelLabel(state.level)})!`);
     spawnConfetti(30);
     animateStatChange('level', true);
   }
   lastLevelLabel = levelLabel;
+  lastLevelNumber = state.levelNumber;
   
   // Animate fans
   if (animate && state.fans !== oldFans) {
@@ -2701,19 +2805,24 @@ function updateStats(animate = true) {
     fans: state.fans,
     motivation: state.motivation,
     theory: state.theory,
-    stageTime: state.stageTime
+    stageTime: state.stageTime,
+    xp: state.xp
   };
 }
 
 // ========== TIME SYSTEM FUNCTIONS ==========
 
-function getLevelLabel(level) {
+function getLevelLabel(level, levelNumber) {
   const labels = {
     open: "Open",
     elenco: "Elenco",
     headliner: "Headliner"
   };
-  return labels[level] || "Open";
+  const baseLabel = labels[level] || "Open";
+  if (!levelNumber) {
+    return baseLabel;
+  }
+  return `${baseLabel} · Nv ${levelNumber}`;
 }
 
 function updateScheduledShowUI() {
@@ -3392,6 +3501,7 @@ function finalizeJokeCreation() {
   };
   
   state.jokes.push(newJoke);
+  const xpGain = applyXp(XP_GAIN.jokeNew);
   
   // Clean up
   window.pendingJokeIdea = null;
@@ -3413,7 +3523,7 @@ function finalizeJokeCreation() {
   
   const costText = mode.id === "desk" ? "(-1 ponto)" : "(-0.5 ponto)";
   displayNarration(
-    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText}`
+    `✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText} (+${xpGain} XP)`
   );
   
   if (state.jokes.length === 5) {
@@ -3824,12 +3934,13 @@ function handleStudy() {
   
   state.theory = clamp(state.theory + 12, 0, 150);
   state.motivation = clamp(state.motivation + 4, 0, 120);
+  const xpGain = applyXp(XP_GAIN.study);
   setScene("home"); // Always use quarto for studying
   
   // Study effect - warm glow
   flashScreen('rgba(245, 230, 200, 0.2)');
   
-  displayNarration("📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade)");
+  displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
   updateStats();
 }
 
@@ -4180,6 +4291,7 @@ function finalizeRewrite() {
   joke.lastResult = "⏱️ reescrita, ainda não testada";
   
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
+  const xpGain = applyXp(XP_GAIN.jokeRewrite);
   
   // Cleanup
   window.rewritingJoke = null;
@@ -4189,7 +4301,7 @@ function finalizeRewrite() {
   exitWritingMode();
   flashScreen('rgba(212, 168, 75, 0.15)');
   
-  displayNarration(`✏️ "${joke.title}" foi completamente reescrita! Tom: ${joke.tone}, estrutura: ${joke.structure.toUpperCase()}. ${joke.minutes} min. Parece ${label}.`);
+  displayNarration(`✏️ "${joke.title}" foi completamente reescrita! Tom: ${joke.tone}, estrutura: ${joke.structure.toUpperCase()}. ${joke.minutes} min. Parece ${label}. (+${xpGain} XP)`);
   
   handleViewMaterial();
   updateStats();
@@ -4306,6 +4418,8 @@ function performShow() {
   // Increment weekly show counter
   state.showsThisWeek = (state.showsThisWeek || 0) + 1;
   
+  const xpGain = applyXp(XP_GAIN.show[nota] || 0);
+  
   // Check level progression and flow state
   checkLevelProgression(nota, showType);
   checkFlowState(nota);
@@ -4329,7 +4443,8 @@ function performShow() {
   showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
     fans: fanGain,
     motivation: motivationShift,
-    stageTimeGain
+    stageTimeGain,
+    xp: xpGain
   });
   
   const eventContext = {
@@ -4465,36 +4580,14 @@ function getOutcomeType(nota) {
 }
 
 function checkLevelProgression(nota, showType) {
-  // Open -> Elenco: 5 shows com nota 4+ 
-  if (state.level === "open" && nota >= 4) {
+  if (nota >= 4) {
     state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
-    
-    // Track 5a5 shows for Pague15 invite event
     if (showType === "5a5") {
       state.shows5a5AtLevel4 = (state.shows5a5AtLevel4 || 0) + 1;
     }
-    
-    if (state.showsAtLevel4 >= 5) {
-      state.level = "elenco";
-      state.showsAtLevel4 = 0;
-      spawnConfetti(50);
-      flashScreen('rgba(212, 168, 75, 0.4)');
-      showDialog("🎊 VOCÊ EVOLUIU PARA ELENCO!\n\nParabéns! Agora você pode fazer shows de até 15 minutos e tem acesso a novas oportunidades.");
-    }
   }
-  
-  // Elenco -> Headliner: 5 shows com nota 5
-  if (state.level === "elenco" && nota >= 5) {
-    state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
-    
-    if (state.showsAtLevel4 >= 5) {
-      state.level = "headliner";
-      state.showsAtLevel4 = 0;
-      spawnConfetti(100);
-      flashScreen('rgba(255, 215, 0, 0.5)');
-      showDialog("👑 VOCÊ É UM HEADLINER!\n\nO circuito te reconhece como um artista de destaque. Shows de até 20 minutos e convites especiais te esperam.");
-    }
-  }
+  state.levelNumber = getLevelFromXp(state.xp);
+  state.level = getLevelTier(state.levelNumber);
 }
 
 function checkFlowState(nota) {
@@ -4599,6 +4692,9 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   }
   if (deltas.stageTimeGain && deltas.stageTimeGain > 1) {
     statFragments.push(`Stage Time +${deltas.stageTimeGain} (FLOW!)`);
+  }
+  if (deltas.xp) {
+    statFragments.push(`XP +${deltas.xp}`);
   }
   
   const statsText = statFragments.length ? ` [${statFragments.join(" | ")}]` : "";
