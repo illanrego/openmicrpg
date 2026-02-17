@@ -182,6 +182,7 @@ h3 {
     0 8px 32px rgba(0,0,0,0.5);
   overflow: hidden;
   margin-bottom: 20px;
+  transition: max-width 0.3s ease;
 }
 
 /* Intro Screen */
@@ -1370,5 +1371,485 @@ body.flow-active #game {
   
   .stat-box {
     flex: 1 1 40%;
+  }
+}
+
+/* ========== DESKTOP LAYOUT ========== */
+@media (min-width: 768px) {
+  body {
+    padding: 24px 40px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+
+  /* Wider game container */
+  #game {
+    max-width: 1100px;
+    width: 100%;
+    border-width: 5px;
+    border-radius: 12px;
+    box-shadow: 
+      inset 2px 2px 0 rgba(255,255,255,0.1),
+      inset -2px -2px 0 rgba(0,0,0,0.3),
+      0 12px 48px rgba(0,0,0,0.6);
+  }
+
+  /* Title bar larger */
+  h1 {
+    font-size: 1.6rem;
+    padding: 20px;
+    letter-spacing: 4px;
+    border-bottom-width: 5px;
+  }
+
+  /* Horizontal layout: player sidebar + main content */
+  #screen1 {
+    display: flex;
+    flex-direction: row;
+    min-height: 600px;
+  }
+
+  /* Player panel as left sidebar */
+  #player {
+    flex-direction: column;
+    align-items: stretch;
+    width: 320px;
+    min-width: 320px;
+    max-width: 320px;
+    padding: 16px;
+    gap: 12px;
+    border-bottom: none;
+    border-right: 4px solid var(--menu-border);
+    background: linear-gradient(180deg, var(--wood-medium) 0%, var(--wood-dark) 80%, var(--menu-bg) 100%);
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+  }
+
+  /* Avatar centered and larger */
+  #avatar {
+    display: block;
+    margin: 0 auto 8px;
+    width: 120px;
+    height: auto;
+    border-width: 4px;
+  }
+
+  /* Stats box bigger text */
+  #stats {
+    gap: 4px;
+    padding: 12px;
+    border-width: 3px;
+  }
+
+  .stat {
+    font-size: 1.15rem;
+    padding: 4px 8px;
+  }
+
+  .stat strong {
+    font-size: 0.7rem;
+  }
+
+  .stat-day, .stat-points {
+    font-size: 1.1rem;
+    padding: 5px 8px;
+  }
+
+  /* Action buttons - vertical column in sidebar */
+  #btnDivUp {
+    flex-direction: column;
+    min-width: unset;
+    width: 100%;
+    gap: 5px;
+  }
+
+  #btnDivUp button {
+    font-size: 1.1rem;
+    padding: 10px 12px;
+    width: 100%;
+    text-align: left;
+  }
+
+  /* Day controls side by side in sidebar */
+  #dayControls {
+    flex-direction: row;
+    padding: 12px 8px;
+    gap: 8px;
+  }
+
+  .day-btn {
+    max-width: 100%;
+    font-size: 1.15rem;
+    padding: 12px 16px;
+  }
+
+  /* Scheduled show info visible and prominent */
+  #scheduledShowInfo {
+    padding: 12px 14px;
+    font-size: 1.2rem;
+    border-radius: 6px;
+    margin: 4px 0;
+  }
+
+  /* Main content area fills remaining space */
+  #blackScreen {
+    flex: 1;
+    padding: 24px 28px;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Larger title */
+  #title {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+  }
+
+  /* Location image larger */
+  #locationImg {
+    max-width: 480px;
+    margin: 0 auto 16px;
+    border-width: 5px;
+  }
+
+  #locationImg.character-image {
+    max-width: 220px;
+  }
+
+  /* Narration text bigger */
+  #text {
+    font-size: 1.4rem;
+    line-height: 1.7;
+    padding: 18px;
+    margin: 16px 0;
+    border-width: 4px;
+  }
+
+  #subTitle {
+    font-size: 1.5rem;
+    margin: 16px 0;
+  }
+
+  /* Joke list larger */
+  #jokeList {
+    max-height: 400px;
+    padding: 12px;
+    border-width: 3px;
+  }
+
+  .joke-item {
+    padding: 14px 16px;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .joke-item strong {
+    font-size: 1.25rem;
+  }
+
+  .joke-item span {
+    font-size: 1.1rem;
+  }
+
+  .joke-meta {
+    font-size: 1.05rem;
+  }
+
+  .joke-history {
+    font-size: 1.35rem;
+    letter-spacing: 4px;
+  }
+
+  /* Dialog box bigger */
+  #dialogBox {
+    padding: 20px;
+    margin: 16px 0;
+    border-width: 4px;
+  }
+
+  #dialogText {
+    font-size: 1.35rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  #dialogActions {
+    gap: 8px;
+  }
+
+  #dialogActions button {
+    font-size: 1.15rem;
+    padding: 12px 16px;
+    padding-left: 24px;
+    min-height: 56px;
+  }
+
+  #dialogClose {
+    font-size: 1.05rem;
+    margin-top: 12px;
+  }
+
+  /* Lower info area bigger */
+  #btnDivLow {
+    font-size: 1.25rem;
+    padding: 16px;
+    border-width: 3px;
+  }
+
+  /* Continue button bigger */
+  #btnContinuar {
+    font-size: 0.9rem;
+    padding: 18px 36px;
+    border-width: 5px;
+    margin: 20px auto;
+  }
+
+  /* Bigger general buttons */
+  button {
+    font-size: 1.2rem;
+    padding: 10px 16px;
+    border-width: 3px;
+  }
+
+  /* Writing mode buttons */
+  .writing-mode-btn {
+    padding: 14px !important;
+    font-size: 1.2rem !important;
+  }
+
+  .writing-mode-btn small {
+    font-size: 1rem;
+  }
+
+  .cost-badge {
+    font-size: 0.9rem;
+    padding: 3px 10px;
+  }
+
+  /* Joke customization */
+  .joke-customization h4 {
+    font-size: 1.25rem;
+  }
+
+  .tone-btn, .structure-btn {
+    font-size: 1.05rem !important;
+    padding: 8px 16px !important;
+  }
+
+  .customization-hint {
+    font-size: 1.05rem;
+  }
+
+  .joke-title-input {
+    font-size: 1.3rem;
+    padding: 12px 14px;
+  }
+
+  /* Legend */
+  #legend {
+    font-size: 1.1rem;
+    padding: 10px;
+  }
+
+  .legend-details summary {
+    font-size: 1.05rem;
+  }
+
+  .legend-content {
+    font-size: 1rem;
+  }
+
+  /* History styles bigger */
+  .history-stats {
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  .stat-box {
+    padding: 12px 16px;
+    min-width: 80px;
+  }
+
+  .stat-box strong {
+    font-size: 1.7rem;
+  }
+
+  .stat-box span {
+    font-size: 1rem;
+  }
+
+  .history-distribution {
+    font-size: 1.25rem;
+    letter-spacing: 3px;
+  }
+
+  .history-list {
+    max-height: 350px;
+  }
+
+  .history-item {
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+
+  .history-emoji {
+    font-size: 2.2rem;
+  }
+
+  .history-info strong {
+    font-size: 1.15rem;
+  }
+
+  .history-date {
+    font-size: 1rem;
+  }
+
+  .history-nota {
+    font-size: 1rem;
+    padding: 5px 14px;
+  }
+
+  .history-jokes {
+    font-size: 1.35rem;
+    letter-spacing: 4px;
+  }
+
+  /* Intro screen - bigger on desktop */
+  #introScreen {
+    padding: 36px 40px;
+    gap: 20px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  #mentorImg {
+    max-width: 140px;
+  }
+
+  #introText {
+    font-size: 1.5rem;
+    line-height: 1.6;
+    padding: 20px;
+    min-height: 120px;
+  }
+
+  #nameInput h3 {
+    font-size: 1.6rem;
+  }
+
+  #playerNameInput {
+    font-size: 1.5rem;
+    max-width: 320px;
+    padding: 14px 20px;
+  }
+
+  #avatarSelection {
+    gap: 24px;
+  }
+
+  .avatar-option {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .avatar-option img {
+    width: 100px;
+  }
+
+  .avatar-option span {
+    font-size: 1.1rem;
+  }
+
+  /* Scrollbar for sidebar */
+  #player::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  #player::-webkit-scrollbar-track {
+    background: var(--wood-dark);
+  }
+
+  #player::-webkit-scrollbar-thumb {
+    background: var(--menu-border);
+    border-radius: 4px;
+  }
+
+  /* Flow indicator more visible */
+  .stat-flow {
+    padding: 6px 8px;
+  }
+
+  .stat-flow strong {
+    font-size: 0.75rem;
+  }
+
+  /* Confetti bigger */
+  .confetti {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Rewrite/delete buttons */
+  .rewrite-btn, .delete-btn {
+    font-size: 1rem;
+    padding: 6px 14px;
+  }
+
+  /* Tooltip on desktop is better */
+  .tone-btn[title]:hover::after, .structure-btn[title]:hover::after {
+    font-size: 0.95rem;
+    max-width: 260px;
+    padding: 10px 14px;
+  }
+}
+
+/* Extra-wide screens */
+@media (min-width: 1200px) {
+  #game {
+    max-width: 1280px;
+  }
+
+  #player {
+    width: 360px;
+    min-width: 360px;
+    max-width: 360px;
+    padding: 20px;
+  }
+
+  #avatar {
+    width: 140px;
+  }
+
+  .stat {
+    font-size: 1.25rem;
+  }
+
+  .stat strong {
+    font-size: 0.75rem;
+  }
+
+  #btnDivUp button {
+    font-size: 1.15rem;
+    padding: 12px 14px;
+  }
+
+  #blackScreen {
+    padding: 28px 36px;
+  }
+
+  #text {
+    font-size: 1.5rem;
+  }
+
+  #locationImg {
+    max-width: 560px;
+  }
+
+  #dialogText {
+    font-size: 1.4rem;
   }
 }
