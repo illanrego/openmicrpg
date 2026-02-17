@@ -42,7 +42,11 @@ const MAX_SHOWS_PER_WEEK = 3;
 
 // ─── Time ───
 const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const MAX_ACTIVITY_POINTS = 1;
+function getMaxActivityPoints() {
+  if (state && state.madeIt) return 3;
+  if (state && state.hasEmployment) return 2;
+  return 1;
+}
 
 const ACTIVITY_COSTS = {
   study: 1,
@@ -52,15 +56,11 @@ const ACTIVITY_COSTS = {
   contentQuick: 0.5  // criar conteúdo rápido
 };
 
-// With MAX_ACTIVITY_POINTS = 1, player can do:
-// - 1 major activity (study, desk write, content long) per day
-// - OR 2 minor activities (day notes, quick content) per day
-
 const createInitialTimeState = () => ({
   currentDay: 1,
   currentWeekDay: 1, // Segunda
   currentWeek: 1,
-  activityPoints: MAX_ACTIVITY_POINTS,
+  activityPoints: getMaxActivityPoints(),
   scheduledShow: null,   // { showId, dayScheduled }
   showHistory: [],
   consecutiveGoodShows: 0,
@@ -71,6 +71,19 @@ const createInitialTimeState = () => ({
 
 // ─── Tones & Structures ───
 const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack"];
+
+function getUnlockedTones() {
+  const base = ["besteirol", "limpo", "vulgar", "humor negro"];
+  if (state && state.levelNumber >= 5) base.push("hack");
+  return base;
+}
+
+function getUnlockedStructures() {
+  const base = ["oneliner", "bit"];
+  if (state && state.levelNumber >= 6) base.push("storytelling");
+  if (state && state.levelNumber >= 10) base.push("prop");
+  return base;
+}
 
 const toneDescriptions = {
   besteirol: "besteiras descompromissadas",
@@ -114,7 +127,7 @@ const writingModes = {
     desc: "Gasta motivação mas aumenta a chance de gerar algo sólido.",
     costLabel: "⚡ 1 ponto",
     motivationCost: 8,
-    theoryBonus: 0.05,
+    textoBonus: 0.05,
     timeBonus: 0.4
   },
   day: {
@@ -123,7 +136,7 @@ const writingModes = {
     desc: "Mais leve, rende ideias rápidas e mantém motivação em alta.",
     costLabel: "⚡ 0.5 ponto",
     motivationCost: -5,
-    theoryBonus: 0,
+    textoBonus: 0,
     timeBonus: 0
   }
 };
@@ -163,6 +176,37 @@ const mentorIntroLines = [
   "Seu trabalho é escrever, testar, ajustar, repetir... até transformar palco em laboratório.",
   "Antes de te mandar pro ringue, me diz: quem é você nessa busca pela próxima risada?"
 ];
+
+
+// ─── Perk Trees ───
+const PERK_TREES = {
+  texto: [
+    { id: "premissaSolida", name: "Premissa Sólida", desc: "+10% potencial de piadas", level: 2, requires: null, effect: { jokePotentialBonus: 0.05 } },
+    { id: "economiaDePalavras", name: "Economia de Palavras", desc: "+15% eficiência", level: 3, requires: "premissaSolida", effect: { jokeEfficiency: 0.15 } },
+    { id: "tagMachine", name: "Tag Machine", desc: "Melhores rewrites", level: 5, requires: "economiaDePalavras", effect: { rewriteBonus: 0.1 } },
+    { id: "callbackMaster", name: "Callback Master", desc: "+10% em sets longos (hacky)", level: 7, requires: null, effect: { longSetBonus: 0.1 }, warning: "hacky" },
+    { id: "setupKiller", name: "Setup Killer", desc: "Setups mais fortes", level: 9, requires: "tagMachine", effect: { setupBonus: 0.08 } }
+  ],
+  entrega: [
+    { id: "timingBasico", name: "Timing Básico", desc: "+10% delivery", level: 2, requires: null, effect: { deliveryBonus: 0.05 } },
+    { id: "timingAvancado", name: "Timing Avançado", desc: "+20% delivery", level: 5, requires: "timingBasico", effect: { deliveryBonus: 0.1 } },
+    { id: "presencaDePalco", name: "Presença de Palco", desc: "+15% em grandes plateias", level: 4, requires: null, effect: { bigCrowdBonus: 0.15 } },
+    { id: "crowdWorkIniciante", name: "Crowd Work Iniciante", desc: "Bônus em interação", level: 3, requires: null, effect: { crowdWorkBonus: 0.05 } },
+    { id: "crowdWorkPro", name: "Crowd Work Pro", desc: "Bônus forte em interação", level: 8, requires: "crowdWorkIniciante", effect: { crowdWorkBonus: 0.12 } },
+    { id: "lidarComHeckler", name: "Lidar com Heckler", desc: "Defesa contra bombar", level: 6, requires: null, effect: { hecklerDefense: 0.1 } },
+    { id: "energiaAlta", name: "Energia Alta", desc: "Mantém qualidade em sets longos", level: 10, requires: "timingAvancado", effect: { staminaBonus: 0.08 } }
+  ]
+};
+
+// ─── Classes ───
+const CLASSES = {
+  comicoClassico: { name: "Cômico Clássico", desc: "Stand-up puro, turnês, shows próprios", bonus: { texto: 10, entrega: 10 }, empReq: { texto: 45, entrega: 45 }, madeIt: "Turnê nacional ou especial gravado" },
+  roteirista: { name: "Roteirista", desc: "Escrita para outros, programas", bonus: { texto: 10 }, empReq: { texto: 60 }, writeSpeed: 0.75, madeIt: "Credenciado em programa famoso" },
+  produtor: { name: "Produtor", desc: "Shows e gestão", bonus: { network: 15 }, empReq: { network: 50 }, seeSchedule: true, madeIt: "Casa própria com shows semanais" },
+  atorComico: { name: "Ator Cômico", desc: "Performance, TV, cinema", bonus: { entrega: 10 }, empReq: { entrega: 60 }, actingEvents: true, madeIt: "Papel fixo em série/filme" },
+  influencer: { name: "Influencer", desc: "Conteúdo digital, virais", bonus: { fansMultiplier: 1.5 }, empReq: { fans: 200 }, viralEvents: true, madeIt: "10k+ fãs, viral" },
+  professor: { name: "Professor", desc: "Ensino e teoria da comédia", bonus: { texto: 5, entrega: 5 }, empReq: { texto: 50, entrega: 50 }, workshopEvents: true, xpMultiplier: 2, madeIt: "Curso estabelecido" }
+};
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -531,7 +575,7 @@ const eventPool = [
     image: "corporativo.png",
     choices: [
       { label: "Aceitar o desafio", startShowId: "corporativo-surpresa", narration: "Você aceita e já começa a pensar em piadas sobre trabalho. O cachê vai ajudar nas contas!" },
-      { label: "Indicar outro comediante", effects: { theory: 6, motivation: 4, network: 5 }, narration: "Você passa o contato de um amigo. Ele agradece muito e te deve uma. Você usa o tempo livre pra estudar." }
+      { label: "Indicar outro comediante", effects: { texto: 6, motivation: 4, network: 5 }, narration: "Você passa o contato de um amigo. Ele agradece muito e te deve uma. Você usa o tempo livre pra estudar." }
     ]
   },
   {
@@ -540,7 +584,7 @@ const eventPool = [
     image: "podcast.png",
     choices: [
       { label: "Mandar punchline atrás de punchline", effects: { fans: 20, motivation: -4, network: 3 }, narration: "Você viraliza uns cortes, mas sai sem energia para escrever." },
-      { label: "Falar sobre processo", effects: { theory: 10, motivation: 4, network: 5 }, narration: "Você inspira novos comediantes e reflete sobre seu método." }
+      { label: "Falar sobre processo", effects: { texto: 10, motivation: 4, network: 5 }, narration: "Você inspira novos comediantes e reflete sobre seu método." }
     ]
   },
   {
@@ -549,7 +593,7 @@ const eventPool = [
     text: "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
     image: "carvalho.png",
     choices: [
-      { label: "Pedir análise técnica", effects: { theory: 15, motivation: -5 }, narration: "Vocês destrincham cada minuto do set. Dói muito, mas você aprende bastante." },
+      { label: "Pedir análise técnica", effects: { texto: 15, motivation: -5 }, narration: "Vocês destrincham cada minuto do set. Dói muito, mas você aprende bastante." },
       { label: "Assistir shows juntos", effects: { motivation: 15, network: 3 }, narration: "Vocês dão risada de outros fracassos e você recupera o moral." }
     ]
   },
@@ -558,7 +602,7 @@ const eventPool = [
     text: "Você já tem 5 piadas no caderno! Paulo Araújo, um comediante que você conheceu num bar, te manda mensagem: 'E aí, vi que tu tá escrevendo! Tenho um slot sobrando no 5 a 5 desse domingo, quer testar esse material?'",
     image: "paulo-araujo.png",
     choices: [
-      { label: "Aceitar o convite", effects: { motivation: 8, theory: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
+      { label: "Aceitar o convite", effects: { motivation: 8, texto: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
       { label: "Quero mais material primeiro", effects: { motivation: -2 }, narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar." }
     ]
   },
@@ -567,7 +611,7 @@ const eventPool = [
     text: "Paulo Araújo te manda mensagem: 'E aí, vi que você tá mandando bem no 5 a 5! Que tal fazer parte do elenco fixo do Pague 15? É um show mais sério, com plateia pagante. Você topa?'",
     image: "paulo-araujo.png",
     choices: [
-      { label: "Aceitar fazer parte do elenco fixo", effects: { motivation: 10, network: 8, theory: 5 }, unlockPague15: true, narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!" },
+      { label: "Aceitar fazer parte do elenco fixo", effects: { motivation: 10, network: 8, texto: 5 }, unlockPague15: true, narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!" },
       { label: "Ainda não me sinto pronto", effects: { motivation: -3 }, narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta." }
     ]
   },
@@ -577,7 +621,7 @@ const eventPool = [
     text: "Stevan Gaipo te manda mensagem: 'E aí, vi teus shows, curti. To indo fazer uns shows no interior semana que vem, quer vir junto?' A viagem é longa. Como você aproveita o tempo?",
     image: "stevan-gaipo.png",
     choices: [
-      { label: "Revisar material no trajeto", effects: { theory: 8, motivation: -3 }, narration: "Você passa a viagem revisando piadas e estruturando o set. Chega mais preparado, mas meio cansado." },
+      { label: "Revisar material no trajeto", effects: { texto: 8, motivation: -3 }, narration: "Você passa a viagem revisando piadas e estruturando o set. Chega mais preparado, mas meio cansado." },
       { label: "Fazer amizade com a galera", effects: { motivation: 5, network: 12 }, narration: "Você troca ideia com todo mundo, conta histórias, ouve outras. Sai com vários contatos novos e animado." }
     ]
   },
@@ -586,8 +630,8 @@ const eventPool = [
     text: "Gabriel Andrade, conhecido pelo humor de oneliners afiados e prop comedy maluca, te manda uma DM: 'Ei, vi seu material. Teus oneliners têm potencial mas falta punch! E já pensou em usar objetos no palco? Te ensino uns truques se quiser.'",
     image: "gabriel-andrade.png",
     choices: [
-      { label: "Aprender técnica de oneliners", effects: { theory: 12, motivation: 5 }, narration: "Gabriel te explica a estrutura perfeita do oneliner: setup curto, punch inesperado. 'A graça tá na economia de palavras', ele diz. Você anota tudo." },
-      { label: "Aprender prop comedy", effects: { theory: 8, motivation: 8, fans: 3 }, narration: "Gabriel te mostra como um objeto simples pode virar 5 minutos de material. 'O prop não é muleta, é amplificador!' Você já começa a ter ideias." },
+      { label: "Aprender técnica de oneliners", effects: { texto: 12, motivation: 5 }, narration: "Gabriel te explica a estrutura perfeita do oneliner: setup curto, punch inesperado. 'A graça tá na economia de palavras', ele diz. Você anota tudo." },
+      { label: "Aprender prop comedy", effects: { texto: 8, motivation: 8, fans: 3 }, narration: "Gabriel te mostra como um objeto simples pode virar 5 minutos de material. 'O prop não é muleta, é amplificador!' Você já começa a ter ideias." },
       { label: "Só trocar ideia mesmo", effects: { motivation: 6, network: 8 }, narration: "Vocês ficam trocando ideia sobre comédia por horas. Gabriel é gente boa demais e promete te indicar pra alguns shows." }
     ]
   },
@@ -596,7 +640,7 @@ const eventPool = [
     text: "Você olha pro caderno em branco há horas. Nada vem. Tenta escrever, apaga, tenta de novo. Bloqueio criativo bateu forte.",
     image: "quarto1.png",
     choices: [
-      { label: "Forçar até sair algo", effects: { motivation: -10, theory: 5 }, narration: "Você se obriga a escrever, mesmo que seja lixo. Depois de muito sofrimento, algumas ideias começam a aparecer." },
+      { label: "Forçar até sair algo", effects: { motivation: -10, texto: 5 }, narration: "Você se obriga a escrever, mesmo que seja lixo. Depois de muito sofrimento, algumas ideias começam a aparecer." },
       { label: "Sair e fazer outra coisa", effects: { motivation: 12, fans: 3 }, narration: "Você fecha o caderno e vai viver. Encontra um amigo, passeia, observa as pessoas. Amanhã você volta com a cabeça fresca." }
     ]
   },
@@ -613,8 +657,8 @@ const eventPool = [
     text: "Você descobre que um 'amigo' comediante está usando piadas muito parecidas com as suas no set dele. Confronta?",
     image: "comic-stealing-jokes.png",
     choices: [
-      { label: "Confrontar diretamente", effects: { motivation: -5, network: -8, theory: 3 }, narration: "A treta é inevitável. Você perde um contato, mas defende seu trabalho." },
-      { label: "Ignorar e escrever material melhor", effects: { motivation: 8, theory: 10 }, narration: "A melhor vingança é sucesso. Você canaliza a raiva em criatividade." }
+      { label: "Confrontar diretamente", effects: { motivation: -5, network: -8, texto: 3 }, narration: "A treta é inevitável. Você perde um contato, mas defende seu trabalho." },
+      { label: "Ignorar e escrever material melhor", effects: { motivation: 8, texto: 10 }, narration: "A melhor vingança é sucesso. Você canaliza a raiva em criatividade." }
     ]
   },
   {
@@ -637,8 +681,8 @@ const eventPool = [
     id: "festaPosShow", trigger: "showKill",
     text: "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
     choices: [
-      { label: "Ir para a festa", effects: { motivation: 8, network: 10, theory: -3 }, narration: "Você faz amigos e conexões importantes. A noite foi épica." },
-      { label: "Ir pra casa escrever", effects: { theory: 12, motivation: -2 }, narration: "Sozinho em casa, você anota tudo que funcionou. Material precioso." }
+      { label: "Ir para a festa", effects: { motivation: 8, network: 10, texto: -3 }, narration: "Você faz amigos e conexões importantes. A noite foi épica." },
+      { label: "Ir pra casa escrever", effects: { texto: 12, motivation: -2 }, narration: "Sozinho em casa, você anota tudo que funcionou. Material precioso." }
     ]
   },
   {
@@ -655,7 +699,7 @@ const eventPool = [
     text: "Um comediante mais experiente te oferece mentoria. Mas ele é conhecido por ser duro e exigente.",
     image: "carvalho.png",
     choices: [
-      { label: "Aceitar a mentoria", effects: { theory: 20, motivation: -10 }, narration: "A jornada é brutal, mas você evolui muito como artista." },
+      { label: "Aceitar a mentoria", effects: { texto: 20, motivation: -10 }, narration: "A jornada é brutal, mas você evolui muito como artista." },
       { label: "Recusar educadamente", effects: { motivation: 5, network: 3 }, narration: "Você agradece, mas prefere seguir seu próprio caminho." }
     ]
   },
@@ -673,6 +717,55 @@ const eventPool = [
     choices: [
       { label: "Pedir para remover", effects: { motivation: -5, fans: -5 }, narration: "Você consegue tirar, mas o estrago já foi feito. Hora de escrever material novo." },
       { label: "Deixar e usar como divulgação", effects: { fans: 20, motivation: 5 }, narration: "Você transforma o limão em limonada. O vídeo vira seu cartão de visitas." }
+    ]
+  },
+  // ─── New NPCs ───
+  {
+    id: "rossiniLuzWorkshop", trigger: "levelUp3", once: true, isCharacterEvent: true,
+    text: "Rossini Luz, mestre da escrita de comédia, te manda mensagem: 'Ei, vi que você tá evoluindo! Quero te convidar pro meu workshop de texto. Vou te ensinar storytelling — a arte de contar uma história que prende, diverte e explode no final.'",
+    image: "rossini-luz.png",
+    choices: [
+      { label: "Aceitar o workshop de storytelling", effects: { texto: 15, motivation: 5, entrega: 3 }, narration: "Rossini te ensina a construir narrativas com setup, desenvolvimento e payoff. Você desbloqueia STORYTELLING como estrutura! Um mundo novo de possibilidades se abre." },
+      { label: "Focar em oneliners por enquanto", effects: { texto: 5, motivation: 3 }, narration: "Você agradece mas prefere dominar o que já sabe. Rossini entende e diz: 'Quando estiver pronto, me procura.'" }
+    ]
+  },
+  {
+    id: "douglasFerreiraReading", trigger: "random", isCharacterEvent: true,
+    text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
+    image: "douglas-ferreira.png",
+    choices: [
+      { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, muda o tom. Se a galera tá rindo antes de você falar, acelera.' Você absorve cada palavra." },
+      { label: "Pedir dicas de presença de palco", effects: { entrega: 6, texto: 4 }, narration: "Douglas te mostra como usar o espaço do palco. 'Não fica parado no mic. Anda, ocupa, faz a plateia te seguir com os olhos.' Simples mas poderoso." },
+      { label: "Agradecer e ir embora", effects: { motivation: 5, network: 3 }, narration: "Você agradece a dica rápida. Douglas sorri e volta pro portão. 'Qualquer coisa, tô ali.'" }
+    ]
+  },
+  {
+    id: "brunoBergProducao", trigger: "random", isCharacterEvent: true,
+    requiresLevel: "elenco",
+    text: "Bruno Berg, produtor veterano de shows de comédia, te procura no bar: 'Ei, eu vejo potencial em você. Já pensou em produzir seus próprios shows? Te ensino o básico: como montar lineup, negociar com casas, divulgar. É outro jogo, mas abre portas enormes.'",
+    image: "bruno-berg.png",
+    choices: [
+      { label: "Aprender sobre produção", effects: { network: 12, texto: 5, motivation: -3 }, narration: "Bruno te mostra os bastidores: contrato com casa, divisão de bilheteria, curadoria de elenco. É cansativo mas revelador. Você entende como o negócio funciona." },
+      { label: "Perguntar sobre gestão de carreira", effects: { network: 8, motivation: 5, fans: 5 }, narration: "Bruno te dá conselhos sobre posicionamento: 'Não aceita qualquer show. Escolha onde aparece. Sua marca é o que as pessoas falam quando você sai.' Você sai pensando diferente." },
+      { label: "Só bater um papo", effects: { motivation: 6, network: 5 }, narration: "Vocês ficam trocando histórias do circuito. Bruno é uma enciclopédia viva da comédia brasileira." }
+    ]
+  },
+  {
+    id: "diegoFerreiraColetivo", trigger: "random", once: true, isCharacterEvent: true,
+    text: "Diego Ferreira te manda mensagem num grupo de WhatsApp: 'Opa! Tô montando um coletivo de comédia. A ideia é juntar gente nova, dividir palco, trocar material, fazer shows juntos. Topa entrar?'",
+    image: "diego-ferreira.png",
+    choices: [
+      { label: "Entrar no coletivo", effects: { network: 15, motivation: 10, entrega: 5 }, narration: "Você entra no coletivo! Shows em grupo, ensaios semanais, troca de material. É como ter uma família de comédia. Seu network explode." },
+      { label: "Preferir seguir solo", effects: { motivation: 5, texto: 3 }, narration: "Você agradece mas prefere seguir seu próprio caminho. Diego entende: 'Respeito. Se mudar de ideia, a porta tá aberta.'" }
+    ]
+  },
+  {
+    id: "hackWarning", trigger: "random", once: true, isCharacterEvent: true,
+    text: "Professor Carvalho te liga: 'Parabéns pelas 5 piadas! Agora, um aviso importante sobre CALLBACKS. Callback é quando você repete algo que deu certo. É fácil, eficiente, mas é muleta. Se você só faz callback, seu show vira um truque previsível. Use com moderação.'",
+    image: "carvalho.png",
+    choices: [
+      { label: "Anotar o conselho", effects: { texto: 5, motivation: 5 }, narration: "Você anota no caderno: 'Callback = muleta. Usar com moderação.' Professor Carvalho sorri: 'Isso. Agora vai lá e escreve material original.'" },
+      { label: "Discordar educadamente", effects: { motivation: 8, entrega: 3 }, narration: "Você argumenta que callbacks são uma ferramenta legítima. Carvalho ri: 'Tá certo, vai descobrir por conta própria. Faz parte.'" }
     ]
   }
 ];
@@ -823,9 +916,10 @@ let pendingEvent = null;
 let lastLevelLabel = null;
 let dialogTimeout = null;
 const selectedJokeIds = new Set();
+const criticalDialogQueue = [];
 
 // Stat animation tracking
-let previousStats = { fans: 0, motivation: 60, theory: 10, stageTime: 0, xp: 0 };
+let previousStats = { fans: 0, motivation: 60, texto: 10, entrega: 5, stageTime: 0, xp: 0 };
 let lastLevelNumber = null;
 
 // Joke creation temporaries (kept module-level instead of polluting window)
@@ -883,11 +977,11 @@ function getQuartoForWeekday(weekday) {
   return quartos[weekday - 1];          // Segunda–Sexta
 }
 
-function getNotebookImageForTheory(theory) {
-  if (theory >= 120) return "notebook5.png";
-  if (theory >= 90) return "notebook4.png";
-  if (theory >= 60) return "notebook3.png";
-  if (theory >= 30) return "notebook2.png";
+function getNotebookImageForTexto(texto) {
+  if (texto >= 120) return "notebook5.png";
+  if (texto >= 90) return "notebook4.png";
+  if (texto >= 60) return "notebook3.png";
+  if (texto >= 30) return "notebook2.png";
   return "notebook1.png";
 }
 
@@ -933,8 +1027,8 @@ function checkStatRequirements(requirements) {
   if (requirements.motivation && state.motivation < requirements.motivation) {
     warnings.push({ stat: "motivação", required: requirements.motivation, current: state.motivation, tip: "Descanse, faça shows bem-sucedidos ou crie conteúdo para recuperar motivação." });
   }
-  if (requirements.theory && state.theory < requirements.theory) {
-    warnings.push({ stat: "teoria", required: requirements.theory, current: state.theory, tip: "Estude comédia para aumentar sua teoria." });
+  if (requirements.texto && state.texto < requirements.texto) {
+    warnings.push({ stat: "texto", required: requirements.texto, current: state.texto, tip: "Estude comédia para aumentar seu texto." });
   }
   return warnings;
 }
@@ -944,7 +1038,8 @@ function formatEffectsSummary(effects) {
   const changes = [];
   if (effects.fans) changes.push(`Fãs ${formatSigned(effects.fans)}`);
   if (effects.motivation) changes.push(`Motivação ${formatSigned(effects.motivation)}`);
-  if (effects.theory) changes.push(`Teoria ${formatSigned(effects.theory)}`);
+  if (effects.texto) changes.push(`Texto ${formatSigned(effects.texto)}`);
+  if (effects.entrega) changes.push(`Entrega ${formatSigned(effects.entrega)}`);
   if (effects.network) changes.push(`Network ${formatSigned(effects.network)}`);
   if (effects.stageTime) changes.push(`Stage Time ${formatSigned(effects.stageTime)}`);
   return changes.length > 0 ? `\n\n📊 [${changes.join(" | ")}]` : "";
@@ -954,6 +1049,136 @@ function drawUniqueIdea() {
   const usedTitles = new Set((state?.jokes || []).map((joke) => joke.title));
   const unused = ideaPool.filter((idea) => !usedTitles.has(formatIdeaTitle(idea)));
   return unused.length ? unused[Math.floor(Math.random() * unused.length)] : null;
+}
+
+// ─── Perk Helpers ───
+function hasPerk(perkId) {
+  return state && Array.isArray(state.unlockedPerks) && state.unlockedPerks.includes(perkId);
+}
+
+function getPerkEffect(effectKey) {
+  if (!state || !Array.isArray(state.unlockedPerks)) return 0;
+  let total = 0;
+  const allPerks = [...PERK_TREES.texto, ...PERK_TREES.entrega];
+  for (const perk of allPerks) {
+    if (state.unlockedPerks.includes(perk.id) && perk.effect[effectKey]) {
+      total += perk.effect[effectKey];
+    }
+  }
+  return total;
+}
+
+function getAvailablePerks() {
+  if (!state) return [];
+  const unlocked = state.unlockedPerks || [];
+  const allPerks = [...PERK_TREES.texto.map(p => ({ ...p, tree: "texto" })), ...PERK_TREES.entrega.map(p => ({ ...p, tree: "entrega" }))];
+  return allPerks.filter(perk => {
+    if (unlocked.includes(perk.id)) return false;
+    if (perk.level > state.levelNumber) return false;
+    if (perk.requires && !unlocked.includes(perk.requires)) return false;
+    return true;
+  });
+}
+
+function showPerkSelectionDialog() {
+  const available = getAvailablePerks();
+  if (!available.length || (state.availablePerkPoints || 0) <= 0) return;
+
+  const options = available.map(perk => ({
+    label: `${perk.tree === "texto" ? "📝" : "🎭"} ${perk.name} — ${perk.desc}${perk.warning ? " ⚠️" : ""}`,
+    handler: () => {
+      state.unlockedPerks = state.unlockedPerks || [];
+      state.unlockedPerks.push(perk.id);
+      state.availablePerkPoints = Math.max(0, (state.availablePerkPoints || 0) - 1);
+      playSound('getSomething');
+      spawnConfetti(20);
+      flashScreen('rgba(212, 168, 75, 0.3)');
+      queueCriticalDialog(`✨ Vantagem desbloqueada: ${perk.name}!\n\n${perk.desc}${perk.warning ? "\n\n⚠️ Professor Carvalho avisa: 'Callback é eficiente, mas é muleta. Use com moderação.'" : ""}`);
+      saveGameState();
+    }
+  }));
+  options.push({ label: "Guardar para depois", handler: () => {} });
+
+  queueCriticalDialog(`🌟 Você tem ${state.availablePerkPoints} ponto(s) de vantagem!\n\nEscolha uma vantagem para desbloquear:`, options);
+}
+
+
+// ─── Class & Employment Helpers ───
+function showClassSelectionDialog() {
+  if (state.chosenClass) return;
+
+  const classOptions = Object.entries(CLASSES).map(([key, cls]) => ({
+    label: `${cls.name} — ${cls.desc}`,
+    handler: () => {
+      state.chosenClass = key;
+      if (cls.bonus) {
+        if (cls.bonus.texto) state.texto = clamp((state.texto || 0) + cls.bonus.texto, 0, 120);
+        if (cls.bonus.entrega) state.entrega = clamp((state.entrega || 0) + cls.bonus.entrega, 0, 120);
+        if (cls.bonus.network) state.network = (state.network || 10) + cls.bonus.network;
+      }
+      playSound('victory');
+      spawnConfetti(50);
+      flashScreen('rgba(212, 168, 75, 0.4)');
+      const bonusText = cls.bonus ? Object.entries(cls.bonus).filter(([k]) => k !== 'fansMultiplier' && k !== 'xpMultiplier').map(([k, v]) => `${k} +${v}`).join(', ') : '';
+      queueCriticalDialog(`🎭 Você escolheu: ${cls.name}!\n\n${cls.desc}\n\n${bonusText ? `Bônus aplicados: ${bonusText}` : ''}${cls.madeIt ? `\n\nObjetivo final: ${cls.madeIt}` : ''}`);
+      updateStats();
+      saveGameState();
+    }
+  }));
+
+  queueCriticalDialog("🎓 Parabéns! Você deixou de ser Open. Agora é hora de pensar em carreira.\n\nQual caminho você escolhe?", classOptions);
+}
+
+function checkEmploymentOffer() {
+  if (!state.chosenClass || state.hasEmployment) return;
+  const cls = CLASSES[state.chosenClass];
+  if (!cls || !cls.empReq) return;
+
+  let meetsRequirements = true;
+  for (const [stat, required] of Object.entries(cls.empReq)) {
+    const current = state[stat] || 0;
+    if (current < required) { meetsRequirements = false; break; }
+  }
+
+  if (meetsRequirements) {
+    queueCriticalDialog(`💼 Oferta de Emprego!\n\nComo ${cls.name}, você atingiu os requisitos para trabalhar na área.\n\nAceitar significa mais tempo para comédia (2 pontos de atividade por dia).`, [
+      { label: "✅ Aceitar emprego!", handler: () => {
+        state.hasEmployment = true;
+        playSound('victory');
+        spawnConfetti(40);
+        flashScreen('rgba(90, 143, 90, 0.3)');
+        queueCriticalDialog(`🎉 Você agora trabalha como ${cls.name}!\n\nVocê tem 2 pontos de atividade por dia.`);
+        saveGameState();
+      }},
+      { label: "Ainda não", handler: () => {} }
+    ]);
+  }
+}
+
+function checkMadeIt() {
+  if (!state.chosenClass || state.madeIt || state.levelNumber < 16) return;
+  const cls = CLASSES[state.chosenClass];
+  if (!cls) return;
+
+  let qualifies = false;
+  switch (state.chosenClass) {
+    case 'roteirista': qualifies = state.texto >= 80; break;
+    case 'produtor': qualifies = state.network >= 80; break;
+    case 'atorComico': qualifies = state.entrega >= 80; break;
+    case 'influencer': qualifies = state.fans >= 10000; break;
+    case 'professor': qualifies = state.texto >= 60 && state.entrega >= 60; break;
+    case 'comicoClassico': qualifies = state.texto >= 60 && state.entrega >= 60; break;
+    default: qualifies = false;
+  }
+
+  if (qualifies) {
+    state.madeIt = true;
+    playSound('victory');
+    spawnConfetti(80);
+    flashScreen('rgba(212, 168, 75, 0.5)');
+    queueCriticalDialog(`🏆 MADE IT!\n\n${cls.madeIt}\n\nVocê chegou ao topo como ${cls.name}. 3 pontos de atividade por dia. A lenda continua...`);
+    saveGameState();
+  }
 }
 
 
@@ -1026,7 +1251,8 @@ function getXpForNextLevel(levelNumber) {
 }
 
 function applyXp(amount) {
-  const gain = Math.max(0, Math.round(amount || 0));
+  const xpMultiplier = (state.chosenClass === 'professor' && CLASSES.professor.xpMultiplier) ? CLASSES.professor.xpMultiplier : 1;
+  const gain = Math.max(0, Math.round((amount || 0) * xpMultiplier));
   if (gain <= 0) return 0;
   state.xp = Math.max(0, Math.round((state.xp || 0) + gain));
   state.levelNumber = getLevelFromXp(state.xp);
@@ -1055,12 +1281,22 @@ function getLevelLabel(level, levelNumber) {
 function evaluateShow(setList, show, flowBonus = 0) {
   let totalScore = 0;
   const breakdown = [];
-  setList.forEach((joke) => {
+  const entrega = state.entrega || 0;
+  const chaosRange = 0.2 * (1 - entrega / 300);
+  const deliveryBonus = entrega / 400 + getPerkEffect('deliveryBonus');
+  const difficultyReduction = entrega / 250;
+  const hecklerDefense = getPerkEffect('hecklerDefense');
+  const bigCrowdBonus = (show.minMinutes >= 6) ? getPerkEffect('bigCrowdBonus') : 0;
+  const longSetBonus = (setList.length >= 3) ? getPerkEffect('longSetBonus') : 0;
+  const staminaBonus = getPerkEffect('staminaBonus');
+  const crowdWorkBonus = getPerkEffect('crowdWorkBonus');
+  setList.forEach((joke, idx) => {
     const potencyComponent = clamp(joke.truePotential || 0.4, 0, 1) * 0.6;
     const typeComponent = getTypeAffinity(show, joke.tone) * 0.2;
-    const chaosComponent = (Math.random() * 2 - 1) * 0.2;
-    const difficultyPenalty = show.difficulty || 0;
-    const jokeScore = potencyComponent + typeComponent + chaosComponent - difficultyPenalty + flowBonus;
+    const chaosComponent = (Math.random() * 2 - 1) * chaosRange;
+    const difficultyPenalty = (show.difficulty || 0) * (1 - difficultyReduction);
+    const lateFatigue = (idx >= 3 && staminaBonus > 0) ? staminaBonus : 0;
+    const jokeScore = potencyComponent + typeComponent + chaosComponent - difficultyPenalty + deliveryBonus + flowBonus + hecklerDefense + bigCrowdBonus + longSetBonus + lateFatigue + crowdWorkBonus;
     totalScore += jokeScore;
     breakdown.push({ title: joke.title, score: jokeScore });
   });
@@ -1152,13 +1388,28 @@ function getOutcomeType(nota) {
 // §11  PROGRESSION & FLOW STATE
 // ═══════════════════════════════════════════════════════════════════
 
-function checkLevelProgression(nota, showType) {
+function checkLevelProgression(nota, showType, prevLevelNumber) {
   if (nota >= 4) {
     state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
     if (showType === "5a5") state.shows5a5AtLevel4 = (state.shows5a5AtLevel4 || 0) + 1;
   }
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
+
+  if (state.levelNumber > prevLevelNumber) {
+    const levelsGained = state.levelNumber - prevLevelNumber;
+    state.availablePerkPoints = (state.availablePerkPoints || 0) + levelsGained;
+    showPerkSelectionDialog();
+
+    if (state.level !== "open" && !state.chosenClass) {
+      showClassSelectionDialog();
+    }
+
+    if (state.levelNumber >= 3) maybeTriggerEvent("levelUp3", { source: "levelUp" });
+
+    checkEmploymentOffer();
+    checkMadeIt();
+  }
 }
 
 function checkFlowState(nota) {
@@ -1168,8 +1419,8 @@ function checkFlowState(nota) {
     state.consecutiveGoodShows = 0;
   }
 
-  // Activate after 3 consecutive nota 4+ shows with theory ≥ 50
-  if (!state.flowState?.active && state.consecutiveGoodShows >= 3 && state.theory >= 50) {
+  // Activate after 3 consecutive nota 4+ shows with texto >= 30 && entrega >= 30
+  if (!state.flowState?.active && state.consecutiveGoodShows >= 3 && state.texto >= 30 && state.entrega >= 30) {
     state.flowState = { active: true, daysRemaining: 12, endChance: 0.2 };
     spawnConfetti(60);
     flashScreen('rgba(255, 100, 0, 0.4)');
@@ -1200,8 +1451,6 @@ function processFlowState() {
 function handleEndDay() {
   if (uiMode === "event" || uiMode === "showSelection") return;
 
-  if (state.currentDay >= 30) { showBetaEndMessage(); return; }
-
   // Warn if show is scheduled today
   if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) {
     showDialog("⚠️ Você tem um show marcado para hoje! Vá para o show ou cancele antes de encerrar o dia.", [
@@ -1221,12 +1470,31 @@ function handleEndDay() {
   advanceDay();
 }
 
+function scheduleAutoEndDay() {
+  let waited = 0;
+  function tryAdvance() {
+    waited += 500;
+    if (criticalDialogQueue.length > 0 || activeEvent) {
+      setTimeout(tryAdvance, 500);
+      return;
+    }
+    if (pendingEvent && waited < 8000) {
+      setTimeout(tryAdvance, 500);
+      return;
+    }
+    pendingEvent = null;
+    setTimeout(() => {
+      advanceDay();
+    }, 2500);
+  }
+  setTimeout(tryAdvance, 500);
+}
+
 function advanceDay() {
   state.currentDay += 1;
-  if (state.currentDay > 30) { showBetaEndMessage(); return; }
 
   state.currentWeekDay = (state.currentWeekDay + 1) % 7;
-  state.activityPoints = MAX_ACTIVITY_POINTS;
+  state.activityPoints = getMaxActivityPoints();
 
   // New week? Reset weekly counters
   if (state.currentWeekDay === 1) {
@@ -1241,10 +1509,8 @@ function advanceDay() {
   setScene("home");
   playSound('click');
 
-  if (state.currentDay === 30) { showBetaEndMessage(); return; }
-
   const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
-  displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${MAX_ACTIVITY_POINTS} pontos de atividade.`);
+  displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${getMaxActivityPoints()} pontos de atividade.`);
 
   // Random event chance (max 2 per week, 10% per day, only after first show)
   const hasHadFirstShow = state.showHistory && state.showHistory.length > 0;
@@ -1252,36 +1518,6 @@ function advanceDay() {
     maybeTriggerEvent("random", { source: "newDay" });
   }
 
-  saveGameState();
-}
-
-function showBetaEndMessage() {
-  const betaMessage = `🎮 FIM DA VERSÃO BETA
-
-Você chegou ao dia 30! O jogo ainda está em versão beta.
-
-Se você gostou e quer apoiar o desenvolvimento, considere fazer uma doação!
-
-💳 Chave PIX: carvalhoillan@gmail.com
-
-💰 A partir de R$ 10,00 você já ganha seu nome nos créditos!
-🎁 Acima de R$ 50,00 tem prêmios exclusivos!
-
-Obrigado por jogar! 🎭`;
-
-  showDialog(betaMessage, [
-    { label: "🔄 Reiniciar Jogo", handler: () => {
-      if (confirm("Tem certeza que deseja reiniciar o jogo? Todo o progresso será perdido.")) {
-        localStorage.removeItem(STORAGE_KEY);
-        location.reload();
-      } else {
-        hideDialog();
-      }
-    }},
-    { label: "✅ Entendi", handler: hideDialog }
-  ]);
-
-  state.currentDay = 30;
   saveGameState();
 }
 
@@ -1334,6 +1570,12 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     if ((state.showHistory || []).filter(s => s.nota >= 4).length < 3) return false;
   }
 
+  if (event.requiresLevel) {
+    const reqTier = event.requiresLevel;
+    if (reqTier === "elenco" && state.level === "open") return false;
+    if (reqTier === "headliner" && state.level !== "headliner") return false;
+  }
+
   switch (event.trigger) {
     case "showKill":   return true;
     case "showBomb":   return (context.adjustedScore ?? context.averageScore ?? context.score ?? 0) <= -0.05;
@@ -1343,6 +1585,7 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     case "jokes5":     return Array.isArray(state.jokes) && state.jokes.length === 5;
     case "pague15Invite": return (state.shows5a5AtLevel4 || 0) >= 3 && !state.pague15Unlocked;
     case "random":     return Math.random() < 0.25;
+    case "levelUp3":   return state.levelNumber >= 3;
     default:           return false;
   }
 }
@@ -1443,7 +1686,8 @@ function applyEventEffects(effects) {
   if (!effects) return;
   if (effects.fans) state.fans = Math.max(0, state.fans + effects.fans);
   if (effects.motivation) state.motivation = clamp(state.motivation + effects.motivation, 0, 150);
-  if (effects.theory) state.theory = clamp(state.theory + effects.theory, 0, 200);
+  if (effects.texto) state.texto = clamp(state.texto + effects.texto, 0, 120);
+  if (effects.entrega) state.entrega = clamp(state.entrega + effects.entrega, 0, 120);
   if (effects.stageTime) state.stageTime = Math.max(0, state.stageTime + effects.stageTime);
   if (effects.network) state.network = Math.max(0, (state.network || 10) + effects.network);
 }
@@ -1456,11 +1700,13 @@ function applyEventEffects(effects) {
 function loadGameState() {
   const baseState = {
     name: "Red", stageTime: 0, jokes: [], language: "pt",
-    avatar: null, hasStarted: false, fans: 0, motivation: 60, theory: 10,
+    avatar: null, hasStarted: false, fans: 0, motivation: 60, texto: 10, entrega: 5,
     eventsSeen: [], lastSave: null, xp: 0, levelNumber: 1,
     ...createInitialTimeState(),
     level: "open", showsAtLevel4: 0, shows5a5AtLevel4: 0,
-    fiveA5Unlocked: false, pague15Unlocked: false, network: 10
+    fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
+    chosenClass: null, hasEmployment: false, madeIt: false,
+    unlockedPerks: [], availablePerkPoints: 0
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1479,7 +1725,8 @@ function loadGameState() {
       hasStarted: parsed.hasStarted ?? baseState.hasStarted,
       fans: parsed.fans ?? baseState.fans,
       motivation: parsed.motivation ?? baseState.motivation,
-      theory: parsed.theory ?? baseState.theory,
+      texto: parsed.texto ?? parsed.theory ?? baseState.texto,
+      entrega: parsed.entrega ?? baseState.entrega,
       eventsSeen: Array.isArray(parsed.eventsSeen) ? parsed.eventsSeen : [],
       lastSave: parsed.lastSave || baseState.lastSave,
       xp: resolvedXp,
@@ -1499,7 +1746,12 @@ function loadGameState() {
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
       fiveA5Unlocked: parsed.fiveA5Unlocked ?? false,
       pague15Unlocked: parsed.pague15Unlocked ?? false,
-      network: parsed.network ?? baseState.network
+      network: parsed.network ?? baseState.network,
+      chosenClass: parsed.chosenClass || null,
+      hasEmployment: parsed.hasEmployment ?? false,
+      madeIt: parsed.madeIt ?? false,
+      unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
+      availablePerkPoints: parsed.availablePerkPoints ?? 0
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -1511,7 +1763,7 @@ function saveGameState() {
   const payload = {
     name: state.name, stageTime: state.stageTime, jokes: state.jokes,
     language: state.language, avatar: state.avatar, hasStarted: state.hasStarted,
-    fans: state.fans, motivation: state.motivation, theory: state.theory,
+    fans: state.fans, motivation: state.motivation, texto: state.texto, entrega: state.entrega,
     eventsSeen: state.eventsSeen, xp: state.xp, levelNumber: state.levelNumber,
     currentDay: state.currentDay, currentWeekDay: state.currentWeekDay,
     currentWeek: state.currentWeek, activityPoints: state.activityPoints,
@@ -1521,6 +1773,8 @@ function saveGameState() {
     level: state.level, showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
     pague15Unlocked: state.pague15Unlocked, network: state.network,
+    chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
+    unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -1580,7 +1834,8 @@ function cacheElements() {
     stage: document.querySelector("#stageText"),
     fans: document.querySelector("#fansText"),
     motivation: document.querySelector("#motivationText"),
-    theory: document.querySelector("#theoryText"),
+    texto: document.querySelector("#textoText"),
+    entrega: document.querySelector("#entregaText"),
     day: document.querySelector("#dayText"),
     points: document.querySelector("#pointsText"),
     flow: document.querySelector("#flowText")
@@ -1648,6 +1903,70 @@ function hideDialog() {
 }
 
 
+// ─── Critical Dialog Queue (never conflicts, shown sequentially) ───
+
+function queueCriticalDialog(message, actions = []) {
+  criticalDialogQueue.push({ message, actions });
+  if (criticalDialogQueue.length === 1) showNextCriticalDialog();
+}
+
+function showNextCriticalDialog() {
+  if (!criticalDialogQueue.length) return;
+  const { message, actions } = criticalDialogQueue[0];
+
+  const overlay = document.getElementById('criticalOverlay');
+  const textEl = document.getElementById('criticalDialogText');
+  const actionsEl = document.getElementById('criticalDialogActions');
+  if (!overlay || !textEl || !actionsEl) {
+    criticalDialogQueue.shift();
+    return;
+  }
+
+  playSound('menu');
+  textEl.textContent = message || "";
+  actionsEl.innerHTML = "";
+
+  if (actions && actions.length > 0) {
+    actions.forEach((action, index) => {
+      if (!action || !action.label) return;
+      const btn = document.createElement("button");
+      btn.textContent = action.label;
+      btn.style.opacity = '0';
+      btn.style.transform = 'translateY(10px)';
+      btn.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (action.handler && typeof action.handler === "function") {
+          setTimeout(() => action.handler(), 100);
+        }
+        dismissCriticalDialog();
+      });
+      actionsEl.appendChild(btn);
+      setTimeout(() => { btn.style.transition = 'all 0.3s ease'; btn.style.opacity = '1'; btn.style.transform = 'translateY(0)'; }, 100 + index * 80);
+    });
+  } else {
+    const btn = document.createElement("button");
+    btn.textContent = "OK";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dismissCriticalDialog();
+    });
+    actionsEl.appendChild(btn);
+    setTimeout(() => { btn.style.transition = 'all 0.3s ease'; btn.style.opacity = '1'; btn.style.transform = 'translateY(0)'; }, 100);
+  }
+
+  overlay.classList.remove("hidden");
+}
+
+function dismissCriticalDialog() {
+  const overlay = document.getElementById('criticalOverlay');
+  if (overlay) overlay.classList.add("hidden");
+  criticalDialogQueue.shift();
+  if (criticalDialogQueue.length > 0) {
+    setTimeout(() => showNextCriticalDialog(), 300);
+  }
+}
+
+
 // ═══════════════════════════════════════════════════════════════════
 // §17  UI: RENDERING & SCENES
 // ═══════════════════════════════════════════════════════════════════
@@ -1709,14 +2028,15 @@ function updateStats(animate = true) {
 
   state.fans = Math.max(0, Math.round(state.fans || 0));
   state.motivation = clamp(state.motivation ?? 60, 0, 120);
-  state.theory = clamp(state.theory ?? 10, 0, 120);
+  state.texto = clamp(state.texto ?? 10, 0, 120);
+  state.entrega = clamp(state.entrega ?? 5, 0, 120);
   state.xp = Math.max(0, Math.round(state.xp || 0));
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
 
   elements.stats.name.textContent = state.name;
   elements.stats.day.textContent = `${DAYS_OF_WEEK[state.currentWeekDay] || "???"}, Dia ${state.currentDay}`;
-  elements.stats.points.textContent = `${state.activityPoints}/${MAX_ACTIVITY_POINTS} pontos`;
+  elements.stats.points.textContent = `${state.activityPoints}/${getMaxActivityPoints()} pontos`;
 
   // Color activity points by remaining
   const pointsStat = elements.stats.points.closest('.stat');
@@ -1740,7 +2060,7 @@ function updateStats(animate = true) {
   const levelLabel = getLevelLabel(state.level, state.levelNumber);
   elements.stats.level.textContent = levelLabel;
   if (lastLevelNumber && state.levelNumber > lastLevelNumber) {
-    showDialog(`🎉 Você evoluiu para o nível ${state.levelNumber} (${getLevelLabel(state.level)})!`);
+    queueCriticalDialog(`🎉 Você evoluiu para o nível ${state.levelNumber} (${getLevelLabel(state.level)})!`);
     spawnConfetti(30);
     animateStatChange('level', true);
   }
@@ -1755,11 +2075,15 @@ function updateStats(animate = true) {
   if (animate && state.motivation !== old.motivation) { animateNumber(elements.stats.motivation, old.motivation, state.motivation, 400); animateStatChange('motivation', state.motivation > old.motivation); }
   else elements.stats.motivation.textContent = `${state.motivation}`;
 
-  // Theory
-  if (animate && state.theory !== old.theory) { animateNumber(elements.stats.theory, old.theory, state.theory, 400); animateStatChange('theory', state.theory > old.theory); }
-  else elements.stats.theory.textContent = `${state.theory}`;
+  // Texto
+  if (animate && state.texto !== old.texto) { animateNumber(elements.stats.texto, old.texto, state.texto, 400); animateStatChange('texto', state.texto > old.texto); }
+  else elements.stats.texto.textContent = `${state.texto}`;
 
-  previousStats = { fans: state.fans, motivation: state.motivation, theory: state.theory, stageTime: state.stageTime, xp: state.xp };
+  // Entrega
+  if (animate && state.entrega !== old.entrega) { animateNumber(elements.stats.entrega, old.entrega, state.entrega, 400); animateStatChange('entrega', state.entrega > old.entrega); }
+  else elements.stats.entrega.textContent = `${state.entrega}`;
+
+  previousStats = { fans: state.fans, motivation: state.motivation, texto: state.texto, entrega: state.entrega, stageTime: state.stageTime, xp: state.xp };
 }
 
 function updateScheduledShowUI() {
@@ -2082,10 +2406,12 @@ function showJokeCustomization(idea, mode) {
   _pendingJokeMode = mode;
   const defaultTitle = formatIdeaTitle(idea);
 
-  const toneOptions = allowedTones.map(tone => `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}" title="${toneDescriptionsLong[tone] || ''}">${tone}</button>`).join('');
-  const structureOptions = structures.map(struct => `<button class="structure-btn" data-structure="${struct}" title="${structureDescriptions[struct] || ''}">${struct.toUpperCase()}</button>`).join('');
-  const toneLegend = allowedTones.map(tone => `<div class="legend-item"><strong>${tone}:</strong> ${toneDescriptionsLong[tone] || ''}</div>`).join('');
-  const structureLegend = structures.map(struct => `<div class="legend-item"><strong>${struct.toUpperCase()}:</strong> ${structureDescriptions[struct] || ''}</div>`).join('');
+  const availTones = getUnlockedTones();
+  const availStructures = getUnlockedStructures();
+  const toneOptions = availTones.map(tone => `<button class="tone-btn ${idea.tone === tone ? 'suggested' : ''}" data-tone="${tone}" title="${toneDescriptionsLong[tone] || ''}">${tone}</button>`).join('');
+  const structureOptions = availStructures.map(struct => `<button class="structure-btn" data-structure="${struct}" title="${structureDescriptions[struct] || ''}">${struct.toUpperCase()}</button>`).join('');
+  const toneLegend = availTones.map(tone => `<div class="legend-item"><strong>${tone}:</strong> ${toneDescriptionsLong[tone] || ''}</div>`).join('');
+  const structureLegend = availStructures.map(struct => `<div class="legend-item"><strong>${struct.toUpperCase()}:</strong> ${structureDescriptions[struct] || ''}</div>`).join('');
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
@@ -2103,7 +2429,7 @@ function showJokeCustomization(idea, mode) {
   `;
 
   _selectedTone = idea.tone;
-  _selectedStructure = structures[0];
+  _selectedStructure = getUnlockedStructures()[0];
   _customJokeTitle = defaultTitle;
 
   const titleInput = elements.btnDivLow.querySelector('#jokeTitleInput');
@@ -2135,17 +2461,18 @@ function finalizeJokeCreation() {
   spendActivityPoints(activityCost, mode.label);
 
   state.motivation = clamp(state.motivation - mode.motivationCost, 0, 120);
-  state.theory = clamp(state.theory + Math.round(mode.theoryBonus * 20), 0, 120);
+  state.texto = clamp((state.texto || 0) + 1 + Math.round(mode.textoBonus * 20), 0, 120);
 
   const addMinute = Math.random() < Math.max(0, mode.timeBonus);
   const minutes = clamp(idea.baseMinutes + (addMinute ? 1 : 0), 1, 2);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
-  const adjustedPotential = clamp(basePotential + (state.theory / 220) + (state.motivation - 60) / 400 + mode.theoryBonus + flowBonus, 0.2, 0.95);
+  const perkPotentialBonus = getPerkEffect('jokePotentialBonus') + getPerkEffect('setupBonus');
+  const adjustedPotential = clamp(basePotential + (state.texto / 220) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus, 0.2, 0.95);
   const label = adjustedPotential > 0.75 ? "🔥 perigosa porém promissora" : adjustedPotential > 0.5 ? "🙂 tem caminho" : "😶 parece frágil";
 
   const chosenTone = _selectedTone || idea.tone;
-  const chosenStructure = _selectedStructure || structures[0];
+  const chosenStructure = _selectedStructure || getUnlockedStructures()[0];
   const chosenTitle = _customJokeTitle || formatIdeaTitle(idea);
 
   state.jokes.push({
@@ -2303,14 +2630,12 @@ function skipToShowDay() {
       hideDialog();
       for (let i = 0; i < daysUntil; i++) {
         state.currentDay += 1;
-        if (state.currentDay > 30) { showBetaEndMessage(); return; }
         state.currentWeekDay = (state.currentWeekDay + 1) % 7;
         if (state.currentWeekDay === 1) { state.currentWeek = (state.currentWeek || 1) + 1; state.eventsThisWeek = 0; state.showsThisWeek = 0; }
         state.motivation = clamp(state.motivation + 3, 0, 120);
         processFlowState();
-        if (state.currentDay === 30) { showBetaEndMessage(); return; }
       }
-      state.activityPoints = MAX_ACTIVITY_POINTS;
+      state.activityPoints = getMaxActivityPoints();
       updateStats();
       playSound('comeWithMe');
       displayNarration(`⏩ ${daysUntil} dia(s) passaram... É hora do show!`);
@@ -2388,21 +2713,25 @@ function performShow() {
   state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
   state.showsThisWeek = (state.showsThisWeek || 0) + 1;
 
+  const prevLevelNumber = state.levelNumber;
   const xpGain = applyXp(XP_GAIN.show[nota] || 0);
-  checkLevelProgression(nota, showType);
+  checkLevelProgression(nota, showType, prevLevelNumber);
   checkFlowState(nota);
 
-  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8));
+  const fanMultiplier = (state.chosenClass === 'influencer' && CLASSES.influencer.bonus.fansMultiplier) ? CLASSES.influencer.bonus.fansMultiplier : 1;
+  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8 * fanMultiplier));
   state.fans += fanGain;
   const motivationShift = nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12;
   state.motivation = clamp(state.motivation + motivationShift, 0, 120);
   if (nota >= 4) state.network = (state.network || 10) + 2;
+  const entregaGain = nota >= 4 ? 2 : 1;
+  state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 120);
 
   updateStats();
   renderJokeList({ selectable: false });
   exitSelectionMode();
 
-  showResultNarrative(nota, breakdownWithEmoji, timeImpact, { fans: fanGain, motivation: motivationShift, stageTimeGain, xp: xpGain });
+  showResultNarrative(nota, breakdownWithEmoji, timeImpact, { fans: fanGain, motivation: motivationShift, stageTimeGain, xp: xpGain, entrega: entregaGain });
 
   const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
   if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
@@ -2411,6 +2740,8 @@ function performShow() {
 
   if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
   if (state.fans >= 20) maybeTriggerEvent("fans20");
+
+  scheduleAutoEndDay();
 }
 
 function applyOutcome(setList, outcome, breakdown = []) {
@@ -2444,6 +2775,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   if (deltas.fans) statFragments.push(`Fãs ${formatSigned(deltas.fans)}`);
   if (deltas.motivation) statFragments.push(`Motivação ${formatSigned(deltas.motivation)}`);
   if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Stage Time +${deltas.stageTimeGain} (FLOW!)`);
+  if (deltas.entrega) statFragments.push(`Entrega +${deltas.entrega}`);
   if (deltas.xp) statFragments.push(`XP +${deltas.xp}`);
 
   displayNarration(`${messages[nota] || messages[3]}${timeImpact?.note ? ` ${timeImpact.note}` : ""}${detalhes ? ` (${detalhes})` : ""} [${statFragments.join(" | ")}]`);
@@ -2455,7 +2787,7 @@ function checkAndShowPendingEvent() {
     setTimeout(() => {
       showDialog("🎲 Algo aconteceu...", [
         { label: "Ver Evento Surpresa", handler: () => { hideDialog(); showPendingEvent(); } },
-        { label: "Depois", handler: hideDialog }
+        { label: "Depois", handler: () => { pendingEvent = null; hideDialog(); } }
       ]);
     }, 1000);
   }
@@ -2498,7 +2830,7 @@ function handleCreateContent() {
 function createContentLong() {
   if (!spendActivityPoints(ACTIVITY_COSTS.contentLong, "criar conteúdo longo")) return;
   const reach = Math.max(5, Math.round(state.stageTime * 2 + getTotalMinutes() + Math.random() * 15));
-  const fanGain = reach + Math.round(state.theory / 2);
+  const fanGain = reach + Math.round(state.texto / 2);
   state.fans += fanGain;
   state.network = (state.network || 10) + 2;
   state.motivation = clamp(state.motivation - 8 + Math.round(Math.random() * 4), 0, 120);
@@ -2515,7 +2847,7 @@ function createContentLong() {
 function createContentQuick() {
   if (!spendActivityPoints(ACTIVITY_COSTS.contentQuick, "criar conteúdo rápido")) return;
   const reach = Math.max(2, Math.round(state.stageTime + getTotalMinutes() / 2 + Math.random() * 8));
-  const fanGain = reach + Math.round(state.theory / 4);
+  const fanGain = reach + Math.round(state.texto / 4);
   state.fans += fanGain;
   state.motivation = clamp(state.motivation - 2, 0, 120);
   setScene("home");
@@ -2528,7 +2860,8 @@ function handleStudy() {
   if (uiMode === "event") return;
   exitSelectionMode();
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
-  state.theory = clamp(state.theory + 12, 0, 150);
+  state.texto = clamp((state.texto || 0) + 6, 0, 120);
+  state.entrega = clamp((state.entrega || 0) + 3, 0, 120);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
   setScene("home");
@@ -2617,7 +2950,7 @@ function handleViewMaterial() {
   renderJokeList({ selectable: false });
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
-  setScene("event", "", getNotebookImageForTheory(state.theory || 10), false);
+  setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
   displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
   setTimeout(() => { elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
 }
@@ -2655,8 +2988,10 @@ function rewriteJoke(jokeId) {
   _rewritingJoke = joke;
   uiMode = "rewriting";
 
-  const toneOptions = allowedTones.map(tone => `<button class="tone-btn ${joke.tone === tone ? 'selected current' : ''}" data-tone="${tone}">${tone === joke.tone ? '📍 ' : ''}${tone}</button>`).join('');
-  const structureOptions = structures.map(struct => `<button class="structure-btn ${joke.structure === struct ? 'selected current' : ''}" data-structure="${struct}">${struct === joke.structure ? '📍 ' : ''}${struct.toUpperCase()}</button>`).join('');
+  const availTonesRw = getUnlockedTones();
+  const availStructuresRw = getUnlockedStructures();
+  const toneOptions = availTonesRw.map(tone => `<button class="tone-btn ${joke.tone === tone ? 'selected current' : ''}" data-tone="${tone}">${tone === joke.tone ? '📍 ' : ''}${tone}</button>`).join('');
+  const structureOptions = availStructuresRw.map(struct => `<button class="structure-btn ${joke.structure === struct ? 'selected current' : ''}" data-structure="${struct}">${struct === joke.structure ? '📍 ' : ''}${struct.toUpperCase()}</button>`).join('');
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
@@ -2698,9 +3033,11 @@ function finalizeRewrite() {
   }
 
   state.motivation = clamp(state.motivation - 4, 0, 120);
+  state.texto = clamp((state.texto || 0) + 1, 0, 120);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
-  joke.truePotential = clamp(basePotential + (state.theory / 250) + flowBonus, 0.2, 0.95);
+  const rewritePerkBonus = getPerkEffect('rewriteBonus');
+  joke.truePotential = clamp(basePotential + (state.texto / 250) + flowBonus + rewritePerkBonus, 0.2, 0.95);
   joke.tone = _newTone || joke.tone;
   joke.structure = _newStructure || joke.structure;
   joke.minutes = Math.random() > 0.7 ? 2 : 1;
@@ -2737,6 +3074,16 @@ function bootGame() {
   if (state.hasStarted && state.avatar) {
     enterGame(true);
     displayNarration(homeText);
+
+    // Catch-up: if player is elenco+ but never chose a class
+    if (state.level !== "open" && !state.chosenClass) {
+      setTimeout(() => showClassSelectionDialog(), 500);
+    }
+
+    // Catch-up: if player has unspent perk points
+    if ((state.availablePerkPoints || 0) > 0) {
+      setTimeout(() => showPerkSelectionDialog(), 1000);
+    }
   } else {
     startIntro();
   }
