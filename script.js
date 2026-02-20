@@ -38,7 +38,7 @@
 
 const STORAGE_KEY = "openMicRPG.save.v2";
 const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😶 risinhos | 💧 deu água";
-const MAX_SHOWS_PER_WEEK = 3;
+const MAX_SCHEDULED_SHOWS = 3;
 
 // ─── Time ───
 const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -51,9 +51,8 @@ function getMaxActivityPoints() {
 const ACTIVITY_COSTS = {
   study: 1,
   desk: 1,           // sentar e escrever
-  day: 0.5,          // anotar durante o dia
-  contentLong: 1,    // criar conteúdo longo
-  contentQuick: 0.5  // criar conteúdo rápido
+  day: 1,            // anotar durante o dia (both cost 1 now)
+  content: 1         // criar conteúdo
 };
 
 const createInitialTimeState = () => ({
@@ -61,12 +60,12 @@ const createInitialTimeState = () => ({
   currentWeekDay: 1, // Segunda
   currentWeek: 1,
   activityPoints: getMaxActivityPoints(),
-  scheduledShow: null,   // { showId, dayScheduled }
+  scheduledShows: [],    // [{ showId, dayScheduled, showType }] — max 3
+  performedShowToday: false,
   showHistory: [],
   consecutiveGoodShows: 0,
   flowState: null,       // { active: true, daysRemaining: X, endChance: 0.2 }
-  eventsThisWeek: 0,
-  showsThisWeek: 0
+  eventsThisWeek: 0
 });
 
 // ─── Tones & Structures ───
@@ -124,20 +123,22 @@ const writingModes = {
   desk: {
     id: "desk",
     label: "Sentar e escrever",
-    desc: "Gasta motivação mas aumenta a chance de gerar algo sólido.",
+    desc: "Gasta mais motivação mas gera piadas com potencial muito maior. 25% de chance de não render nada.",
     costLabel: "⚡ 1 ponto",
-    motivationCost: 8,
-    textoBonus: 0.05,
-    timeBonus: 0.4
+    motivationCost: 15,
+    textoBonus: 0.10,
+    timeBonus: 0.5,
+    failChance: 0.25
   },
   day: {
     id: "day",
     label: "Anotar durante o dia",
-    desc: "Mais leve, rende ideias rápidas e mantém motivação em alta.",
-    costLabel: "⚡ 0.5 ponto",
-    motivationCost: -5,
+    desc: "Não gasta motivação mas o material sai mais cru. 50% de chance de não render nada.",
+    costLabel: "⚡ 1 ponto",
+    motivationCost: 0,
     textoBonus: 0,
-    timeBonus: 0
+    timeBonus: 0,
+    failChance: 0.50
   }
 };
 
@@ -942,6 +943,25 @@ const formatSigned = (value) => (value > 0 ? `+${value}` : `${value}`);
 const formatIdeaTitle = (idea) => idea.customTitle || `Piada sobre ${idea.seed}`;
 const generatePotential = () => parseFloat((0.35 + Math.random() * 0.5).toFixed(2));
 
+function getScheduledShowsForToday() {
+  return (state.scheduledShows || []).filter(s => s.dayScheduled === state.currentDay);
+}
+function getNearestScheduledShow() {
+  const shows = (state.scheduledShows || []).filter(s => s.dayScheduled >= state.currentDay);
+  if (!shows.length) return null;
+  shows.sort((a, b) => a.dayScheduled - b.dayScheduled);
+  return shows[0];
+}
+function removeScheduledShow(entry) {
+  state.scheduledShows = (state.scheduledShows || []).filter(s => s !== entry);
+}
+function addScheduledShow(showId, dayScheduled, showType = "normal") {
+  if (!state.scheduledShows) state.scheduledShows = [];
+  if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS) return false;
+  state.scheduledShows.push({ showId, dayScheduled, showType });
+  return true;
+}
+
 const scoreToEmoji = (score) => {
   const normalized = Number.isFinite(score) ? score : 0;
   const tier = SCORE_EMOJI_SCALE.find((t) => normalized >= t.threshold) || SCORE_EMOJI_SCALE[SCORE_EMOJI_SCALE.length - 1];
@@ -978,11 +998,11 @@ function getQuartoForWeekday(weekday) {
 }
 
 function getNotebookImageForTexto(texto) {
-  if (texto >= 120) return "notebook5.png";
-  if (texto >= 90) return "notebook4.png";
-  if (texto >= 60) return "notebook3.png";
-  if (texto >= 30) return "notebook2.png";
-  return "notebook1.png";
+  if (texto >= 200) return "notebook5.png";  // Max tier
+  if (texto >= 150) return "notebook4.png";  // Very high
+  if (texto >= 90) return "notebook3.png";   // High
+  if (texto >= 30) return "notebook2.png";   // Mid
+  return "notebook1.png";                     // Low
 }
 
 function findDaysToWeekday(targetWeekday) {
@@ -1041,7 +1061,7 @@ function formatEffectsSummary(effects) {
   if (effects.texto) changes.push(`Texto ${formatSigned(effects.texto)}`);
   if (effects.entrega) changes.push(`Entrega ${formatSigned(effects.entrega)}`);
   if (effects.network) changes.push(`Network ${formatSigned(effects.network)}`);
-  if (effects.stageTime) changes.push(`Stage Time ${formatSigned(effects.stageTime)}`);
+  if (effects.stageTime) changes.push(`Tempo de Palco ${formatSigned(effects.stageTime)}`);
   return changes.length > 0 ? `\n\n📊 [${changes.join(" | ")}]` : "";
 }
 
@@ -1112,8 +1132,8 @@ function showClassSelectionDialog() {
     handler: () => {
       state.chosenClass = key;
       if (cls.bonus) {
-        if (cls.bonus.texto) state.texto = clamp((state.texto || 0) + cls.bonus.texto, 0, 120);
-        if (cls.bonus.entrega) state.entrega = clamp((state.entrega || 0) + cls.bonus.entrega, 0, 120);
+        if (cls.bonus.texto) state.texto = clamp((state.texto || 0) + cls.bonus.texto, 0, 200);
+        if (cls.bonus.entrega) state.entrega = clamp((state.entrega || 0) + cls.bonus.entrega, 0, 200);
         if (cls.bonus.network) state.network = (state.network || 10) + cls.bonus.network;
       }
       playSound('victory');
@@ -1282,9 +1302,18 @@ function evaluateShow(setList, show, flowBonus = 0) {
   let totalScore = 0;
   const breakdown = [];
   const entrega = state.entrega || 0;
-  const chaosRange = 0.2 * (1 - entrega / 300);
-  const deliveryBonus = entrega / 400 + getPerkEffect('deliveryBonus');
-  const difficultyReduction = entrega / 250;
+  const level = state.level || "open";
+
+  // Chaos: rolled ONCE per gig, not per joke. Reduced at higher levels
+  const luckBase = (level === "open") ? 0.10 : 0.05;
+  const chaosRange = luckBase * (1 - entrega / 500);
+  const chaosRoll = (Math.random() * 2 - 1) * chaosRange;
+
+  // Delivery bonus capped to prevent exponential scaling
+  const deliveryBonus = Math.min(entrega / 500, 0.4) + getPerkEffect('deliveryBonus');
+  // Difficulty penalty: slower scaling with minimum floor (20% theoretical floor)
+  // At entrega=0: full penalty (1.0 = 100%), at entrega=200 (max): 60% penalty remains
+  const remainingDifficultyFactor = Math.max(0.2, 1 - entrega / 500);
   const hecklerDefense = getPerkEffect('hecklerDefense');
   const bigCrowdBonus = (show.minMinutes >= 6) ? getPerkEffect('bigCrowdBonus') : 0;
   const longSetBonus = (setList.length >= 3) ? getPerkEffect('longSetBonus') : 0;
@@ -1293,10 +1322,9 @@ function evaluateShow(setList, show, flowBonus = 0) {
   setList.forEach((joke, idx) => {
     const potencyComponent = clamp(joke.truePotential || 0.4, 0, 1) * 0.6;
     const typeComponent = getTypeAffinity(show, joke.tone) * 0.2;
-    const chaosComponent = (Math.random() * 2 - 1) * chaosRange;
-    const difficultyPenalty = (show.difficulty || 0) * (1 - difficultyReduction);
+    const difficultyPenalty = (show.difficulty || 0) * remainingDifficultyFactor;
     const lateFatigue = (idx >= 3 && staminaBonus > 0) ? staminaBonus : 0;
-    const jokeScore = potencyComponent + typeComponent + chaosComponent - difficultyPenalty + deliveryBonus + flowBonus + hecklerDefense + bigCrowdBonus + longSetBonus + lateFatigue + crowdWorkBonus;
+    const jokeScore = potencyComponent + typeComponent + chaosRoll - difficultyPenalty + deliveryBonus + flowBonus + hecklerDefense + bigCrowdBonus + longSetBonus + lateFatigue + crowdWorkBonus;
     totalScore += jokeScore;
     breakdown.push({ title: joke.title, score: jokeScore });
   });
@@ -1424,7 +1452,7 @@ function checkFlowState(nota) {
     state.flowState = { active: true, daysRemaining: 12, endChance: 0.2 };
     spawnConfetti(60);
     flashScreen('rgba(255, 100, 0, 0.4)');
-    showDialog("🔥 ESTADO DE FLOW ATIVADO!\n\nVocê está em sintonia total. Cada stage time conta como 2x, suas piadas ganham boost na escrita e performance. Aproveite enquanto dura!");
+    showDialog("🔥 ESTADO DE FLOW ATIVADO!\n\nVocê está em sintonia total. Cada tempo de palco conta como 2x, suas piadas ganham boost na escrita e performance. Aproveite enquanto dura!");
     document.body.classList.add('flow-active');
   }
 }
@@ -1452,11 +1480,14 @@ function handleEndDay() {
   if (uiMode === "event" || uiMode === "showSelection") return;
 
   // Warn if show is scheduled today
-  if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) {
-    showDialog("⚠️ Você tem um show marcado para hoje! Vá para o show ou cancele antes de encerrar o dia.", [
+  const todayShows = getScheduledShowsForToday();
+  if (todayShows.length > 0) {
+    const entry = todayShows[0];
+    const showName = findShowById(entry.showId)?.name || 'Show';
+    showDialog(`⚠️ Você tem um show marcado para hoje (${showName})! Vá para o show ou cancele antes de encerrar o dia.`, [
       { label: "Ir para o Show", handler: () => { hideDialog(); handleGoToScheduledShow(); } },
       { label: "Cancelar Show", handler: () => {
-        state.scheduledShow = null;
+        removeScheduledShow(entry);
         hideDialog();
         displayNarration("❌ Show cancelado. Sua reputação pode sofrer...");
         state.network = Math.max(0, (state.network || 10) - 5);
@@ -1470,37 +1501,21 @@ function handleEndDay() {
   advanceDay();
 }
 
-function scheduleAutoEndDay() {
-  let waited = 0;
-  function tryAdvance() {
-    waited += 500;
-    if (criticalDialogQueue.length > 0 || activeEvent) {
-      setTimeout(tryAdvance, 500);
-      return;
-    }
-    if (pendingEvent && waited < 8000) {
-      setTimeout(tryAdvance, 500);
-      return;
-    }
-    pendingEvent = null;
-    setTimeout(() => {
-      advanceDay();
-    }, 2500);
-  }
-  setTimeout(tryAdvance, 500);
-}
 
 function advanceDay() {
   state.currentDay += 1;
+  state.performedShowToday = false;
 
   state.currentWeekDay = (state.currentWeekDay + 1) % 7;
   state.activityPoints = getMaxActivityPoints();
+
+  // Clean up expired scheduled shows
+  state.scheduledShows = (state.scheduledShows || []).filter(s => s.dayScheduled >= state.currentDay);
 
   // New week? Reset weekly counters
   if (state.currentWeekDay === 1) {
     state.currentWeek = (state.currentWeek || 1) + 1;
     state.eventsThisWeek = 0;
-    state.showsThisWeek = 0;
   }
 
   state.motivation = clamp(state.motivation + 5, 0, 120);
@@ -1657,7 +1672,7 @@ function handleEventChoiceIndex(index) {
     const show = findShowById(choice.startShowId);
     if (show) {
       const daysAhead = Math.random() < 0.5 ? 1 : 2;
-      state.scheduledShow = { showId: show.id, dayScheduled: state.currentDay + daysAhead, showType: "normal" };
+      addScheduledShow(show.id, state.currentDay + daysAhead, "normal");
       updateStats();
       showDialog(`${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`);
     }
@@ -1672,7 +1687,7 @@ function handleEventChoiceIndex(index) {
       let showType = "normal";
       if (choice.scheduleShow === "5a5") { daysAhead = findDaysToWeekday(0) || 7; showType = "5a5"; }
       else if (choice.scheduleShow === "pague15") { daysAhead = findDaysToWeekday(4) || 7; showType = "pague15"; }
-      state.scheduledShow = { showId: show.id, dayScheduled: state.currentDay + daysAhead, showType };
+      addScheduledShow(show.id, state.currentDay + daysAhead, showType);
       updateStats();
       showDialog(`${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`);
     }
@@ -1686,8 +1701,8 @@ function applyEventEffects(effects) {
   if (!effects) return;
   if (effects.fans) state.fans = Math.max(0, state.fans + effects.fans);
   if (effects.motivation) state.motivation = clamp(state.motivation + effects.motivation, 0, 150);
-  if (effects.texto) state.texto = clamp(state.texto + effects.texto, 0, 120);
-  if (effects.entrega) state.entrega = clamp(state.entrega + effects.entrega, 0, 120);
+  if (effects.texto) state.texto = clamp(state.texto + effects.texto, 0, 200);
+  if (effects.entrega) state.entrega = clamp(state.entrega + effects.entrega, 0, 200);
   if (effects.stageTime) state.stageTime = Math.max(0, state.stageTime + effects.stageTime);
   if (effects.network) state.network = Math.max(0, (state.network || 10) + effects.network);
 }
@@ -1735,12 +1750,12 @@ function loadGameState() {
       currentWeekDay: parsed.currentWeekDay ?? baseState.currentWeekDay,
       currentWeek: parsed.currentWeek ?? baseState.currentWeek,
       activityPoints: parsed.activityPoints ?? baseState.activityPoints,
-      scheduledShow: parsed.scheduledShow || baseState.scheduledShow,
+      scheduledShows: Array.isArray(parsed.scheduledShows) ? parsed.scheduledShows : (parsed.scheduledShow ? [parsed.scheduledShow] : []),
+      performedShowToday: parsed.performedShowToday ?? false,
       showHistory: Array.isArray(parsed.showHistory) ? parsed.showHistory : [],
       consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
       flowState: parsed.flowState || null,
       eventsThisWeek: parsed.eventsThisWeek ?? 0,
-      showsThisWeek: parsed.showsThisWeek ?? 0,
       level: getLevelTier(resolvedLevelNumber),
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
@@ -1767,9 +1782,10 @@ function saveGameState() {
     eventsSeen: state.eventsSeen, xp: state.xp, levelNumber: state.levelNumber,
     currentDay: state.currentDay, currentWeekDay: state.currentWeekDay,
     currentWeek: state.currentWeek, activityPoints: state.activityPoints,
-    scheduledShow: state.scheduledShow, showHistory: state.showHistory,
+    scheduledShows: state.scheduledShows, performedShowToday: state.performedShowToday,
+    showHistory: state.showHistory,
     consecutiveGoodShows: state.consecutiveGoodShows, flowState: state.flowState,
-    eventsThisWeek: state.eventsThisWeek, showsThisWeek: state.showsThisWeek,
+    eventsThisWeek: state.eventsThisWeek,
     level: state.level, showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
     pague15Unlocked: state.pague15Unlocked, network: state.network,
@@ -2028,8 +2044,8 @@ function updateStats(animate = true) {
 
   state.fans = Math.max(0, Math.round(state.fans || 0));
   state.motivation = clamp(state.motivation ?? 60, 0, 120);
-  state.texto = clamp(state.texto ?? 10, 0, 120);
-  state.entrega = clamp(state.entrega ?? 5, 0, 120);
+  state.texto = clamp(state.texto ?? 10, 0, 200);
+  state.entrega = clamp(state.entrega ?? 5, 0, 200);
   state.xp = Math.max(0, Math.round(state.xp || 0));
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
@@ -2089,38 +2105,46 @@ function updateStats(animate = true) {
 function updateScheduledShowUI() {
   if (!elements.scheduledShowInfo || !elements.btnGoToShow) return;
 
+  const todayShows = getScheduledShowsForToday();
+  const nearest = getNearestScheduledShow();
+
   if (elements.buttons.show) {
-    if (state.scheduledShow) {
-      const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
-      if (daysUntil === 0) {
-        elements.buttons.show.textContent = "🎤 Ir para Show!";
-        elements.buttons.show.classList.add('show-today');
-      } else {
-        elements.buttons.show.textContent = "🎭 Buscar Show";
-        elements.buttons.show.classList.remove('show-today');
-      }
+    if (state.performedShowToday) {
+      elements.buttons.show.textContent = "🎤 (Já fez show hoje)";
+      elements.buttons.show.classList.remove('show-today');
+    } else if (todayShows.length > 0) {
+      elements.buttons.show.textContent = "🎤 Ir para Show!";
+      elements.buttons.show.classList.add('show-today');
     } else {
       elements.buttons.show.textContent = "🎭 Buscar Show";
       elements.buttons.show.classList.remove('show-today');
     }
   }
 
-  if (state.scheduledShow) {
-    const show = findShowById(state.scheduledShow.showId);
-    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+  if (nearest) {
+    const show = findShowById(nearest.showId);
+    const daysUntil = nearest.dayScheduled - state.currentDay;
 
     if (daysUntil === 0) {
       elements.btnGoToShow.classList.remove('hidden');
       elements.btnGoToShow.textContent = `🎤 Ir para ${show?.name || 'o Show'}!`;
-      elements.scheduledShowInfo.classList.add('hidden');
     } else if (daysUntil > 0) {
       elements.btnGoToShow.classList.remove('hidden');
       elements.btnGoToShow.textContent = `⏩ Pular para ${show?.name || 'o Show'} (${daysUntil}d)`;
-      elements.scheduledShowInfo.classList.remove('hidden');
-      elements.scheduledShowText.textContent = `📅 ${show?.name || 'Show'} em ${daysUntil} dia(s) (${getDayName(state.scheduledShow.dayScheduled)})`;
     } else {
-      state.scheduledShow = null;
       elements.btnGoToShow.classList.add('hidden');
+    }
+
+    const allShows = (state.scheduledShows || []).filter(s => s.dayScheduled >= state.currentDay);
+    if (allShows.length > 0) {
+      const lines = allShows.map(s => {
+        const sShow = findShowById(s.showId);
+        const d = s.dayScheduled - state.currentDay;
+        return `📅 ${sShow?.name || 'Show'} ${d === 0 ? 'HOJE' : `em ${d}d (${getDayName(s.dayScheduled)})`}`;
+      });
+      elements.scheduledShowInfo.classList.remove('hidden');
+      elements.scheduledShowText.textContent = lines.join(' | ');
+    } else {
       elements.scheduledShowInfo.classList.add('hidden');
     }
   } else {
@@ -2275,7 +2299,6 @@ function advanceIntro() {
 function confirmPlayerName() {
   const name = elements.playerNameInput.value.trim();
   if (!name || name.length < 2) { shakeScreen(); return; }
-  playSound('getSomething');
   state.name = name;
   elements.nameInput.style.display = "none";
   elements.avatarSelection.style.display = "flex";
@@ -2283,6 +2306,7 @@ function confirmPlayerName() {
 
 function selectAvatar(key) {
   if (!avatarImages[key]) return;
+  playSound('getSomething');
   state.avatar = key;
   state.hasStarted = true;
   elements.avatarOptions.forEach((option) => option.classList.toggle("selected", option.dataset.avatar === key));
@@ -2372,8 +2396,8 @@ function createJokeFromMode(modeId) {
     exitWritingMode(); return;
   }
 
-  const motivationReq = mode.id === "desk" ? 15 : 5;
-  const warnings = checkStatRequirements({ motivation: motivationReq });
+  const motivationReq = mode.id === "desk" ? 15 : 0;
+  const warnings = (motivationReq > 0) ? checkStatRequirements({ motivation: motivationReq }) : [];
   if (warnings.length > 0) {
     const warn = warnings[0];
     shakeScreen();
@@ -2461,14 +2485,29 @@ function finalizeJokeCreation() {
   spendActivityPoints(activityCost, mode.label);
 
   state.motivation = clamp(state.motivation - mode.motivationCost, 0, 120);
-  state.texto = clamp((state.texto || 0) + 1 + Math.round(mode.textoBonus * 20), 0, 120);
+
+  // Fail check: chance of nothing getting written
+  if (Math.random() < (mode.failChance || 0)) {
+    _pendingJokeIdea = null; _pendingJokeMode = null; _selectedTone = null; _selectedStructure = null; _customJokeTitle = null;
+    exitWritingMode();
+    renderJokeList({ selectable: false });
+    setScene("home");
+    const failMsg = mode.id === "desk"
+      ? "😤 Você sentou e tentou, mas nada saiu. A tela em branco venceu hoje."
+      : "🤷 Anotou umas coisas durante o dia, mas nada que prestasse.";
+    displayNarration(`${failMsg} (-1 ponto de atividade)`);
+    updateStats();
+    return;
+  }
+
+  state.texto = clamp((state.texto || 0) + 1 + Math.round(mode.textoBonus * 20), 0, 200);
 
   const addMinute = Math.random() < Math.max(0, mode.timeBonus);
   const minutes = clamp(idea.baseMinutes + (addMinute ? 1 : 0), 1, 2);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const perkPotentialBonus = getPerkEffect('jokePotentialBonus') + getPerkEffect('setupBonus');
-  const adjustedPotential = clamp(basePotential + (state.texto / 220) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus, 0.2, 0.95);
+  const adjustedPotential = clamp(basePotential + (state.texto / 250) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus, 0.2, 0.98);
   const label = adjustedPotential > 0.75 ? "🔥 perigosa porém promissora" : adjustedPotential > 0.5 ? "🙂 tem caminho" : "😶 parece frágil";
 
   const chosenTone = _selectedTone || idea.tone;
@@ -2492,8 +2531,7 @@ function finalizeJokeCreation() {
   flashScreen('rgba(212, 168, 75, 0.2)');
   if (adjustedPotential > 0.7) spawnConfetti(15);
 
-  const costText = mode.id === "desk" ? "(-1 ponto)" : "(-0.5 ponto)";
-  displayNarration(`✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. ${costText} (+${xpGain} XP)`);
+  displayNarration(`✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. (-1 ponto) (+${xpGain} XP)`);
 
   if (state.jokes.length === 5) maybeTriggerEvent("jokes5", { source: "writing" });
   maybeTriggerEvent("random", { source: "writing" });
@@ -2507,24 +2545,17 @@ function finalizeJokeCreation() {
 
 function handleSearchShow() {
   if (!state.jokes.length) { shakeScreen(); displayNarration("⚠️ Você ainda não tem material. Escreva alguma coisa antes de encarar a plateia."); return; }
-  if (state.scheduledShow && state.scheduledShow.dayScheduled === state.currentDay) { handleGoToScheduledShow(); return; }
-  if ((state.showsThisWeek || 0) >= MAX_SHOWS_PER_WEEK && !state.scheduledShow) { shakeScreen(); displayNarration("📅 Você já fez 3 shows essa semana. Descanse um pouco e espere a próxima semana para mais apresentações."); return; }
+  if (state.performedShowToday) { shakeScreen(); displayNarration("🎤 Você já fez um show hoje. Descanse e tente novamente amanhã."); return; }
 
-  if (state.scheduledShow) {
-    const existingShow = findShowById(state.scheduledShow.showId);
-    const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
-    showDialog(`📅 Você já tem um show marcado: ${existingShow?.name || 'Show'} em ${daysUntil} dia(s). Quer cancelar para buscar outro?`, [
-      { label: "Cancelar e buscar outro", handler: () => { state.scheduledShow = null; state.network = Math.max(0, (state.network || 10) - 3); hideDialog(); searchForNewShow(); } },
-      { label: "Manter show atual", handler: hideDialog }
-    ]);
-    return;
-  }
+  const todayShows = getScheduledShowsForToday();
+  if (todayShows.length > 0) { handleGoToScheduledShow(); return; }
+
+  if ((state.scheduledShows || []).length >= MAX_SCHEDULED_SHOWS) { shakeScreen(); displayNarration("📅 Você já tem 3 shows agendados. Faça ou cancele algum antes de buscar outro."); return; }
 
   searchForNewShow();
 }
 
 function searchForNewShow() {
-  playSound('findSomething');
   flashScreen('rgba(139, 115, 85, 0.2)');
   const availableShows = generateAvailableShows();
   if (availableShows.length === 0) { displayNarration("😔 Não há shows disponíveis no momento. Tente novamente amanhã ou aumente seu network."); return; }
@@ -2545,22 +2576,24 @@ function generateAvailableShows() {
     return true;
   });
 
+  const alreadyScheduledIds = (state.scheduledShows || []).map(s => s.showId);
+
   // 5 a 5 (Sundays, unlocked via Paulo Araújo)
-  if (level === "open" && state.fiveA5Unlocked) {
+  if (level === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
     const daysTo5a5 = findDaysToWeekday(0);
     const show5a5 = findShowById("5a5");
     if (show5a5 && Math.random() < 0.75) {
-      if (weekDay === 0 && !state.scheduledShow) shows.unshift({ show: show5a5, daysAhead: 0, showType: "5a5" });
+      if (weekDay === 0) shows.unshift({ show: show5a5, daysAhead: 0, showType: "5a5" });
       else if (daysTo5a5 > 0 && daysTo5a5 <= 6) shows.unshift({ show: show5a5, daysAhead: daysTo5a5, showType: "5a5" });
     }
   }
 
   // Pague 15 (Thursdays, unlocked via Paulo Araújo)
-  if (state.pague15Unlocked) {
+  if (state.pague15Unlocked && !alreadyScheduledIds.includes("pague15")) {
     const daysToPague15 = findDaysToWeekday(4);
     const showPague15 = findShowById("pague15");
     if (showPague15) {
-      if (weekDay === 4 && !state.scheduledShow) shows.unshift({ show: showPague15, daysAhead: 0, showType: "pague15" });
+      if (weekDay === 4) shows.unshift({ show: showPague15, daysAhead: 0, showType: "pague15" });
       else if (daysToPague15 > 0 && daysToPague15 <= 6) shows.unshift({ show: showPague15, daysAhead: daysToPague15, showType: "pague15" });
     }
   }
@@ -2594,7 +2627,11 @@ function presentShowOptions(availableShows) {
 }
 
 function scheduleShow(show, scheduledDay, showType = "normal") {
-  state.scheduledShow = { showId: show.id, dayScheduled: scheduledDay, showType };
+  if (!addScheduledShow(show.id, scheduledDay, showType)) {
+    shakeScreen();
+    displayNarration("📅 Você já tem 3 shows agendados! Faça ou cancele algum antes.");
+    return;
+  }
   playSound('getSomething');
   state.network = (state.network || 10) + 1;
   updateStats();
@@ -2603,26 +2640,30 @@ function scheduleShow(show, scheduledDay, showType = "normal") {
 }
 
 function handleGoToScheduledShow() {
-  if (!state.scheduledShow) { displayNarration("📅 Você não tem nenhum show marcado."); return; }
-  const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
-  if (daysUntil > 0) { skipToShowDay(); return; }
+  const todayShows = getScheduledShowsForToday();
+  if (todayShows.length === 0) {
+    const nearest = getNearestScheduledShow();
+    if (!nearest) { displayNarration("📅 Você não tem nenhum show marcado."); return; }
+    skipToShowDay(); return;
+  }
 
-  const show = findShowById(state.scheduledShow.showId);
-  if (!show) { state.scheduledShow = null; displayNarration("❌ O show foi cancelado de última hora."); return; }
+  const entry = todayShows[0];
+  const show = findShowById(entry.showId);
+  if (!show) { removeScheduledShow(entry); displayNarration("❌ O show foi cancelado de última hora."); return; }
 
   playSound('comeWithMe');
-  const scheduledShow = state.scheduledShow;
-  state.scheduledShow = null;
-  const offeredMinutes = calculateOfferedTime(show, scheduledShow);
-  beginShowPreparation(show, offeredMinutes);
+  removeScheduledShow(entry);
+  const offeredMinutes = calculateOfferedTime(show, entry);
+  beginShowPreparation(show, offeredMinutes, entry.showType);
 }
 
 function skipToShowDay() {
-  if (!state.scheduledShow) return;
-  const daysUntil = state.scheduledShow.dayScheduled - state.currentDay;
+  const nearest = getNearestScheduledShow();
+  if (!nearest) return;
+  const daysUntil = nearest.dayScheduled - state.currentDay;
   if (daysUntil <= 0) { handleGoToScheduledShow(); return; }
 
-  const show = findShowById(state.scheduledShow.showId);
+  const show = findShowById(nearest.showId);
   const showName = show?.name || 'o Show';
 
   showDialog(`⏩ Pular ${daysUntil} dia(s) até ${showName}?\n\nVocê perderá a chance de escrever, estudar ou criar conteúdo nesses dias.`, [
@@ -2631,8 +2672,9 @@ function skipToShowDay() {
       for (let i = 0; i < daysUntil; i++) {
         state.currentDay += 1;
         state.currentWeekDay = (state.currentWeekDay + 1) % 7;
-        if (state.currentWeekDay === 1) { state.currentWeek = (state.currentWeek || 1) + 1; state.eventsThisWeek = 0; state.showsThisWeek = 0; }
+        if (state.currentWeekDay === 1) { state.currentWeek = (state.currentWeek || 1) + 1; state.eventsThisWeek = 0; }
         state.motivation = clamp(state.motivation + 3, 0, 120);
+        state.performedShowToday = false;
         processFlowState();
       }
       state.activityPoints = getMaxActivityPoints();
@@ -2662,9 +2704,9 @@ function calculateOfferedTime(show, scheduledShow) {
   return Math.max(show.minMinutes, Math.min(maxTime, 5));
 }
 
-function beginShowPreparation(show, offeredMinutes) {
-  if (offeredMinutes === undefined) offeredMinutes = calculateOfferedTime(show, { showType: "normal" });
-  currentShow = { ...show, offeredMinutes };
+function beginShowPreparation(show, offeredMinutes, showType) {
+  if (offeredMinutes === undefined) offeredMinutes = calculateOfferedTime(show, { showType: showType || "normal" });
+  currentShow = { ...show, offeredMinutes, activeShowType: showType || show.special || "normal" };
   uiMode = "showSelection";
   selectedJokeIds.clear();
 
@@ -2686,7 +2728,7 @@ function beginShowPreparation(show, offeredMinutes) {
 function performShow() {
   if (!currentShow) return;
   const showPlayed = currentShow;
-  const showType = state.scheduledShow?.showType || currentShow.special || "normal";
+  const showType = currentShow.activeShowType || currentShow.special || "normal";
   const setList = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
   const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0);
   if (!setList.length) { shakeScreen(); displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir."); return; }
@@ -2711,7 +2753,7 @@ function performShow() {
 
   state.showHistory = state.showHistory || [];
   state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
-  state.showsThisWeek = (state.showsThisWeek || 0) + 1;
+  state.performedShowToday = true;
 
   const prevLevelNumber = state.levelNumber;
   const xpGain = applyXp(XP_GAIN.show[nota] || 0);
@@ -2725,7 +2767,7 @@ function performShow() {
   state.motivation = clamp(state.motivation + motivationShift, 0, 120);
   if (nota >= 4) state.network = (state.network || 10) + 2;
   const entregaGain = nota >= 4 ? 2 : 1;
-  state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 120);
+  state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
 
   updateStats();
   renderJokeList({ selectable: false });
@@ -2740,8 +2782,6 @@ function performShow() {
 
   if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
   if (state.fans >= 20) maybeTriggerEvent("fans20");
-
-  scheduleAutoEndDay();
 }
 
 function applyOutcome(setList, outcome, breakdown = []) {
@@ -2774,7 +2814,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   const statFragments = [`Nota ${nota}/5`];
   if (deltas.fans) statFragments.push(`Fãs ${formatSigned(deltas.fans)}`);
   if (deltas.motivation) statFragments.push(`Motivação ${formatSigned(deltas.motivation)}`);
-  if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Stage Time +${deltas.stageTimeGain} (FLOW!)`);
+  if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Tempo de Palco +${deltas.stageTimeGain} (FLOW!)`);
   if (deltas.entrega) statFragments.push(`Entrega +${deltas.entrega}`);
   if (deltas.xp) statFragments.push(`XP +${deltas.xp}`);
 
@@ -2820,48 +2860,31 @@ function handleCreateContent() {
   if (uiMode === "event") return;
   exitSelectionMode();
   setScene("home");
-  showDialog("📱 Que tipo de conteúdo você quer criar?", [
-    { label: "📹 Conteúdo longo (1 ponto)", handler: () => { hideDialog(); createContentLong(); } },
-    { label: "⚡ Conteúdo rápido (0.5 ponto)", handler: () => { hideDialog(); createContentQuick(); } },
-    { label: "Voltar", handler: hideDialog }
-  ]);
+  createContent();
 }
 
-function createContentLong() {
-  if (!spendActivityPoints(ACTIVITY_COSTS.contentLong, "criar conteúdo longo")) return;
-  const reach = Math.max(5, Math.round(state.stageTime * 2 + getTotalMinutes() + Math.random() * 15));
-  const fanGain = reach + Math.round(state.texto / 2);
+function createContent() {
+  if (!spendActivityPoints(ACTIVITY_COSTS.content, "criar conteúdo")) return;
+  const reach = Math.max(3, Math.round(state.stageTime * 1.5 + getTotalMinutes() * 0.75 + Math.random() * 12));
+  const fanGain = reach + Math.round(state.texto / 3);
   state.fans += fanGain;
-  state.network = (state.network || 10) + 2;
-  state.motivation = clamp(state.motivation - 8 + Math.round(Math.random() * 4), 0, 120);
+  state.network = (state.network || 10) + 1;
+  state.motivation = clamp(state.motivation - 4, 0, 120);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.15)');
   if (fanGain > 20) spawnConfetti(15);
-  displayNarration(`📹 Você grava um vídeo elaborado. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade)`);
+  displayNarration(`📱 Você cria conteúdo e posta. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade)`);
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
   maybeTriggerEvent("fans20");
   checkAndShowPendingEvent();
 }
 
-function createContentQuick() {
-  if (!spendActivityPoints(ACTIVITY_COSTS.contentQuick, "criar conteúdo rápido")) return;
-  const reach = Math.max(2, Math.round(state.stageTime + getTotalMinutes() / 2 + Math.random() * 8));
-  const fanGain = reach + Math.round(state.texto / 4);
-  state.fans += fanGain;
-  state.motivation = clamp(state.motivation - 2, 0, 120);
-  setScene("home");
-  flashScreen('rgba(245, 230, 200, 0.1)');
-  displayNarration(`⚡ Um story rápido e uma foto. ${fanGain} novas pessoas te seguem. (-0.5 ponto de atividade)`);
-  updateStats();
-}
-
 function handleStudy() {
   if (uiMode === "event") return;
   exitSelectionMode();
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
-  state.texto = clamp((state.texto || 0) + 6, 0, 120);
-  state.entrega = clamp((state.entrega || 0) + 3, 0, 120);
+  state.texto = clamp((state.texto || 0) + 6, 0, 200);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
   setScene("home");
@@ -3033,11 +3056,11 @@ function finalizeRewrite() {
   }
 
   state.motivation = clamp(state.motivation - 4, 0, 120);
-  state.texto = clamp((state.texto || 0) + 1, 0, 120);
+  state.texto = clamp((state.texto || 0) + 1, 0, 200);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const rewritePerkBonus = getPerkEffect('rewriteBonus');
-  joke.truePotential = clamp(basePotential + (state.texto / 250) + flowBonus + rewritePerkBonus, 0.2, 0.95);
+  joke.truePotential = clamp(basePotential + (state.texto / 160) + flowBonus + rewritePerkBonus, 0.2, 0.98);
   joke.tone = _newTone || joke.tone;
   joke.structure = _newStructure || joke.structure;
   joke.minutes = Math.random() > 0.7 ? 2 : 1;
