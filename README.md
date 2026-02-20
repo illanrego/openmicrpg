@@ -17,7 +17,13 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ## Screenshots / Capturas de Tela
 
 <div align="center">
-  <p><em>Gameplay screenshots coming soon / Capturas de tela em breve</em></p>
+  <img src="./screen2.png" alt="Gameplay Screenshot 1" width="800"/>
+  <p><em>Interface principal do jogo / Main game interface</em></p>
+</div>
+
+<div align="center">
+  <img src="./screen3.png" alt="Gameplay Screenshot 2" width="800"/>
+  <p><em>Sistema de escrita de piadas e gerenciamento de material / Joke writing system and material management</em></p>
 </div>
 
 ## Funcionalidades Principais / Main Features 🚀
@@ -97,45 +103,6 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 - **Acessibilidade**: Interface clara e intuitiva
 
 **Retro RPG Style**: Interface inspired by classic SNES RPGs | **Pixel Art Aesthetic**: Pixelated visualization and retro aesthetic | **Responsive Design**: Works on desktop and mobile | **Smooth Animations**: Smooth animations and immediate visual feedback | **Accessibility**: Clear and intuitive interface**
-
-## Instalação e Configuração / Installation and Setup
-
-### Pré-requisitos / Prerequisites
-- Navegador web moderno (Chrome, Firefox, Safari, Edge)
-- Nenhuma instalação adicional necessária!
-
-**Modern web browser (Chrome, Firefox, Safari, Edge) | No additional installation required!**
-
-### Passos / Steps
-
-1. **Clone o repositório / Clone the repository**
-```bash
-git clone https://github.com/seu-usuario/openmicrpg1.git
-cd openmicrpg1
-```
-
-2. **Abra o arquivo HTML / Open the HTML file**
-
-Simplesmente abra `index.html` no seu navegador ou use um servidor local:
-
-**Simply open `index.html` in your browser or use a local server:**
-
-```bash
-# Usando Python / Using Python
-python -m http.server 8000
-
-# Usando Node.js / Using Node.js
-npx http-server
-
-# Usando PHP / Using PHP
-php -S localhost:8000
-```
-
-3. **Acesse o jogo / Access the game**
-
-Abra `http://localhost:8000` no seu navegador ou abra `index.html` diretamente.
-
-**Open `http://localhost:8000` in your browser or open `index.html` directly.**
 
 ## Como Jogar / How to Play 🎮
 
