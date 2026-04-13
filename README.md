@@ -53,12 +53,12 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
   - **Entrega**: Afeta seu desempenho nos shows e reduz dificuldade (máx. 200)
   - **Motivação**: Recursos necessários para escrever piadas melhores
   - **Fãs**: Popularidade que desbloqueia oportunidades
-- **Sistema de níveis**: Progressão de "Open" até níveis profissionais
+- **Arco de carreira**: Progressão de `Open` para `Elenco` e depois `Headliner`
 - **Sistema de XP**: Ganhe experiência através de shows e atividades
 - **Perks/Talents**: Duas árvores de habilidades (Texto e Entrega) com mais de 10 perks únicos
 - **Flow State**: Estado especial que aumenta sua eficiência temporariamente
 
-**Main stats**: Texto (affects joke quality, max 200), Entrega (affects show performance, max 200), Motivation (resource for writing better jokes), Fans (popularity that unlocks opportunities) | **Level system**: Progression from "Open" to professional levels | **XP system**: Gain experience through shows and activities | **Perks/Talents**: Two skill trees (Texto and Entrega) with over 10 unique perks | **Flow State**: Special state that temporarily increases efficiency**
+**Main stats**: Texto (affects joke quality, max 200), Entrega (affects show performance, max 200), Motivation (resource for writing better jokes), Fans (popularity that unlocks opportunities) | **Career arc**: Progression from `Open` to `Elenco` to `Headliner` | **XP system**: Gain experience through shows and activities | **Perks/Talents**: Two skill trees (Texto and Entrega) with over 10 unique perks | **Flow State**: Special state that temporarily increases efficiency**
 
 ### ⏰ Sistema de Tempo
 - **Dias e semanas**: Gerencie seu tempo dia a dia
@@ -183,7 +183,7 @@ openmicrpg1/
 ## Funcionalidades em Destaque / Highlighted Features
 
 ### Sistema de Classes / Class System
-No futuro, o jogo terá classes profissionais que modificam a experiência de jogo:
+O jogo já possui classes profissionais que modificam a experiência e desbloqueiam trajetórias de carreira:
 - **Cômico Clássico**: Stand-up puro, turnês
 - **Roteirista**: Escrita para outros, programas
 - **Produtor**: Shows e gestão
@@ -191,7 +191,13 @@ No futuro, o jogo terá classes profissionais que modificam a experiência de jo
 - **Influencer**: Conteúdo digital, virais
 - **Professor**: Ensino e teoria da comédia
 
-**In the future, the game will have professional classes that modify the gameplay experience: Classic Comedian, Screenwriter, Producer, Comic Actor, Influencer, Professor**
+**The game now includes professional classes that shape progression and career opportunities: Classic Comedian, Screenwriter, Producer, Comic Actor, Influencer, Professor**
+
+### Professor Carvalho Guidance
+Professor Carvalho atua como mentor ao longo do jogo, com diálogos de orientação em marcos importantes (primeiro bomb, primeiro kill, transições de carreira e momentos de baixa motivação).
+
+### Legacy Choice Endgame
+No arco final de `Headliner`, você escolhe qual legado quer construir (estrada, autoria ou híbrido palco+mídia) e recebe um epílogo com avaliação multidimensional.
 
 ### Sistema de Eventos / Event System
 Eventos especiais aparecem durante a semana, oferecendo oportunidades únicas, desafios e recompensas que podem mudar o curso da sua carreira.

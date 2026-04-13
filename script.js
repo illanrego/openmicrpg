@@ -3126,7 +3126,7 @@ function finalizeJokeCreation() {
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
   const xpGain = applyXp(XP_GAIN.jokeNew);
-  addHeadlinerPrep(1, "novo bloco escrito");
+  addHeadlinerPrep(1);
 
   _pendingJokeIdea = null; _pendingJokeMode = null; _selectedTone = null; _selectedStructure = null; _customJokeTitle = null;
 
@@ -3531,7 +3531,7 @@ function handleStudy() {
   state.texto = clamp((state.texto || 0) + 6, 0, 200);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
-  addHeadlinerPrep(1, "estudo de estrutura");
+  addHeadlinerPrep(1);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.2)');
   displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
@@ -3715,7 +3715,7 @@ function finalizeRewrite() {
 
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
   const xpGain = applyXp(XP_GAIN.jokeRewrite);
-  addHeadlinerPrep(2, "reescrita profunda");
+  addHeadlinerPrep(2);
 
   _rewritingJoke = null; _newTone = null; _newStructure = null;
   exitWritingMode();
