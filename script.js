@@ -209,6 +209,69 @@ const CLASSES = {
   professor: { name: "Professor", desc: "Ensino e teoria da comédia", bonus: { texto: 5, entrega: 5 }, empReq: { texto: 50, entrega: 50 }, workshopEvents: true, xpMultiplier: 2, madeIt: "Curso estabelecido" }
 };
 
+const CARVALHO_DIALOGS = [
+  {
+    id: "carvalho-first-bomb",
+    trigger: "firstBomb",
+    stage: "open",
+    priority: 100,
+    once: true,
+    text: "Professor Carvalho aparece no camarim: 'Todo mundo toma água no começo. Seu trabalho agora é transformar vergonha em material.'",
+    choices: [
+      { label: "📝 Revisar o set com ele", effects: { texto: 4, motivation: 3 }, narration: "Vocês destrincham seu set linha por linha. Dói, mas clareia." },
+      { label: "😮‍💨 Respirar e voltar amanhã", effects: { motivation: 8 }, narration: "Você aceita o golpe sem dramatizar. Amanhã você sobe de novo." }
+    ]
+  },
+  {
+    id: "carvalho-first-kill",
+    trigger: "firstKill",
+    stage: "open",
+    priority: 95,
+    once: true,
+    text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público.'",
+    choices: [
+      { label: "🔁 Repetir e testar em outro contexto", effects: { texto: 3, network: 2 }, narration: "Você anota ajustes para testar em salas diferentes." },
+      { label: "📓 Organizar caderno com disciplina", effects: { motivation: 4, texto: 2 }, narration: "Você organiza estrutura, transições e próximas hipóteses." }
+    ]
+  },
+  {
+    id: "carvalho-enter-elenco",
+    trigger: "enterElenco",
+    stage: "elenco",
+    priority: 110,
+    once: true,
+    text: "Professor Carvalho: 'Bem-vindo ao elenco. Agora o jogo é consistência: 15 minutos sólidos, sem depender de sorte.'",
+    choices: [
+      { label: "🎯 Focar em consistência semanal", effects: { texto: 4, entrega: 2 }, narration: "Você assume rotina de lapidação com metas semanais." },
+      { label: "🤝 Focar em presença no circuito", effects: { network: 6, motivation: 3 }, narration: "Você circula mais no meio, vira rosto conhecido e ganha confiança." }
+    ]
+  },
+  {
+    id: "carvalho-enter-headliner",
+    trigger: "enterHeadliner",
+    stage: "headliner",
+    priority: 120,
+    once: true,
+    text: "Carvalho ajeita o microfone e diz: 'Headliner não é status, é responsabilidade. Você sustenta uma noite inteira com assinatura autoral.'",
+    choices: [
+      { label: "🎭 Priorizar profundidade de material", effects: { texto: 6, motivation: 2 }, narration: "Você entra em modo oficina para fortalecer blocos longos." },
+      { label: "📣 Priorizar presença e público", effects: { fans: 25, network: 6, motivation: -2 }, narration: "Você acelera agenda e presença. A pressão aumenta junto." }
+    ]
+  },
+  {
+    id: "carvalho-low-motivation",
+    trigger: "lowMotivation",
+    stage: "open",
+    priority: 80,
+    cooldown: 4,
+    text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. Escolhe uma ação curta e volta com foco.'",
+    choices: [
+      { label: "🧠 Fazer revisão leve", effects: { texto: 2, motivation: 5 }, narration: "Você revisa só o essencial e guarda energia para amanhã." },
+      { label: "🛌 Descansar de verdade", effects: { motivation: 10 }, narration: "Você respeita o limite e evita transformar rotina em desgaste." }
+    ]
+  }
+];
+
 
 // ═══════════════════════════════════════════════════════════════════
 // §2  DATA: IDEA POOL
@@ -977,6 +1040,10 @@ function ensureCareerProgressState() {
   if (!state) return;
   state.careerMilestones = { ...createDefaultCareerMilestones(), ...(state.careerMilestones || {}) };
   state.careerChoices = state.careerChoices || [];
+  state.carvalhoDialogState = {
+    shownIds: Array.isArray(state.carvalhoDialogState?.shownIds) ? state.carvalhoDialogState.shownIds : [],
+    triggerCooldowns: state.carvalhoDialogState?.triggerCooldowns || {}
+  };
 }
 
 function hasCareerMilestone(milestoneId) {
@@ -1009,6 +1076,52 @@ const contentGates = {
     return isCareerStageAtLeast(stage, requiredStage);
   }
 };
+
+function canTriggerCarvalhoDialog(dialog, trigger, context = {}) {
+  if (!dialog || dialog.trigger !== trigger) return false;
+  if (!contentGates.dialogEligible(dialog)) return false;
+  ensureCareerProgressState();
+  const shownIds = state.carvalhoDialogState.shownIds || [];
+  if (dialog.once && shownIds.includes(dialog.id)) return false;
+  if (dialog.cooldown) {
+    const cooldowns = state.carvalhoDialogState.triggerCooldowns || {};
+    const lastDay = cooldowns[dialog.id];
+    if (typeof lastDay === "number" && state.currentDay - lastDay < dialog.cooldown) return false;
+  }
+  if (dialog.condition && typeof dialog.condition === "function") {
+    return !!dialog.condition(state, context);
+  }
+  return true;
+}
+
+function applyCarvalhoDialogChoice(choice) {
+  if (!choice) return;
+  applyEventEffects(choice.effects || {});
+  updateStats();
+  if (choice.narration) queueCriticalDialog(choice.narration, [{ label: "Continuar", handler: () => {} }]);
+}
+
+function showCarvalhoDialog(dialog) {
+  ensureCareerProgressState();
+  if (!dialog) return;
+  if (!state.carvalhoDialogState.shownIds.includes(dialog.id)) state.carvalhoDialogState.shownIds.push(dialog.id);
+  state.carvalhoDialogState.triggerCooldowns[dialog.id] = state.currentDay;
+  const options = (dialog.choices || []).map((choice) => ({
+    label: choice.label,
+    handler: () => applyCarvalhoDialogChoice(choice)
+  }));
+  if (!options.length) options.push({ label: "Entendido", handler: () => {} });
+  queueCriticalDialog(`🎓 Professor Carvalho\n\n${dialog.text}`, options);
+}
+
+function maybeTriggerCarvalhoDialog(trigger, context = {}) {
+  if (!state?.hasStarted) return;
+  const candidates = CARVALHO_DIALOGS
+    .filter((dialog) => canTriggerCarvalhoDialog(dialog, trigger, context))
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  if (!candidates.length) return;
+  showCarvalhoDialog(candidates[0]);
+}
 
 function getScheduledShowsForToday() {
   return (state.scheduledShows || []).filter(s => s.dayScheduled === state.currentDay);
@@ -1484,12 +1597,14 @@ function getOutcomeType(nota) {
 // ═══════════════════════════════════════════════════════════════════
 
 function checkLevelProgression(nota, showType, prevLevelNumber) {
+  const previousCareerStage = resolveCareerStage(null, prevLevelNumber);
   if (nota >= 4) {
     state.showsAtLevel4 = (state.showsAtLevel4 || 0) + 1;
     if (showType === "5a5") state.shows5a5AtLevel4 = (state.shows5a5AtLevel4 || 0) + 1;
   }
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
+  const currentCareerStage = getCareerStage();
 
   if (state.levelNumber > prevLevelNumber) {
     const levelsGained = state.levelNumber - prevLevelNumber;
@@ -1501,6 +1616,12 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
     }
 
     if (state.levelNumber >= 3) maybeTriggerEvent("levelUp3", { source: "levelUp" });
+
+    if (previousCareerStage === "open" && currentCareerStage === "elenco") {
+      maybeTriggerCarvalhoDialog("enterElenco", { previousCareerStage, currentCareerStage });
+    } else if (previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
+      maybeTriggerCarvalhoDialog("enterHeadliner", { previousCareerStage, currentCareerStage });
+    }
 
     checkEmploymentOffer();
     checkMadeIt();
@@ -1598,6 +1719,10 @@ function advanceDay() {
   const hasHadFirstShow = state.showHistory && state.showHistory.length > 0;
   if (hasHadFirstShow && (state.eventsThisWeek || 0) < 2 && Math.random() < 0.1) {
     maybeTriggerEvent("random", { source: "newDay" });
+  }
+
+  if (state.motivation <= 25) {
+    maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
   }
 
   saveGameState();
@@ -1785,7 +1910,8 @@ function loadGameState() {
     chosenClass: null, hasEmployment: false, madeIt: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
-    careerChoices: []
+    careerChoices: [],
+    carvalhoDialogState: { shownIds: [], triggerCooldowns: {} }
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1832,7 +1958,11 @@ function loadGameState() {
       unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
       availablePerkPoints: parsed.availablePerkPoints ?? 0,
       careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
-      careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : []
+      careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : [],
+      carvalhoDialogState: {
+        shownIds: Array.isArray(parsed.carvalhoDialogState?.shownIds) ? parsed.carvalhoDialogState.shownIds : [],
+        triggerCooldowns: parsed.carvalhoDialogState?.triggerCooldowns || {}
+      }
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -1859,6 +1989,7 @@ function saveGameState() {
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
+    carvalhoDialogState: state.carvalhoDialogState,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -2813,8 +2944,19 @@ function performShow() {
   const adjustedScore = evaluation.averageScore + timeImpact.adjustment;
   const nota = classifyOutcome(adjustedScore);
   const outcomeType = getOutcomeType(nota);
+  const careerStage = getCareerStage();
 
   applyOutcome(setList, outcomeType, breakdownWithEmoji);
+
+  if (outcomeType === "bomb" && markCareerMilestone("firstBomb")) {
+    maybeTriggerCarvalhoDialog("firstBomb", { nota, show: showPlayed, showType });
+  }
+  if (outcomeType === "kill" && markCareerMilestone("firstKill")) {
+    maybeTriggerCarvalhoDialog("firstKill", { nota, show: showPlayed, showType });
+  }
+  if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
+  if (careerStage === "headliner") markCareerMilestone("firstHeadlinerGig");
+  if (showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
 
   const stageTimeGain = state.flowState?.active ? 2 : 1;
   state.stageTime += stageTimeGain;
