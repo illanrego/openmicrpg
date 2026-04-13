@@ -347,6 +347,53 @@ const ideaPool = [
 //     They are gated by Paulo Araújo events, not regular rotation.
 // ═══════════════════════════════════════════════════════════════════
 
+function inferShowAudienceType(show) {
+  const id = show.id || "";
+  if (id.includes("corporativo") || id.includes("sindicato")) return "corporate";
+  if (id.includes("teatro") || id.includes("show-solo") || id.includes("programa-tv")) return "theater";
+  if (id.includes("universitario") || id.includes("republica")) return "young-chaotic";
+  if (id.includes("podcast") || id.includes("rooftop-tech") || id.includes("metro")) return "digital-urban";
+  if (id.includes("shopping") || id.includes("familia") || id.includes("churrascaria")) return "family";
+  return "mixed-room";
+}
+
+function inferShowRiskProfile(show) {
+  if (show.difficulty >= 0.46) return "high";
+  if (show.difficulty >= 0.28) return "medium";
+  return "low";
+}
+
+function inferShowSocialExposure(show) {
+  const id = show.id || "";
+  if (id.includes("programa-tv")) return "high";
+  if (id.includes("podcast") || id.includes("rooftop-tech")) return "medium";
+  return "low";
+}
+
+function inferShowCareerStage(show) {
+  return show.requiresCareerStage || show.requiresLevel || "open";
+}
+
+function inferShowRewardProfile(show, stage) {
+  if (stage === "headliner") return "prestige";
+  if (stage === "elenco") return "consistency";
+  if (show.difficulty >= 0.38) return "high-variance";
+  return "learning";
+}
+
+function enrichShowWithCareerMetadata(show) {
+  const stage = inferShowCareerStage(show);
+  return {
+    ...show,
+    careerStage: stage,
+    audienceType: show.audienceType || inferShowAudienceType(show),
+    setLengthTarget: show.setLengthTarget || show.minMinutes,
+    riskProfile: show.riskProfile || inferShowRiskProfile(show),
+    rewardProfile: show.rewardProfile || inferShowRewardProfile(show, stage),
+    socialExposure: show.socialExposure || inferShowSocialExposure(show)
+  };
+}
+
 const showPool = [
   // ─── Regular venues ───
   {
@@ -612,6 +659,9 @@ const showPool = [
     typeAffinity: { default: 0.1, besteirol: 0.3, vulgar: 0, "humor negro": 0.2, limpo: 0.4, hack: 0.3 }
   }
 ];
+showPool.forEach((show, index) => {
+  showPool[index] = enrichShowWithCareerMetadata(show);
+});
 
 function findShowById(showId) {
   return showPool.find((show) => show.id === showId);
@@ -1076,6 +1126,16 @@ const contentGates = {
     return isCareerStageAtLeast(stage, requiredStage);
   }
 };
+
+function isShowUnlockedForCareer(show) {
+  if (!show || !state) return false;
+  if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
+  if (show.requiresEmployment && !state.hasEmployment) return false;
+  if (show.requiresMadeIt && !state.madeIt) return false;
+  if (show.requiredFans && (state.fans || 0) < show.requiredFans) return false;
+  if (show.requiredNetwork && (state.network || 0) < show.requiredNetwork) return false;
+  return true;
+}
 
 function canTriggerCarvalhoDialog(dialog, trigger, context = {}) {
   if (!dialog || dialog.trigger !== trigger) return false;
@@ -2763,22 +2823,22 @@ function searchForNewShow() {
 
 function generateAvailableShows() {
   const shows = [];
-  const level = state.level || "open";
+  const careerStage = getCareerStage();
   const network = state.network || 10;
   const weekDay = state.currentWeekDay;
 
   // Filter eligible regular shows (exclude specials — they have dedicated unlock paths)
   let eligibleShows = showPool.filter(show => {
     if (show.isSpecialShow) return false;
-    if (!contentGates.showEligible(show, level)) return false;
-    if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
+    if (!contentGates.showEligible(show, careerStage)) return false;
+    if (!isShowUnlockedForCareer(show)) return false;
     return true;
   });
 
   const alreadyScheduledIds = (state.scheduledShows || []).map(s => s.showId);
 
   // 5 a 5 (Sundays, unlocked via Paulo Araújo)
-  if (level === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
+  if (careerStage === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
     const daysTo5a5 = findDaysToWeekday(0);
     const show5a5 = findShowById("5a5");
     if (show5a5 && Math.random() < 0.75) {
@@ -2819,7 +2879,13 @@ function presentShowOptions(availableShows) {
     let label = `🎭 ${show.name}`;
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
-    return { label: `${label}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`, handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); } };
+    const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
+    const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
+    const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
+    return {
+      label: `${label}${stageTag}${riskTag}${crowdTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
+      handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); }
+    };
   });
   options.push({ label: "❌ Cancelar busca", handler: hideDialog });
   showDialog("🔍 Shows disponíveis para você:", options);
