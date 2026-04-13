@@ -1195,6 +1195,8 @@ const formatSigned = (value) => (value > 0 ? `+${value}` : `${value}`);
 const formatIdeaTitle = (idea) => idea.customTitle || `Piada sobre ${idea.seed}`;
 const generatePotential = () => parseFloat((0.35 + Math.random() * 0.5).toFixed(2));
 const CAREER_STAGES = ["open", "elenco", "headliner"];
+const VENUE_REPUTATION_MIN = -20;
+const VENUE_REPUTATION_MAX = 40;
 
 function resolveCareerStage(level = state?.level, levelNumber = state?.levelNumber) {
   if (level === "headliner" || (typeof levelNumber === "number" && levelNumber >= 11)) return "headliner";
@@ -1250,6 +1252,7 @@ function ensureCareerProgressState() {
     consistencyStreak: Math.max(0, state.openStageState?.consistencyStreak || 0),
     breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0)
   };
+  state.venueReputation = normalizeVenueReputationMap(state.venueReputation);
   state.legacyArchive = Array.isArray(state.legacyArchive) ? state.legacyArchive : [];
   state.legacyEnding = state.legacyEnding || null;
   state.postLegacyMode = !!state.postLegacyMode;
@@ -1422,25 +1425,92 @@ function addHeadlinerPrep(points) {
   state.headlinerSoloState.prepPoints = Math.min(12, (state.headlinerSoloState.prepPoints || 0) + gained);
 }
 
+function normalizeVenueReputationMap(mapLike) {
+  const normalized = {};
+  if (!mapLike || typeof mapLike !== "object") return normalized;
+  Object.entries(mapLike).forEach(([showId, value]) => {
+    if (!showId) return;
+    const safeValue = Number.isFinite(value) ? value : Number(value);
+    if (!Number.isFinite(safeValue)) return;
+    normalized[showId] = clamp(Math.round(safeValue), VENUE_REPUTATION_MIN, VENUE_REPUTATION_MAX);
+  });
+  return normalized;
+}
+
+function getVenueReputation(showId) {
+  if (!showId) return 0;
+  ensureCareerProgressState();
+  return state.venueReputation[showId] || 0;
+}
+
+function getVenueReputationTier(repValue) {
+  if (repValue >= 18) return "casa-favorita";
+  if (repValue >= 8) return "quente";
+  if (repValue <= -10) return "fria";
+  if (repValue <= -4) return "instável";
+  return "neutra";
+}
+
+function getVenueOfferWeight(showId) {
+  const rep = getVenueReputation(showId);
+  return clamp(1 + rep * 0.03, 0.35, 2.2);
+}
+
+function adjustVenueReputation(showId, delta) {
+  if (!showId || !delta) return { delta: 0, value: getVenueReputation(showId), tier: getVenueReputationTier(getVenueReputation(showId)) };
+  ensureCareerProgressState();
+  const current = getVenueReputation(showId);
+  const next = clamp(current + delta, VENUE_REPUTATION_MIN, VENUE_REPUTATION_MAX);
+  state.venueReputation[showId] = next;
+  return { delta: next - current, value: next, tier: getVenueReputationTier(next) };
+}
+
+function applyVenueReputationOutcome(showId, nota, showType) {
+  let delta = 0;
+  if (nota >= 5) delta = 3;
+  else if (nota === 4) delta = 2;
+  else if (nota === 3) delta = 1;
+  else if (nota === 2) delta = -1;
+  else delta = -2;
+
+  if (showType === "openStarter" && delta > 0) delta += 1;
+  if (showType === "headlinerSolo" && delta < 0) delta -= 1;
+  return adjustVenueReputation(showId, delta);
+}
+
+function pickShowsByVenueReputation(candidates, count) {
+  if (!Array.isArray(candidates) || count <= 0) return [];
+  const pool = [...candidates];
+  const picks = [];
+  const target = Math.min(count, pool.length);
+  while (picks.length < target && pool.length > 0) {
+    const totalWeight = pool.reduce((acc, show) => acc + getVenueOfferWeight(show.id), 0);
+    let roll = Math.random() * Math.max(totalWeight, 0.0001);
+    let pickedIndex = 0;
+    for (let i = 0; i < pool.length; i += 1) {
+      roll -= getVenueOfferWeight(pool[i].id);
+      if (roll <= 0) { pickedIndex = i; break; }
+    }
+    const [picked] = pool.splice(pickedIndex, 1);
+    if (picked) picks.push(picked);
+  }
+  return picks;
+}
+
 function pickOpenWeightedShows(eligibleShows, maxCount) {
   if (!eligibleShows.length || maxCount <= 0) return [];
   const starter = eligibleShows.filter((show) => show.isOpenStarter);
   const regular = eligibleShows.filter((show) => !show.isOpenStarter);
   const pickCount = Math.min(maxCount, eligibleShows.length);
   const picks = [];
+  const starterQuota = Math.min(starter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
 
-  const shuffledStarter = [...starter].sort(() => Math.random() - 0.5);
-  const shuffledRegular = [...regular].sort(() => Math.random() - 0.5);
-  const starterQuota = Math.min(shuffledStarter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
+  picks.push(...pickShowsByVenueReputation(starter, starterQuota));
+  if (picks.length < pickCount) picks.push(...pickShowsByVenueReputation(regular, pickCount - picks.length));
 
-  for (let i = 0; i < starterQuota && picks.length < pickCount; i += 1) {
-    picks.push(shuffledStarter[i]);
-  }
-  for (let i = 0; i < shuffledRegular.length && picks.length < pickCount; i += 1) {
-    picks.push(shuffledRegular[i]);
-  }
-  for (let i = starterQuota; i < shuffledStarter.length && picks.length < pickCount; i += 1) {
-    picks.push(shuffledStarter[i]);
+  if (picks.length < pickCount) {
+    const leftovers = eligibleShows.filter((show) => !picks.some((picked) => picked.id === show.id));
+    picks.push(...pickShowsByVenueReputation(leftovers, pickCount - picks.length));
   }
 
   return picks.slice(0, pickCount);
@@ -2388,6 +2458,7 @@ function loadGameState() {
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
     headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 },
     openStageState: { consistencyStreak: 0, breakthroughs: 0 },
+    venueReputation: {},
     legacyEnding: null, legacyArchive: [], postLegacyMode: false, legacyChoicePrompted: false
   };
   try {
@@ -2457,6 +2528,7 @@ function loadGameState() {
         consistencyStreak: Math.max(0, parsed.openStageState?.consistencyStreak || 0),
         breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0)
       },
+      venueReputation: normalizeVenueReputationMap(parsed.venueReputation),
       legacyEnding: parsed.legacyEnding || null,
       legacyArchive: Array.isArray(parsed.legacyArchive) ? parsed.legacyArchive : [],
       postLegacyMode: !!parsed.postLegacyMode,
@@ -2491,6 +2563,7 @@ function saveGameState() {
     elencoCircuitState: state.elencoCircuitState,
     headlinerSoloState: state.headlinerSoloState,
     openStageState: state.openStageState,
+    venueReputation: state.venueReputation,
     legacyEnding: state.legacyEnding, legacyArchive: state.legacyArchive,
     postLegacyMode: state.postLegacyMode, legacyChoicePrompted: state.legacyChoicePrompted,
     lastSave: new Date().toISOString()
@@ -2948,6 +3021,8 @@ function renderSetSummary() {
   const minutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones = [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
+  const venueRepValue = currentShow?.id ? getVenueReputation(currentShow.id) : 0;
+  const venueRepTier = getVenueReputationTier(venueRepValue);
 
   let minuteColor = 'var(--neon-cyan)';
   let timeWarning = '';
@@ -2961,6 +3036,7 @@ function renderSetSummary() {
     <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
+    ${currentShow ? `<div>🏛️ Reputação da casa: ${venueRepTier} (${venueRepValue >= 0 ? "+" : ""}${venueRepValue})</div>` : ""}
     ${currentShow?.vibeHint ? `<div>💡 ${currentShow.vibeHint}</div>` : ""}
     <div style="font-size: 0.95rem; color: var(--cream-dark);">💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências.</div>
   `;
@@ -3315,7 +3391,7 @@ function generateAvailableShows() {
   const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
   const selectedShows = careerStage === "open"
     ? pickOpenWeightedShows(eligibleShows, numShows)
-    : [...eligibleShows].sort(() => Math.random() - 0.5).slice(0, numShows);
+    : pickShowsByVenueReputation(eligibleShows, numShows);
   for (let i = 0; i < selectedShows.length; i++) {
     const daysAhead = Math.random() < 0.3 ? 1 : (Math.random() < 0.6 ? 2 : 3);
     const selectedShow = selectedShows[i];
@@ -3342,8 +3418,11 @@ function presentShowOptions(availableShows) {
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
     const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
+    const repValue = getVenueReputation(show.id);
+    const repTier = getVenueReputationTier(repValue);
+    const repTag = ` · casa ${repTier} (${repValue >= 0 ? "+" : ""}${repValue})`;
     return {
-      label: `${label}${stageTag}${riskTag}${crowdTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
+      label: `${label}${stageTag}${riskTag}${crowdTag}${repTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
       handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); }
     };
   });
@@ -3498,6 +3577,7 @@ function performShow() {
   state.showHistory = state.showHistory || [];
   state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
   state.performedShowToday = true;
+  const venueRepUpdate = applyVenueReputationOutcome(showPlayed.id, nota, showType);
 
   const prevLevelNumber = state.levelNumber;
   const xpGain = applyXp(XP_GAIN.show[nota] || 0);
@@ -3520,7 +3600,14 @@ function performShow() {
   renderJokeList({ selectable: false });
   exitSelectionMode();
 
-  showResultNarrative(nota, breakdownWithEmoji, timeImpact, { fans: fanGain, motivation: motivationShift, stageTimeGain, xp: xpGain, entrega: entregaGain });
+  showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
+    fans: fanGain,
+    motivation: motivationShift,
+    stageTimeGain,
+    xp: xpGain,
+    entrega: entregaGain,
+    venueRep: `${formatSigned(venueRepUpdate.delta)} (${venueRepUpdate.tier})`
+  });
 
   const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
   if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
@@ -3564,6 +3651,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Tempo de Palco +${deltas.stageTimeGain} (FLOW!)`);
   if (deltas.entrega) statFragments.push(`Entrega +${deltas.entrega}`);
   if (deltas.xp) statFragments.push(`XP +${deltas.xp}`);
+  if (deltas.venueRep) statFragments.push(`Casa ${deltas.venueRep}`);
 
   displayNarration(`${messages[nota] || messages[3]}${timeImpact?.note ? ` ${timeImpact.note}` : ""}${detalhes ? ` (${detalhes})` : ""} [${statFragments.join(" | ")}]`);
   checkAndShowPendingEvent();

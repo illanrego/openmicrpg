@@ -40,6 +40,7 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ### 🎭 Sistema de Shows
 - **Diversos tipos de shows**: Open mics, shows pagos, corporativos, especiais
 - **Pacote Open expandido**: Novas casas iniciantes com foco em aprendizado de set curto
+- **Reputação por casa**: Seu desempenho em cada venue afeta como o circuito te percebe e futuras oportunidades
 - **Sistema de dificuldade**: Cada show tem uma dificuldade que afeta seu desempenho
 - **Afinidade de tipo**: Diferentes shows favorecem diferentes tons e estruturas
 - **Sistema de notas**: De 1 (deu água) a 5 (explodiu), com feedback visual e narrativo
