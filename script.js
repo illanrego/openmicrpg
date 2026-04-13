@@ -660,7 +660,25 @@ const showPool = [
     typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
   },
   {
+    id: "solo-lab-preview", name: "Solo Lab - Preview de 25", minMinutes: 12, difficulty: 0.5,
+    requiresCareerStage: "headliner", isHeadlinerSoloPipeline: true, headlinerSoloTier: "preview", setLengthTarget: 25,
+    crowd: "Público fiel e crítico que repara em cada transição.",
+    intro: "Você ganhou 25 minutos para testar o solo. Aqui, set ruim vira rumor na cidade inteira.",
+    image: "teatro-municipal.png", vibeHint: "Ritmo, narrativa e consistência valem mais que punchline isolada.",
+    typeAffinity: { default: 0.15, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
+  },
+  {
+    id: "solo-noite-principal", name: "Noite Principal - Solo Completo", minMinutes: 15, difficulty: 0.58,
+    requiresCareerStage: "headliner", isHeadlinerSoloPipeline: true, headlinerSoloTier: "main", setLengthTarget: 30,
+    requiredNetwork: 90, requiredFans: 2500,
+    crowd: "Casa cheia para te ver como atração principal. Expectativa máxima.",
+    intro: "A noite é sua. Você carrega a casa inteira com seu texto e presença.",
+    image: "pedestal.png", vibeHint: "Fechar forte e manter narrativa contínua são obrigatórios.",
+    typeAffinity: { default: 0.2, besteirol: 0.2, vulgar: 0, "humor negro": 0.3, limpo: 0.3, hack: 0.3 }
+  },
+  {
     id: "show-solo", name: "Seu Próprio Show", minMinutes: 10, difficulty: 0.45, requiresLevel: "headliner",
+    isHeadlinerSoloPipeline: true, headlinerSoloTier: "club",
     crowd: "Seus fãs que pagaram ingresso para te ver.",
     intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
     image: "pedestal.png", vibeHint: "É hora de mostrar quem você é. Autenticidade máxima.",
@@ -1125,6 +1143,12 @@ function ensureCareerProgressState() {
     weeklySuccessStreak: Math.max(0, state.elencoCircuitState?.weeklySuccessStreak || 0),
     bestWeeklyStreak: Math.max(0, state.elencoCircuitState?.bestWeeklyStreak || 0)
   };
+  state.headlinerSoloState = {
+    prepPoints: Math.max(0, state.headlinerSoloState?.prepPoints || 0),
+    solosCompleted: Math.max(0, state.headlinerSoloState?.solosCompleted || 0),
+    prestige: Math.max(0, state.headlinerSoloState?.prestige || 0),
+    bestSoloNota: Math.max(0, state.headlinerSoloState?.bestSoloNota || 0)
+  };
 }
 
 function hasCareerMilestone(milestoneId) {
@@ -1248,6 +1272,49 @@ function processElencoCircuitOutcome(showType, nota) {
       [{ label: "Continuar", handler: () => {} }]
     );
   }
+}
+
+function getHeadlinerPipelineShows() {
+  return showPool.filter((show) => show.isHeadlinerSoloPipeline);
+}
+
+function maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay) {
+  const pipeline = getHeadlinerPipelineShows().filter((show) => !alreadyScheduledIds.includes(show.id) && isShowUnlockedForCareer(show));
+  if (!pipeline.length) return;
+  const preferredId = weekDay === 5 ? "solo-noite-principal" : weekDay === 2 ? "solo-lab-preview" : "show-solo";
+  const preferred = pipeline.find((show) => show.id === preferredId);
+  const selected = preferred || pipeline[Math.floor(Math.random() * pipeline.length)];
+  const daysAhead = preferred ? 0 : (Math.random() < 0.5 ? 1 : 2);
+  shows.unshift({ show: selected, daysAhead, showType: "headlinerSolo" });
+}
+
+function getHeadlinerSoloPrepBonus(showType) {
+  if (showType !== "headlinerSolo") return 0;
+  ensureCareerProgressState();
+  return Math.min((state.headlinerSoloState.prepPoints || 0) * 0.01, 0.08);
+}
+
+function processHeadlinerSoloOutcome(show, showType, nota) {
+  if (showType !== "headlinerSolo") return;
+  ensureCareerProgressState();
+  const solo = state.headlinerSoloState;
+  solo.solosCompleted += 1;
+  solo.bestSoloNota = Math.max(solo.bestSoloNota || 0, nota);
+  const prestigeGain = nota >= 5 ? 20 : nota === 4 ? 12 : nota === 3 ? 6 : 2;
+  solo.prestige = Math.max(0, (solo.prestige || 0) + prestigeGain);
+  solo.prepPoints = Math.max(0, (solo.prepPoints || 0) - 3);
+  queueCriticalDialog(
+    `🎟️ Balanço do solo\n\n${show.name}\nPrestígio +${prestigeGain} (total ${solo.prestige}).`,
+    [{ label: "Seguir", handler: () => {} }]
+  );
+}
+
+function addHeadlinerPrep(points) {
+  if (getCareerStage() !== "headliner") return;
+  ensureCareerProgressState();
+  const gained = Math.max(0, Math.round(points || 0));
+  if (gained <= 0) return;
+  state.headlinerSoloState.prepPoints = Math.min(12, (state.headlinerSoloState.prepPoints || 0) + gained);
 }
 
 function getScheduledShowsForToday() {
@@ -1858,6 +1925,18 @@ function advanceDay() {
     maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
   }
 
+  const nearestShow = getNearestScheduledShow();
+  if (nearestShow && nearestShow.showType === "headlinerSolo") {
+    ensureCareerProgressState();
+    const daysUntilSolo = nearestShow.dayScheduled - state.currentDay;
+    if (daysUntilSolo >= 0 && daysUntilSolo <= 2 && (state.headlinerSoloState.prepPoints || 0) < 3) {
+      queueCriticalDialog(
+        "🎤 Seu solo está chegando e sua preparação está baixa.\n\nConsidere estudar ou reescrever antes do show para aumentar consistência.",
+        [{ label: "Entendido", handler: () => {} }]
+      );
+    }
+  }
+
   saveGameState();
 }
 
@@ -2045,7 +2124,8 @@ function loadGameState() {
     careerMilestones: createDefaultCareerMilestones(),
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
-    elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 }
+    elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
+    headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 }
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2103,6 +2183,12 @@ function loadGameState() {
         completedWeek: parsed.elencoCircuitState?.completedWeek || null,
         weeklySuccessStreak: Math.max(0, parsed.elencoCircuitState?.weeklySuccessStreak || 0),
         bestWeeklyStreak: Math.max(0, parsed.elencoCircuitState?.bestWeeklyStreak || 0)
+      },
+      headlinerSoloState: {
+        prepPoints: Math.max(0, parsed.headlinerSoloState?.prepPoints || 0),
+        solosCompleted: Math.max(0, parsed.headlinerSoloState?.solosCompleted || 0),
+        prestige: Math.max(0, parsed.headlinerSoloState?.prestige || 0),
+        bestSoloNota: Math.max(0, parsed.headlinerSoloState?.bestSoloNota || 0)
       }
     };
   } catch (error) {
@@ -2132,6 +2218,7 @@ function saveGameState() {
     careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
+    headlinerSoloState: state.headlinerSoloState,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -2861,6 +2948,7 @@ function finalizeJokeCreation() {
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
   const xpGain = applyXp(XP_GAIN.jokeNew);
+  addHeadlinerPrep(1, "novo bloco escrito");
 
   _pendingJokeIdea = null; _pendingJokeMode = null; _selectedTone = null; _selectedStructure = null; _customJokeTitle = null;
 
@@ -2922,6 +3010,9 @@ function generateAvailableShows() {
   if (careerStage === "elenco" && Math.random() < 0.85) {
     maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay);
   }
+  if (careerStage === "headliner" && Math.random() < 0.8) {
+    maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay);
+  }
 
   // 5 a 5 (Sundays, unlocked via Paulo Araújo)
   if (careerStage === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
@@ -2968,6 +3059,7 @@ function presentShowOptions(availableShows) {
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
+    if (showType === "headlinerSolo") label = `🎤 ${show.name} (pipeline solo)`;
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
     const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
@@ -3048,6 +3140,7 @@ function calculateOfferedTime(show, scheduledShow) {
   if (scheduledShow?.showType === "5a5") return 3;
   if (scheduledShow?.showType === "pague15") return 5;
   if (scheduledShow?.showType === "elenco15" || show?.isElencoCircuit) return 15;
+  if (scheduledShow?.showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return Math.max(show.setLengthTarget || 20, show.minMinutes || 10);
   if (show.minMinutes >= 6) return show.minMinutes; // special-invite shows give their full time
 
   let maxTime = 3;
@@ -3065,7 +3158,12 @@ function beginShowPreparation(show, offeredMinutes, showType) {
   uiMode = "showSelection";
   selectedJokeIds.clear();
 
-  elements.subTitle.textContent = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
+  let subTitle = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
+  if ((showType || show.special) === "headlinerSolo") {
+    ensureCareerProgressState();
+    subTitle += ` | 🧱 Preparo: ${state.headlinerSoloState.prepPoints || 0}/12`;
+  }
+  elements.subTitle.textContent = subTitle;
   elements.subTitle.style.display = "block";
   renderJokeList({ selectable: true });
   renderSetSummary();
@@ -3089,7 +3187,7 @@ function performShow() {
   if (!setList.length) { shakeScreen(); displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir."); return; }
 
   flashScreen('rgba(255, 248, 220, 0.3)');
-  const flowBonus = state.flowState?.active ? 0.08 : 0;
+  const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
   const evaluation = evaluateShow(setList, currentShow, flowBonus);
   const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
     const mood = scoreToEmoji(entry.score);
@@ -3112,7 +3210,7 @@ function performShow() {
   }
   if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
   if (careerStage === "headliner") markCareerMilestone("firstHeadlinerGig");
-  if (showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
+  if (showType === "headlinerSolo" || showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
 
   const stageTimeGain = state.flowState?.active ? 2 : 1;
   state.stageTime += stageTimeGain;
@@ -3135,6 +3233,7 @@ function performShow() {
   const entregaGain = nota >= 4 ? 2 : 1;
   state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
   processElencoCircuitOutcome(showType, nota);
+  processHeadlinerSoloOutcome(showPlayed, showType, nota);
 
   updateStats();
   renderJokeList({ selectable: false });
@@ -3254,6 +3353,7 @@ function handleStudy() {
   state.texto = clamp((state.texto || 0) + 6, 0, 200);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
+  addHeadlinerPrep(1, "estudo de estrutura");
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.2)');
   displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
@@ -3437,6 +3537,7 @@ function finalizeRewrite() {
 
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
   const xpGain = applyXp(XP_GAIN.jokeRewrite);
+  addHeadlinerPrep(2, "reescrita profunda");
 
   _rewritingJoke = null; _newTone = null; _newStructure = null;
   exitWritingMode();
