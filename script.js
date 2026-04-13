@@ -765,6 +765,42 @@ const eventPool = [
     ]
   },
   {
+    id: "clipDaNoite", trigger: "random", requiresCareerStage: "open", cooldown: 5,
+    text: "Um trecho curto do seu set começou a circular nos stories. Dá pra tentar transformar isso em alcance rápido ou usar a atenção para fortalecer seu material no palco.",
+    image: "podcast.png",
+    choices: [
+      { label: "Aproveitar o hype em cortes", effects: { fans: 18, motivation: -4 }, narration: "Os números sobem, mas sua energia criativa cai no curto prazo." },
+      { label: "Chamar a galera para night de teste", effects: { texto: 8, network: 6, fans: 6 }, narration: "Você usa a atenção para encher uma noite de teste e lapidar melhor o set." }
+    ]
+  },
+  {
+    id: "algoritmoPressao", trigger: "random", requiresCareerStage: "elenco", cooldown: 6,
+    text: "Seu agente insiste: 'O algoritmo quer frases de impacto, não blocos longos'. Você segue a pressão ou mantém foco em construção de set?",
+    image: "rooftop-tech-meetup.png",
+    choices: [
+      { label: "Seguir a pressão do algoritmo", effects: { fans: 30, motivation: -6, texto: -3 }, narration: "Você cresce rápido, mas sente o repertório menos profundo." },
+      { label: "Priorizar construção de set", effects: { texto: 10, entrega: 3, fans: 8 }, narration: "Você cresce mais devagar, mas sobe o nível real de palco." }
+    ]
+  },
+  {
+    id: "parceriaMarca", trigger: "random", requiresCareerStage: "headliner", requiredFans: 900, cooldown: 8,
+    text: "Uma marca quer te pagar para encaixar publi no set. O cachê é alto, mas pode soar artificial para quem te acompanha há anos.",
+    image: "corporativo.png",
+    choices: [
+      { label: "Aceitar a parceria", effects: { fans: 20, motivation: -5, network: 8 }, narration: "Você fecha contrato e ganha exposição, mas parte do público sente estranheza." },
+      { label: "Recusar e fortalecer o solo", effects: { texto: 9, entrega: 4, motivation: 5 }, narration: "Você mantém autonomia criativa e converte o momento em material forte." }
+    ]
+  },
+  {
+    id: "comentarioForaContexto", trigger: "random", requiresCareerStage: "elenco", requiredFans: 120, cooldown: 7,
+    text: "Um corte fora de contexto gerou discussão online. Você pode responder rápido para controlar narrativa ou focar em um set de resposta no palco.",
+    image: "podcast.png",
+    choices: [
+      { label: "Responder em vídeo agora", effects: { fans: 14, motivation: -8, network: 3 }, narration: "Você reduz o incêndio, mas termina o dia drenado." },
+      { label: "Transformar em bit no palco", effects: { texto: 12, entrega: 2, fans: 5 }, narration: "Você converte ruído em material e ganha respeito no circuito." }
+    ]
+  },
+  {
     id: "bombMentor", trigger: "showBomb", cooldown: 5, requiresCopoSujo: true,
     isCharacterEvent: true,
     text: "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
@@ -2122,6 +2158,8 @@ function eventMatchesTrigger(event, trigger, context = {}) {
   if (event.requiresGoodPerformance) {
     if ((state.showHistory || []).filter(s => s.nota >= 4).length < 3) return false;
   }
+  if (event.requiredFans && (state.fans || 0) < event.requiredFans) return false;
+  if (event.requiredNetwork && (state.network || 0) < event.requiredNetwork) return false;
 
   switch (event.trigger) {
     case "showKill":   return true;
