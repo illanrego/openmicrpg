@@ -272,6 +272,27 @@ const CARVALHO_DIALOGS = [
   }
 ];
 
+const LEGACY_PATHS = [
+  {
+    id: "touring-purist",
+    label: "Estrada e palco",
+    description: "Priorizar consistência de palco e evolução de texto na rotina de turnês.",
+    weights: { craft: 0.45, audience: 0.25, consistency: 0.3 }
+  },
+  {
+    id: "studio-author",
+    label: "Autor de referência",
+    description: "Construir legado de escrita e formação de novos comediantes.",
+    weights: { craft: 0.5, audience: 0.15, consistency: 0.35 }
+  },
+  {
+    id: "media-hybrid",
+    label: "Palco + mídia",
+    description: "Equilibrar presença digital com credibilidade no circuito de comédia.",
+    weights: { craft: 0.3, audience: 0.4, consistency: 0.3 }
+  }
+];
+
 
 // ═══════════════════════════════════════════════════════════════════
 // §2  DATA: IDEA POOL
@@ -1149,6 +1170,10 @@ function ensureCareerProgressState() {
     prestige: Math.max(0, state.headlinerSoloState?.prestige || 0),
     bestSoloNota: Math.max(0, state.headlinerSoloState?.bestSoloNota || 0)
   };
+  state.legacyArchive = Array.isArray(state.legacyArchive) ? state.legacyArchive : [];
+  state.legacyEnding = state.legacyEnding || null;
+  state.postLegacyMode = !!state.postLegacyMode;
+  state.legacyChoicePrompted = !!state.legacyChoicePrompted;
 }
 
 function hasCareerMilestone(milestoneId) {
@@ -1315,6 +1340,110 @@ function addHeadlinerPrep(points) {
   const gained = Math.max(0, Math.round(points || 0));
   if (gained <= 0) return;
   state.headlinerSoloState.prepPoints = Math.min(12, (state.headlinerSoloState.prepPoints || 0) + gained);
+}
+
+function registerCareerChoice(choiceId, details = {}) {
+  ensureCareerProgressState();
+  state.careerChoices.push({
+    id: choiceId,
+    day: state.currentDay || 1,
+    week: state.currentWeek || 1,
+    ...details
+  });
+  state.careerChoices = state.careerChoices.slice(-40);
+}
+
+function getLegacyConsistencyScore() {
+  const history = state.showHistory || [];
+  if (!history.length) return 0;
+  const recent = history.slice(-12);
+  const average = recent.reduce((sum, item) => sum + (item.nota || 0), 0) / recent.length;
+  const consistency = recent.filter((item) => (item.nota || 0) >= 4).length / recent.length;
+  return clamp(Math.round((average / 5) * 60 + consistency * 40), 0, 100);
+}
+
+function getLegacyCraftScore() {
+  const soloPrestige = state.headlinerSoloState?.prestige || 0;
+  const textoPart = (state.texto || 0) * 0.3;
+  const entregaPart = (state.entrega || 0) * 0.25;
+  const prestigePart = Math.min(40, soloPrestige * 0.6);
+  return clamp(Math.round(textoPart + entregaPart + prestigePart), 0, 100);
+}
+
+function getLegacyAudienceScore() {
+  const fansPart = Math.min(70, Math.log10((state.fans || 0) + 10) * 20);
+  const networkPart = Math.min(30, (state.network || 0) * 0.3);
+  return clamp(Math.round(fansPart + networkPart), 0, 100);
+}
+
+function getLegacyTier(totalScore) {
+  if (totalScore >= 85) return "LENDÁRIO";
+  if (totalScore >= 70) return "CONSAGRADO";
+  if (totalScore >= 55) return "RESPEITADO";
+  return "PROMISSOR";
+}
+
+function getClassLegacyFlavor() {
+  const classId = state.chosenClass || "comicoClassico";
+  const flavors = {
+    comicoClassico: "Você se torna referência de palco para a nova geração.",
+    roteirista: "Seu material vira referência para escritores e elencos do circuito.",
+    produtor: "Você consolida um ecossistema de shows e revela novos nomes.",
+    atorComico: "Sua presença atravessa palco e audiovisual sem perder identidade.",
+    influencer: "Você prova que alcance e credibilidade podem coexistir.",
+    professor: "Seu método forma comediantes que continuam sua escola."
+  };
+  return flavors[classId] || flavors.comicoClassico;
+}
+
+function finalizeLegacyEnding(pathId) {
+  const path = LEGACY_PATHS.find((item) => item.id === pathId) || LEGACY_PATHS[0];
+  const craft = getLegacyCraftScore();
+  const audience = getLegacyAudienceScore();
+  const consistency = getLegacyConsistencyScore();
+  const score = Math.round(
+    craft * (path.weights.craft || 0.33) +
+    audience * (path.weights.audience || 0.33) +
+    consistency * (path.weights.consistency || 0.34)
+  );
+  const tier = getLegacyTier(score);
+  const summary = {
+    pathId: path.id,
+    pathLabel: path.label,
+    tier,
+    score,
+    craft,
+    audience,
+    consistency,
+    day: state.currentDay || 1
+  };
+  state.legacyEnding = summary;
+  state.postLegacyMode = true;
+  state.legacyArchive.push(summary);
+  registerCareerChoice("legacy-choice", { pathId: path.id, score, tier });
+  queueCriticalDialog(
+    `🏁 LEGADO DEFINIDO\n\nCaminho: ${path.label}\nResultado: ${tier} (${score}/100)\n` +
+      `Craft ${craft} | Público ${audience} | Consistência ${consistency}\n\n${getClassLegacyFlavor()}`,
+    [{ label: "Continuar no pós-carreira", handler: () => {} }]
+  );
+  saveGameState();
+}
+
+function maybeTriggerLegacyChoice() {
+  ensureCareerProgressState();
+  if (state.legacyEnding) return;
+  if (state.legacyChoicePrompted) return;
+  if (getCareerStage() !== "headliner") return;
+  if ((state.levelNumber || 1) < 18) return;
+  state.legacyChoicePrompted = true;
+  const options = LEGACY_PATHS.map((path) => ({
+    label: `${path.label} — ${path.description}`,
+    handler: () => finalizeLegacyEnding(path.id)
+  }));
+  queueCriticalDialog(
+    "📚 Você chegou ao arco final da carreira.\n\nEscolha como quer consolidar seu legado:",
+    options
+  );
 }
 
 function getScheduledShowsForToday() {
@@ -1505,6 +1634,7 @@ function showClassSelectionDialog() {
     label: `${cls.name} — ${cls.desc}`,
     handler: () => {
       state.chosenClass = key;
+      registerCareerChoice("class-selected", { classId: key });
       if (cls.bonus) {
         if (cls.bonus.texto) state.texto = clamp((state.texto || 0) + cls.bonus.texto, 0, 200);
         if (cls.bonus.entrega) state.entrega = clamp((state.entrega || 0) + cls.bonus.entrega, 0, 200);
@@ -1538,6 +1668,7 @@ function checkEmploymentOffer() {
     queueCriticalDialog(`💼 Oferta de Emprego!\n\nComo ${cls.name}, você atingiu os requisitos para trabalhar na área.\n\nAceitar significa mais tempo para comédia (2 pontos de atividade por dia).`, [
       { label: "✅ Aceitar emprego!", handler: () => {
         state.hasEmployment = true;
+        registerCareerChoice("employment-accepted", { classId: state.chosenClass });
         playSound('victory');
         spawnConfetti(40);
         flashScreen('rgba(90, 143, 90, 0.3)');
@@ -1567,6 +1698,7 @@ function checkMadeIt() {
 
   if (qualifies) {
     state.madeIt = true;
+    registerCareerChoice("made-it", { classId: state.chosenClass });
     playSound('victory');
     spawnConfetti(80);
     flashScreen('rgba(212, 168, 75, 0.5)');
@@ -1819,6 +1951,7 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
 
     checkEmploymentOffer();
     checkMadeIt();
+    maybeTriggerLegacyChoice();
   }
 }
 
@@ -2125,7 +2258,8 @@ function loadGameState() {
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
-    headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 }
+    headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 },
+    legacyEnding: null, legacyArchive: [], postLegacyMode: false, legacyChoicePrompted: false
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2189,7 +2323,11 @@ function loadGameState() {
         solosCompleted: Math.max(0, parsed.headlinerSoloState?.solosCompleted || 0),
         prestige: Math.max(0, parsed.headlinerSoloState?.prestige || 0),
         bestSoloNota: Math.max(0, parsed.headlinerSoloState?.bestSoloNota || 0)
-      }
+      },
+      legacyEnding: parsed.legacyEnding || null,
+      legacyArchive: Array.isArray(parsed.legacyArchive) ? parsed.legacyArchive : [],
+      postLegacyMode: !!parsed.postLegacyMode,
+      legacyChoicePrompted: !!parsed.legacyChoicePrompted
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -2219,6 +2357,8 @@ function saveGameState() {
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
     headlinerSoloState: state.headlinerSoloState,
+    legacyEnding: state.legacyEnding, legacyArchive: state.legacyArchive,
+    postLegacyMode: state.postLegacyMode, legacyChoicePrompted: state.legacyChoicePrompted,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -3575,6 +3715,9 @@ function bootGame() {
     // Catch-up: if player has unspent perk points
     if ((state.availablePerkPoints || 0) > 0) {
       setTimeout(() => showPerkSelectionDialog(), 1000);
+    }
+    if (!state.legacyEnding && getCareerStage() === "headliner" && (state.levelNumber || 1) >= 18) {
+      setTimeout(() => maybeTriggerLegacyChoice(), 1200);
     }
   } else {
     startIntro();
