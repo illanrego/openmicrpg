@@ -40,7 +40,7 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ### 🎭 Sistema de Shows
 - **Diversos tipos de shows**: Open mics, shows pagos, corporativos, especiais
 - **Pacote Open expandido**: Novas casas iniciantes com foco em aprendizado de set curto
-- **Reputação por casa**: Seu desempenho em cada venue afeta como o circuito te percebe e futuras oportunidades
+- **Headliner por textos**: No headliner, você organiza sets completos (`textos`) para solos
 - **Sistema de dificuldade**: Cada show tem uma dificuldade que afeta seu desempenho
 - **Afinidade de tipo**: Diferentes shows favorecem diferentes tons e estruturas
 - **Sistema de notas**: De 1 (deu água) a 5 (explodiu), com feedback visual e narrativo
@@ -200,6 +200,9 @@ Professor Carvalho atua como mentor ao longo do jogo, com diálogos de orientaç
 
 ### Legacy Choice Endgame
 No arco final de `Headliner`, você escolhe qual legado quer construir (estrada, autoria ou híbrido palco+mídia) e recebe um epílogo com avaliação multidimensional.
+
+### Taping Special (Finale Gate)
+A gravação do especial (`Taping Special`) é um marco obrigatório do arco final. O legado só é liberado após concluir a gravação.
 
 ### Sistema de Eventos / Event System
 Eventos especiais aparecem durante a semana, oferecendo oportunidades únicas, desafios e recompensas que podem mudar o curso da sua carreira.

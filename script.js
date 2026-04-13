@@ -738,6 +738,15 @@ const showPool = [
     typeAffinity: { default: 0.2, besteirol: 0.2, vulgar: 0, "humor negro": 0.3, limpo: 0.3, hack: 0.3 }
   },
   {
+    id: "taping-especial", name: "Gravação de Especial", minMinutes: 20, difficulty: 0.62,
+    requiresCareerStage: "headliner", requiresSpecialTapeBooked: true,
+    isHeadlinerSoloPipeline: true, isSpecialTapeShow: true, headlinerSoloTier: "special", setLengthTarget: 35,
+    crowd: "Público lotado, câmeras rodando e pressão máxima para entregar seu melhor texto.",
+    intro: "Hoje é a gravação do seu especial. Cada minuto vai virar registro da sua carreira.",
+    image: "teatro-municipal.png", vibeHint: "Consistência, ritmo e fechamento forte definem o legado do especial.",
+    typeAffinity: { default: 0.25, besteirol: 0.2, vulgar: 0.1, "humor negro": 0.3, limpo: 0.3, hack: 0.2 }
+  },
+  {
     id: "show-solo", name: "Seu Próprio Show", minMinutes: 10, difficulty: 0.45, requiresLevel: "headliner",
     isHeadlinerSoloPipeline: true, headlinerSoloTier: "club",
     crowd: "Seus fãs que pagaram ingresso para te ver.",
@@ -1248,6 +1257,24 @@ function ensureCareerProgressState() {
     prestige: Math.max(0, state.headlinerSoloState?.prestige || 0),
     bestSoloNota: Math.max(0, state.headlinerSoloState?.bestSoloNota || 0)
   };
+  state.headlinerSets = Array.isArray(state.headlinerSets) ? state.headlinerSets : [];
+  state.headlinerSets = state.headlinerSets.map((setEntry) => sanitizeHeadlinerSet(setEntry));
+  state.activeSetId = state.activeSetId || null;
+  state.specialTapeState = {
+    eligible: !!state.specialTapeState?.eligible,
+    offered: !!state.specialTapeState?.offered,
+    booked: !!state.specialTapeState?.booked,
+    completed: !!state.specialTapeState?.completed,
+    qualityScore: Math.max(0, Math.round(state.specialTapeState?.qualityScore || 0))
+  };
+  if (state.activeSetId && !state.headlinerSets.some((setEntry) => setEntry.id === state.activeSetId)) {
+    state.activeSetId = state.headlinerSets[0]?.id || null;
+  }
+  let specialMarked = false;
+  state.headlinerSets.forEach((setEntry) => {
+    if (setEntry.isSpecialDraft && !specialMarked) specialMarked = true;
+    else if (setEntry.isSpecialDraft && specialMarked) setEntry.isSpecialDraft = false;
+  });
   state.openStageState = {
     consistencyStreak: Math.max(0, state.openStageState?.consistencyStreak || 0),
     breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0)
@@ -1295,6 +1322,7 @@ function isShowUnlockedForCareer(show) {
   if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
   if (show.requiresEmployment && !state.hasEmployment) return false;
   if (show.requiresMadeIt && !state.madeIt) return false;
+  if (show.requiresSpecialTapeBooked && !state.specialTapeState?.booked) return false;
   if (show.requiredFans && (state.fans || 0) < show.requiredFans) return false;
   if (show.requiredNetwork && (state.network || 0) < show.requiredNetwork) return false;
   return true;
@@ -1383,7 +1411,7 @@ function processElencoCircuitOutcome(showType, nota) {
 }
 
 function getHeadlinerPipelineShows() {
-  return showPool.filter((show) => show.isHeadlinerSoloPipeline);
+  return showPool.filter((show) => show.isHeadlinerSoloPipeline && !show.isSpecialTapeShow);
 }
 
 function maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay) {
@@ -1472,29 +1500,176 @@ function applyVenueReputationOutcome(showId, nota, showType) {
   else if (nota === 3) delta = 1;
   else if (nota === 2) delta = -1;
   else delta = -2;
-
   if (showType === "openStarter" && delta > 0) delta += 1;
-  if (showType === "headlinerSolo" && delta < 0) delta -= 1;
+  if ((showType === "headlinerSolo" || showType === "specialTape") && delta < 0) delta -= 1;
   return adjustVenueReputation(showId, delta);
 }
 
-function pickShowsByVenueReputation(candidates, count) {
-  if (!Array.isArray(candidates) || count <= 0) return [];
-  const pool = [...candidates];
-  const picks = [];
-  const target = Math.min(count, pool.length);
-  while (picks.length < target && pool.length > 0) {
-    const totalWeight = pool.reduce((acc, show) => acc + getVenueOfferWeight(show.id), 0);
-    let roll = Math.random() * Math.max(totalWeight, 0.0001);
-    let pickedIndex = 0;
-    for (let i = 0; i < pool.length; i += 1) {
-      roll -= getVenueOfferWeight(pool[i].id);
-      if (roll <= 0) { pickedIndex = i; break; }
-    }
-    const [picked] = pool.splice(pickedIndex, 1);
-    if (picked) picks.push(picked);
+function getHeadlinerSetById(setId) {
+  ensureCareerProgressState();
+  if (!setId) return null;
+  return (state.headlinerSets || []).find((set) => set.id === setId) || null;
+}
+
+function getSetRuntimeByIds(jokeIds = []) {
+  if (!Array.isArray(jokeIds) || !jokeIds.length) return 0;
+  return jokeIds.reduce((sum, jokeId) => {
+    const joke = (state.jokes || []).find((entry) => entry.id === jokeId);
+    return sum + (joke?.minutes || 0);
+  }, 0);
+}
+
+function getHeadlinerSetRuntime(setEntry) {
+  if (!setEntry) return 0;
+  return getSetRuntimeByIds(setEntry.jokeIds || []);
+}
+
+function getHeadlinerSetJokes(setEntry) {
+  if (!setEntry || !Array.isArray(setEntry.jokeIds)) return [];
+  return setEntry.jokeIds
+    .map((jokeId) => (state.jokes || []).find((entry) => entry.id === jokeId))
+    .filter(Boolean);
+}
+
+function sanitizeHeadlinerSet(setEntry) {
+  const jokeIds = Array.isArray(setEntry?.jokeIds) ? [...new Set(setEntry.jokeIds)] : [];
+  return {
+    id: setEntry?.id || createId(),
+    title: (setEntry?.title || "Texto sem título").trim(),
+    jokeIds,
+    targetMinutes: Math.max(10, Math.round(setEntry?.targetMinutes || 20)),
+    isSpecialDraft: !!setEntry?.isSpecialDraft,
+    history: Array.isArray(setEntry?.history) ? setEntry.history : []
+  };
+}
+
+function createHeadlinerSet(title, jokeIds, options = {}) {
+  ensureCareerProgressState();
+  const safeTitle = (title || "").trim() || `Texto ${state.headlinerSets.length + 1}`;
+  const newSet = sanitizeHeadlinerSet({
+    title: safeTitle,
+    jokeIds,
+    targetMinutes: options.targetMinutes || 20,
+    isSpecialDraft: !!options.isSpecialDraft
+  });
+  if (newSet.isSpecialDraft) {
+    state.headlinerSets.forEach((setEntry) => { setEntry.isSpecialDraft = false; });
   }
-  return picks;
+  state.headlinerSets.push(newSet);
+  if (!state.activeSetId) state.activeSetId = newSet.id;
+  return newSet;
+}
+
+function updateHeadlinerSet(setId, updates = {}) {
+  ensureCareerProgressState();
+  const setEntry = getHeadlinerSetById(setId);
+  if (!setEntry) return null;
+  if (typeof updates.title === "string") setEntry.title = updates.title.trim() || setEntry.title;
+  if (Array.isArray(updates.jokeIds)) setEntry.jokeIds = [...new Set(updates.jokeIds)];
+  if (typeof updates.targetMinutes === "number") setEntry.targetMinutes = Math.max(10, Math.round(updates.targetMinutes));
+  if (typeof updates.isSpecialDraft === "boolean") {
+    if (updates.isSpecialDraft) state.headlinerSets.forEach((entry) => { entry.isSpecialDraft = false; });
+    setEntry.isSpecialDraft = updates.isSpecialDraft;
+  }
+  return setEntry;
+}
+
+function deleteHeadlinerSet(setId) {
+  ensureCareerProgressState();
+  const idx = state.headlinerSets.findIndex((entry) => entry.id === setId);
+  if (idx === -1) return false;
+  const [removed] = state.headlinerSets.splice(idx, 1);
+  if (state.activeSetId === removed.id) {
+    state.activeSetId = state.headlinerSets[0]?.id || null;
+  }
+  return true;
+}
+
+function getActiveHeadlinerSet() {
+  ensureCareerProgressState();
+  return getHeadlinerSetById(state.activeSetId) || null;
+}
+
+function setActiveHeadlinerSet(setId) {
+  if (!getHeadlinerSetById(setId)) return false;
+  state.activeSetId = setId;
+  return true;
+}
+
+function validateSetForShow(setEntry, show) {
+  if (!setEntry) return { ok: false, reason: "Você precisa selecionar um texto para este show." };
+  const runtime = getHeadlinerSetRuntime(setEntry);
+  if (runtime <= 0) return { ok: false, reason: "O texto selecionado não possui piadas válidas." };
+  const minMinutes = Math.max(show?.minMinutes || 0, 8);
+  if (runtime < minMinutes) return { ok: false, reason: `Seu texto está curto demais (${runtime}min). Mínimo recomendado: ${minMinutes}min.` };
+  return { ok: true, runtime };
+}
+
+function getSpecialDraftSet() {
+  ensureCareerProgressState();
+  return (state.headlinerSets || []).find((setEntry) => setEntry.isSpecialDraft) || null;
+}
+
+function getHeadlinerSetForShow(showType) {
+  if (showType === "specialTape") return getSpecialDraftSet() || getActiveHeadlinerSet();
+  return getActiveHeadlinerSet();
+}
+
+function updateSpecialTapeEligibility() {
+  ensureCareerProgressState();
+  const tape = state.specialTapeState;
+  const stageOk = getCareerStage() === "headliner";
+  const levelOk = (state.levelNumber || 1) >= 19;
+  const audienceOk = (state.fans || 0) >= 3500;
+  const networkOk = (state.network || 0) >= 110;
+  const solosOk = (state.headlinerSoloState?.solosCompleted || 0) >= 3;
+  const hasDraft = !!getSpecialDraftSet();
+  tape.eligible = stageOk && levelOk && audienceOk && networkOk && solosOk && hasDraft && !tape.completed;
+  return tape.eligible;
+}
+
+function maybeOfferSpecialTaping() {
+  ensureCareerProgressState();
+  const tape = state.specialTapeState;
+  if (!updateSpecialTapeEligibility()) return;
+  if (tape.offered || tape.booked || tape.completed) return;
+  tape.offered = true;
+  queueCriticalDialog(
+    "🎬 Convite de gravação!\n\nVocê está pronto para gravar seu especial. Quer agendar a gravação?",
+    [
+      {
+        label: "Agendar gravação",
+        handler: () => {
+          const show = findShowById("taping-especial");
+          if (!show) return;
+          const daysAhead = 3;
+          const scheduled = addScheduledShow(show.id, (state.currentDay || 1) + daysAhead, "specialTape");
+          if (scheduled) {
+            tape.booked = true;
+            tape.offered = true;
+            displayNarration(`🎥 Especial agendado para ${getDayName(state.currentDay + daysAhead)}. Prepare seu texto especial.`);
+            updateStats();
+          }
+        }
+      },
+      { label: "Ainda não", handler: () => { tape.offered = false; } }
+    ]
+  );
+}
+
+function processSpecialTapeOutcome(nota, adjustedScore) {
+  ensureCareerProgressState();
+  const tape = state.specialTapeState;
+  const prep = state.headlinerSoloState?.prepPoints || 0;
+  const quality = clamp(Math.round((nota * 15) + (adjustedScore * 25) + prep * 2), 0, 100);
+  tape.qualityScore = quality;
+  tape.completed = true;
+  tape.booked = false;
+  tape.offered = true;
+  queueCriticalDialog(
+    `🎞️ Especial gravado!\n\nQualidade final: ${quality}/100.`,
+    [{ label: "Continuar", handler: () => {} }]
+  );
 }
 
 function pickOpenWeightedShows(eligibleShows, maxCount) {
@@ -1503,14 +1678,19 @@ function pickOpenWeightedShows(eligibleShows, maxCount) {
   const regular = eligibleShows.filter((show) => !show.isOpenStarter);
   const pickCount = Math.min(maxCount, eligibleShows.length);
   const picks = [];
-  const starterQuota = Math.min(starter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
 
-  picks.push(...pickShowsByVenueReputation(starter, starterQuota));
-  if (picks.length < pickCount) picks.push(...pickShowsByVenueReputation(regular, pickCount - picks.length));
+  const shuffledStarter = [...starter].sort(() => Math.random() - 0.5);
+  const shuffledRegular = [...regular].sort(() => Math.random() - 0.5);
+  const starterQuota = Math.min(shuffledStarter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
 
-  if (picks.length < pickCount) {
-    const leftovers = eligibleShows.filter((show) => !picks.some((picked) => picked.id === show.id));
-    picks.push(...pickShowsByVenueReputation(leftovers, pickCount - picks.length));
+  for (let i = 0; i < starterQuota && picks.length < pickCount; i += 1) {
+    picks.push(shuffledStarter[i]);
+  }
+  for (let i = 0; i < shuffledRegular.length && picks.length < pickCount; i += 1) {
+    picks.push(shuffledRegular[i]);
+  }
+  for (let i = starterQuota; i < shuffledStarter.length && picks.length < pickCount; i += 1) {
+    picks.push(shuffledStarter[i]);
   }
 
   return picks.slice(0, pickCount);
@@ -1563,7 +1743,8 @@ function getLegacyCraftScore() {
   const textoPart = (state.texto || 0) * 0.3;
   const entregaPart = (state.entrega || 0) * 0.25;
   const prestigePart = Math.min(40, soloPrestige * 0.6);
-  return clamp(Math.round(textoPart + entregaPart + prestigePart), 0, 100);
+  const tapeBonus = Math.min(15, (state.specialTapeState?.qualityScore || 0) * 0.15);
+  return clamp(Math.round(textoPart + entregaPart + prestigePart + tapeBonus), 0, 100);
 }
 
 function getLegacyAudienceScore() {
@@ -1631,6 +1812,7 @@ function maybeTriggerLegacyChoice() {
   if (state.legacyChoicePrompted) return;
   if (getCareerStage() !== "headliner") return;
   if ((state.levelNumber || 1) < 18) return;
+  if (!state.specialTapeState?.completed) return;
   state.legacyChoicePrompted = true;
   const options = LEGACY_PATHS.map((path) => ({
     label: `${path.label} — ${path.description}`,
@@ -2147,6 +2329,8 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
 
     checkEmploymentOffer();
     checkMadeIt();
+    updateSpecialTapeEligibility();
+    maybeOfferSpecialTaping();
     maybeTriggerLegacyChoice();
   }
 }
@@ -2202,6 +2386,10 @@ function handleEndDay() {
         hideDialog();
         displayNarration("❌ Show cancelado. Sua reputação pode sofrer...");
         state.network = Math.max(0, (state.network || 10) - 5);
+        if (entry.showType === "specialTape" && state.specialTapeState) {
+          state.specialTapeState.booked = false;
+          state.specialTapeState.offered = false;
+        }
         updateStats();
       }},
       { label: "Voltar", handler: hideDialog }
@@ -2253,6 +2441,8 @@ function advanceDay() {
   if (state.motivation <= 25) {
     maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
   }
+  updateSpecialTapeEligibility();
+  maybeOfferSpecialTaping();
 
   const nearestShow = getNearestScheduledShow();
   if (nearestShow && nearestShow.showType === "headlinerSolo") {
@@ -2457,6 +2647,8 @@ function loadGameState() {
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
     headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 },
+    headlinerSets: [], activeSetId: null,
+    specialTapeState: { eligible: false, offered: false, booked: false, completed: false, qualityScore: 0 },
     openStageState: { consistencyStreak: 0, breakthroughs: 0 },
     venueReputation: {},
     legacyEnding: null, legacyArchive: [], postLegacyMode: false, legacyChoicePrompted: false
@@ -2524,6 +2716,15 @@ function loadGameState() {
         prestige: Math.max(0, parsed.headlinerSoloState?.prestige || 0),
         bestSoloNota: Math.max(0, parsed.headlinerSoloState?.bestSoloNota || 0)
       },
+      headlinerSets: Array.isArray(parsed.headlinerSets) ? parsed.headlinerSets.map((setEntry) => sanitizeHeadlinerSet(setEntry)) : [],
+      activeSetId: parsed.activeSetId || null,
+      specialTapeState: {
+        eligible: !!parsed.specialTapeState?.eligible,
+        offered: !!parsed.specialTapeState?.offered,
+        booked: !!parsed.specialTapeState?.booked,
+        completed: !!parsed.specialTapeState?.completed,
+        qualityScore: Math.max(0, Math.round(parsed.specialTapeState?.qualityScore || 0))
+      },
       openStageState: {
         consistencyStreak: Math.max(0, parsed.openStageState?.consistencyStreak || 0),
         breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0)
@@ -2562,6 +2763,8 @@ function saveGameState() {
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
     headlinerSoloState: state.headlinerSoloState,
+    headlinerSets: state.headlinerSets, activeSetId: state.activeSetId,
+    specialTapeState: state.specialTapeState,
     openStageState: state.openStageState,
     venueReputation: state.venueReputation,
     legacyEnding: state.legacyEnding, legacyArchive: state.legacyArchive,
@@ -2946,7 +3149,7 @@ function updateFlowUI() {
 // ═══════════════════════════════════════════════════════════════════
 
 function renderJokeList({ selectable }) {
-  const shouldDisplay = uiMode === "showSelection" || uiMode === "viewMaterial";
+  const shouldDisplay = uiMode === "showSelection" || uiMode === "viewMaterial" || uiMode === "headlinerSetBuilder";
   elements.jokeList.dataset.selectable = selectable ? "true" : "false";
   elements.jokeList.innerHTML = "";
 
@@ -3011,7 +3214,8 @@ function handleJokeListClick(event) {
   const id = item.dataset.id;
   if (selectedJokeIds.has(id)) selectedJokeIds.delete(id); else selectedJokeIds.add(id);
   renderJokeList({ selectable: true });
-  renderSetSummary();
+  if (uiMode === "showSelection") renderSetSummary();
+  if (uiMode === "headlinerSetBuilder") openHeadlinerSetBuilder();
 }
 
 function renderSetSummary() {
@@ -3021,8 +3225,7 @@ function renderSetSummary() {
   const minutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones = [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
-  const venueRepValue = currentShow?.id ? getVenueReputation(currentShow.id) : 0;
-  const venueRepTier = getVenueReputationTier(venueRepValue);
+  const lockedSet = currentShow?.lockedSetId ? getHeadlinerSetById(currentShow.lockedSetId) : null;
 
   let minuteColor = 'var(--neon-cyan)';
   let timeWarning = '';
@@ -3033,12 +3236,12 @@ function renderSetSummary() {
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
+    ${lockedSet ? `<div>📚 Texto selecionado: <strong>${lockedSet.title}</strong> (${getHeadlinerSetRuntime(lockedSet)}min)</div>` : ""}
     <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
-    ${currentShow ? `<div>🏛️ Reputação da casa: ${venueRepTier} (${venueRepValue >= 0 ? "+" : ""}${venueRepValue})</div>` : ""}
     ${currentShow?.vibeHint ? `<div>💡 ${currentShow.vibeHint}</div>` : ""}
-    <div style="font-size: 0.95rem; color: var(--cream-dark);">💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências.</div>
+    <div style="font-size: 0.95rem; color: var(--cream-dark);">${lockedSet ? "💬 No headliner, o texto organiza o set automaticamente." : "💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências."}</div>
   `;
 }
 
@@ -3391,7 +3594,9 @@ function generateAvailableShows() {
   const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
   const selectedShows = careerStage === "open"
     ? pickOpenWeightedShows(eligibleShows, numShows)
-    : pickShowsByVenueReputation(eligibleShows, numShows);
+    : [...eligibleShows]
+      .sort((a, b) => (Math.random() / getVenueOfferWeight(a.id)) - (Math.random() / getVenueOfferWeight(b.id)))
+      .slice(0, numShows);
   for (let i = 0; i < selectedShows.length; i++) {
     const daysAhead = Math.random() < 0.3 ? 1 : (Math.random() < 0.6 ? 2 : 3);
     const selectedShow = selectedShows[i];
@@ -3415,12 +3620,12 @@ function presentShowOptions(availableShows) {
     if (showType === "openStarter") label = `🌱 ${show.name} (open iniciante)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
     if (showType === "headlinerSolo") label = `🎤 ${show.name} (pipeline solo)`;
+    if (showType === "specialTape") label = `🎥 ${show.name} (gravação final)`;
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
     const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
-    const repValue = getVenueReputation(show.id);
-    const repTier = getVenueReputationTier(repValue);
-    const repTag = ` · casa ${repTier} (${repValue >= 0 ? "+" : ""}${repValue})`;
+    const venueRep = getVenueReputation(show.id);
+    const repTag = ` · casa ${getVenueReputationTier(venueRep)} (${venueRep >= 0 ? "+" : ""}${venueRep})`;
     return {
       label: `${label}${stageTag}${riskTag}${crowdTag}${repTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
       handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); }
@@ -3497,6 +3702,7 @@ function calculateOfferedTime(show, scheduledShow) {
 
   if (scheduledShow?.showType === "5a5") return 3;
   if (scheduledShow?.showType === "pague15") return 5;
+  if (scheduledShow?.showType === "specialTape" || show?.isSpecialTapeShow) return Math.max(show.setLengthTarget || 35, 30);
   if (scheduledShow?.showType === "openStarter" || show?.isOpenStarter) return clamp(show.minMinutes + 1, 3, 4);
   if (scheduledShow?.showType === "elenco15" || show?.isElencoCircuit) return 15;
   if (scheduledShow?.showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return Math.max(show.setLengthTarget || 20, show.minMinutes || 10);
@@ -3513,9 +3719,24 @@ function calculateOfferedTime(show, scheduledShow) {
 
 function beginShowPreparation(show, offeredMinutes, showType) {
   if (offeredMinutes === undefined) offeredMinutes = calculateOfferedTime(show, { showType: showType || "normal" });
-  currentShow = { ...show, offeredMinutes, activeShowType: showType || show.special || "normal" };
+  const activeShowType = showType || show.special || "normal";
+  currentShow = { ...show, offeredMinutes, activeShowType };
   uiMode = "showSelection";
   selectedJokeIds.clear();
+  let lockedSet = null;
+  if (activeShowType === "headlinerSolo" || activeShowType === "specialTape") {
+    lockedSet = getHeadlinerSetForShow(activeShowType);
+    const setValidation = validateSetForShow(lockedSet, show);
+    if (!setValidation.ok) {
+      currentShow = null;
+      uiMode = "idle";
+      displayNarration(`⚠️ ${setValidation.reason}`);
+      handleViewMaterial();
+      return;
+    }
+    (lockedSet.jokeIds || []).forEach((jokeId) => selectedJokeIds.add(jokeId));
+    currentShow.lockedSetId = lockedSet.id;
+  }
 
   let subTitle = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
   if ((showType || show.special) === "headlinerSolo") {
@@ -3524,7 +3745,8 @@ function beginShowPreparation(show, offeredMinutes, showType) {
   }
   elements.subTitle.textContent = subTitle;
   elements.subTitle.style.display = "block";
-  renderJokeList({ selectable: true });
+  const isSetLocked = !!currentShow.lockedSetId;
+  renderJokeList({ selectable: !isSetLocked });
   renderSetSummary();
   setScene("club", show.name, show.image);
   displayNarration(`🎤 ${show.intro} ${show.crowd}`);
@@ -3541,9 +3763,14 @@ function performShow() {
   if (!currentShow) return;
   const showPlayed = currentShow;
   const showType = currentShow.activeShowType || currentShow.special || "normal";
-  const setList = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
+  const forcedSet = currentShow.lockedSetId ? getHeadlinerSetById(currentShow.lockedSetId) : null;
+  const setList = forcedSet ? getHeadlinerSetJokes(forcedSet) : state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
   const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0);
   if (!setList.length) { shakeScreen(); displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir."); return; }
+  if (forcedSet) {
+    const validation = validateSetForShow(forcedSet, showPlayed);
+    if (!validation.ok) { shakeScreen(); displayNarration(`⚠️ ${validation.reason}`); return; }
+  }
 
   flashScreen('rgba(255, 248, 220, 0.3)');
   const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
@@ -3558,6 +3785,7 @@ function performShow() {
   const nota = classifyOutcome(adjustedScore);
   const outcomeType = getOutcomeType(nota);
   const careerStage = getCareerStage();
+  const venueRepChange = applyVenueReputationOutcome(showPlayed.id, nota, showType);
 
   applyOutcome(setList, outcomeType, breakdownWithEmoji);
 
@@ -3576,8 +3804,10 @@ function performShow() {
 
   state.showHistory = state.showHistory || [];
   state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
+  if (forcedSet) {
+    forcedSet.history = [...(forcedSet.history || []), { day: state.currentDay, showId: showPlayed.id, nota }].slice(-20);
+  }
   state.performedShowToday = true;
-  const venueRepUpdate = applyVenueReputationOutcome(showPlayed.id, nota, showType);
 
   const prevLevelNumber = state.levelNumber;
   const xpGain = applyXp(XP_GAIN.show[nota] || 0);
@@ -3595,19 +3825,19 @@ function performShow() {
   processOpenStageConsistencyOutcome(nota);
   processElencoCircuitOutcome(showType, nota);
   processHeadlinerSoloOutcome(showPlayed, showType, nota);
+  if (showType === "specialTape") {
+    processSpecialTapeOutcome(nota, adjustedScore);
+    maybeTriggerLegacyChoice();
+  }
 
   updateStats();
   renderJokeList({ selectable: false });
   exitSelectionMode();
 
-  showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
-    fans: fanGain,
-    motivation: motivationShift,
-    stageTimeGain,
-    xp: xpGain,
-    entrega: entregaGain,
-    venueRep: `${formatSigned(venueRepUpdate.delta)} (${venueRepUpdate.tier})`
-  });
+  const venueRepText = venueRepChange.delta
+    ? `Casa ${venueRepChange.tier} (${formatSigned(venueRepChange.delta)})`
+    : "";
+  showResultNarrative(nota, breakdownWithEmoji, timeImpact, { fans: fanGain, motivation: motivationShift, stageTimeGain, xp: xpGain, entrega: entregaGain, venueRepText });
 
   const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
   if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
@@ -3651,7 +3881,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Tempo de Palco +${deltas.stageTimeGain} (FLOW!)`);
   if (deltas.entrega) statFragments.push(`Entrega +${deltas.entrega}`);
   if (deltas.xp) statFragments.push(`XP +${deltas.xp}`);
-  if (deltas.venueRep) statFragments.push(`Casa ${deltas.venueRep}`);
+  if (deltas.venueRepText) statFragments.push(deltas.venueRepText);
 
   displayNarration(`${messages[nota] || messages[3]}${timeImpact?.note ? ` ${timeImpact.note}` : ""}${detalhes ? ` (${detalhes})` : ""} [${statFragments.join(" | ")}]`);
   checkAndShowPendingEvent();
@@ -3802,8 +4032,164 @@ function handleViewHistory() {
 // §23  HANDLERS: MATERIAL & JOKE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 
-function handleViewMaterial() {
-  exitSelectionMode();
+function renderHeadlinerSetEditor(setId) {
+  const setEntry = getHeadlinerSetById(setId);
+  if (!setEntry) return;
+  uiMode = "headlinerSetEditor";
+  const jokes = getHeadlinerSetJokes(setEntry);
+  const listHtml = jokes.length
+    ? jokes.map((joke, index) => `
+      <li class="joke-item read-only">
+        <div><strong>${joke.title}</strong> — ${joke.minutes} min</div>
+        <div class="actions">
+          <button class="set-joke-up" data-set-id="${setEntry.id}" data-index="${index}">⬆️</button>
+          <button class="set-joke-down" data-set-id="${setEntry.id}" data-index="${index}">⬇️</button>
+          <button class="set-joke-remove" data-set-id="${setEntry.id}" data-index="${index}">🗑️</button>
+        </div>
+      </li>
+    `).join("")
+    : '<li class="joke-item read-only"><strong>Sem piadas neste texto.</strong></li>';
+
+  elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.innerHTML = `
+    <div>
+      <h4>🧩 Editando texto: ${setEntry.title}</h4>
+      <div>⏱️ ${getHeadlinerSetRuntime(setEntry)} min | 🎯 alvo ${setEntry.targetMinutes} min</div>
+      <ul class="joke-list">${listHtml}</ul>
+      <button class="headliner-editor-back">⬅️ Voltar para organização</button>
+    </div>
+  `;
+
+  elements.btnDivLow.querySelector(".headliner-editor-back")?.addEventListener("click", () => openHeadlinerSetBuilder());
+  elements.btnDivLow.querySelectorAll(".set-joke-up").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.index);
+      if (idx <= 0) return;
+      const ids = [...setEntry.jokeIds];
+      [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
+      renderHeadlinerSetEditor(setEntry.id);
+    });
+  });
+  elements.btnDivLow.querySelectorAll(".set-joke-down").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.index);
+      if (idx >= setEntry.jokeIds.length - 1) return;
+      const ids = [...setEntry.jokeIds];
+      [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
+      renderHeadlinerSetEditor(setEntry.id);
+    });
+  });
+  elements.btnDivLow.querySelectorAll(".set-joke-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.index);
+      const ids = [...setEntry.jokeIds];
+      ids.splice(idx, 1);
+      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
+      renderHeadlinerSetEditor(setEntry.id);
+    });
+  });
+}
+
+function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
+  ensureCareerProgressState();
+  uiMode = "headlinerSetBuilder";
+  if (setId && getHeadlinerSetById(setId)) {
+    selectedJokeIds.clear();
+    getHeadlinerSetById(setId).jokeIds.forEach((jokeId) => selectedJokeIds.add(jokeId));
+  } else if (resetSelection) {
+    selectedJokeIds.clear();
+  }
+  renderJokeList({ selectable: true });
+  const activeSet = getActiveHeadlinerSet();
+  const setsHtml = (state.headlinerSets || []).length
+    ? state.headlinerSets.map((setEntry) => {
+      const runtime = getHeadlinerSetRuntime(setEntry);
+      const activeMark = state.activeSetId === setEntry.id ? "✅ " : "";
+      const specialMark = setEntry.isSpecialDraft ? " 🎬 Especial" : "";
+      return `
+        <div class="joke-item read-only">
+          <div><strong>${activeMark}${setEntry.title}</strong> — ${runtime}min${specialMark}</div>
+          <div class="actions">
+            <button class="set-activate-btn" data-set-id="${setEntry.id}">Ativar</button>
+            <button class="set-load-btn" data-set-id="${setEntry.id}">Carregar seleção</button>
+            <button class="set-special-btn" data-set-id="${setEntry.id}">Marcar especial</button>
+            <button class="set-edit-btn" data-set-id="${setEntry.id}">Editar</button>
+            <button class="set-delete-btn" data-set-id="${setEntry.id}">Apagar</button>
+          </div>
+        </div>
+      `;
+    }).join("")
+    : "<div>Nenhum texto criado ainda.</div>";
+
+  elements.btnDivLow.style.display = "flex";
+  elements.btnDivLow.innerHTML = `
+    <div>
+      <div>🧠 Headliner trabalha com <strong>textos</strong>. Selecione piadas e salve um texto.</div>
+      <div>Selecionadas agora: <strong>${selectedJokeIds.size}</strong> piadas</div>
+      <div style="margin-top: 8px;">
+        <button class="set-create-btn">➕ Salvar novo texto</button>
+        <button class="set-update-active-btn">💾 Atualizar texto ativo</button>
+        <button class="set-clear-selection-btn">🧹 Limpar seleção</button>
+        <button class="set-view-material-btn">📓 Ver material tradicional</button>
+      </div>
+      <h4>📚 Seus textos</h4>
+      <div>${setsHtml}</div>
+      ${activeSet ? `<div>Texto ativo: <strong>${activeSet.title}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
+    </div>
+  `;
+
+  elements.btnDivLow.querySelector(".set-create-btn")?.addEventListener("click", () => {
+    if (!selectedJokeIds.size) { displayNarration("Selecione pelo menos uma piada para criar um texto."); return; }
+    const title = window.prompt("Nome do novo texto:", `Texto ${state.headlinerSets.length + 1}`) || "";
+    const created = createHeadlinerSet(title, [...selectedJokeIds], { targetMinutes: 25 });
+    setActiveHeadlinerSet(created.id);
+    displayNarration(`📚 Novo texto criado: ${created.title}.`);
+    openHeadlinerSetBuilder(created.id);
+  });
+  elements.btnDivLow.querySelector(".set-update-active-btn")?.addEventListener("click", () => {
+    const active = getActiveHeadlinerSet();
+    if (!active) { displayNarration("Defina um texto ativo antes de atualizar."); return; }
+    if (!selectedJokeIds.size) { displayNarration("Selecione piadas para atualizar o texto ativo."); return; }
+    updateHeadlinerSet(active.id, { jokeIds: [...selectedJokeIds] });
+    displayNarration(`💾 Texto ativo atualizado: ${active.title}.`);
+    openHeadlinerSetBuilder(active.id);
+  });
+  elements.btnDivLow.querySelector(".set-clear-selection-btn")?.addEventListener("click", () => {
+    selectedJokeIds.clear();
+    openHeadlinerSetBuilder(null, false);
+  });
+  elements.btnDivLow.querySelector(".set-view-material-btn")?.addEventListener("click", () => showMaterialNotebookView());
+
+  elements.btnDivLow.querySelectorAll(".set-activate-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setActiveHeadlinerSet(btn.dataset.setId);
+      openHeadlinerSetBuilder(btn.dataset.setId);
+    });
+  });
+  elements.btnDivLow.querySelectorAll(".set-load-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openHeadlinerSetBuilder(btn.dataset.setId));
+  });
+  elements.btnDivLow.querySelectorAll(".set-special-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      updateHeadlinerSet(btn.dataset.setId, { isSpecialDraft: true });
+      displayNarration("🎬 Texto marcado como draft de especial.");
+      openHeadlinerSetBuilder(btn.dataset.setId);
+    });
+  });
+  elements.btnDivLow.querySelectorAll(".set-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => renderHeadlinerSetEditor(btn.dataset.setId));
+  });
+  elements.btnDivLow.querySelectorAll(".set-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      deleteHeadlinerSet(btn.dataset.setId);
+      openHeadlinerSetBuilder(null, false);
+    });
+  });
+}
+
+function showMaterialNotebookView() {
   uiMode = "viewMaterial";
   elements.subTitle.textContent = "📋 Todo o seu material";
   renderJokeList({ selectable: false });
@@ -3812,6 +4198,17 @@ function handleViewMaterial() {
   setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
   displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
   setTimeout(() => { elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+}
+
+function handleViewMaterial() {
+  exitSelectionMode();
+  if (getCareerStage() === "headliner") {
+    setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
+    openHeadlinerSetBuilder(null, true);
+    displayNarration("🧠 Fase headliner: organize seus textos para solos e especial.");
+    return;
+  }
+  showMaterialNotebookView();
 }
 
 function handleSaveGame() {
@@ -3945,6 +4342,18 @@ function bootGame() {
     if ((state.availablePerkPoints || 0) > 0) {
       setTimeout(() => showPerkSelectionDialog(), 1000);
     }
+    if (getCareerStage() === "headliner" && (!state.headlinerSets || state.headlinerSets.length === 0)) {
+      setTimeout(() => {
+        queueCriticalDialog(
+          "📚 Você chegou ao headliner.\n\nAgora organize seus textos no menu Material para preparar solos e especial.",
+          [{ label: "Abrir Material", handler: () => handleViewMaterial() }]
+        );
+      }, 850);
+    }
+    setTimeout(() => {
+      updateSpecialTapeEligibility();
+      maybeOfferSpecialTaping();
+    }, 900);
     if (!state.legacyEnding && getCareerStage() === "headliner" && (state.levelNumber || 1) >= 18) {
       setTimeout(() => maybeTriggerLegacyChoice(), 1200);
     }
