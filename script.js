@@ -942,6 +942,73 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const formatSigned = (value) => (value > 0 ? `+${value}` : `${value}`);
 const formatIdeaTitle = (idea) => idea.customTitle || `Piada sobre ${idea.seed}`;
 const generatePotential = () => parseFloat((0.35 + Math.random() * 0.5).toFixed(2));
+const CAREER_STAGES = ["open", "elenco", "headliner"];
+
+function resolveCareerStage(level = state?.level, levelNumber = state?.levelNumber) {
+  if (level === "headliner" || (typeof levelNumber === "number" && levelNumber >= 11)) return "headliner";
+  if (level === "elenco" || (typeof levelNumber === "number" && levelNumber >= 6)) return "elenco";
+  return "open";
+}
+
+function getCareerStage() {
+  return resolveCareerStage(state?.level, state?.levelNumber);
+}
+
+function getCareerStageIndex(stage) {
+  const index = CAREER_STAGES.indexOf(stage);
+  return index === -1 ? 0 : index;
+}
+
+function isCareerStageAtLeast(stage, targetStage) {
+  return getCareerStageIndex(stage) >= getCareerStageIndex(targetStage);
+}
+
+function createDefaultCareerMilestones() {
+  return {
+    firstBomb: false,
+    firstKill: false,
+    firstElencoGig: false,
+    firstHeadlinerGig: false,
+    firstSoloGig: false
+  };
+}
+
+function ensureCareerProgressState() {
+  if (!state) return;
+  state.careerMilestones = { ...createDefaultCareerMilestones(), ...(state.careerMilestones || {}) };
+  state.careerChoices = state.careerChoices || [];
+}
+
+function hasCareerMilestone(milestoneId) {
+  return !!(state?.careerMilestones && state.careerMilestones[milestoneId]);
+}
+
+function markCareerMilestone(milestoneId) {
+  ensureCareerProgressState();
+  if (!state.careerMilestones[milestoneId]) {
+    state.careerMilestones[milestoneId] = true;
+    return true;
+  }
+  return false;
+}
+
+const contentGates = {
+  showEligible(show, stage = getCareerStage()) {
+    if (!show) return false;
+    const requiredStage = show.requiresCareerStage || show.requiresLevel || "open";
+    return isCareerStageAtLeast(stage, requiredStage);
+  },
+  eventEligible(event, stage = getCareerStage()) {
+    if (!event) return false;
+    const requiredStage = event.requiresCareerStage || event.requiresLevel || "open";
+    return isCareerStageAtLeast(stage, requiredStage);
+  },
+  dialogEligible(dialog, stage = getCareerStage()) {
+    if (!dialog) return false;
+    const requiredStage = dialog.requiresCareerStage || "open";
+    return isCareerStageAtLeast(stage, requiredStage);
+  }
+};
 
 function getScheduledShowsForToday() {
   return (state.scheduledShows || []).filter(s => s.dayScheduled === state.currentDay);
@@ -1574,6 +1641,7 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     if (state.currentDay - event.lastTriggered < event.cooldown) return false;
   }
   if (event.trigger !== trigger) return false;
+  if (!contentGates.eventEligible(event)) return false;
 
   // Only at Copo Sujo shows
   if (event.requiresCopoSujo && context.show) {
@@ -1583,12 +1651,6 @@ function eventMatchesTrigger(event, trigger, context = {}) {
   // Needs 3+ shows at nota 4+
   if (event.requiresGoodPerformance) {
     if ((state.showHistory || []).filter(s => s.nota >= 4).length < 3) return false;
-  }
-
-  if (event.requiresLevel) {
-    const reqTier = event.requiresLevel;
-    if (reqTier === "elenco" && state.level === "open") return false;
-    if (reqTier === "headliner" && state.level !== "headliner") return false;
   }
 
   switch (event.trigger) {
@@ -1721,7 +1783,9 @@ function loadGameState() {
     level: "open", showsAtLevel4: 0, shows5a5AtLevel4: 0,
     fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
     chosenClass: null, hasEmployment: false, madeIt: false,
-    unlockedPerks: [], availablePerkPoints: 0
+    unlockedPerks: [], availablePerkPoints: 0,
+    careerMilestones: createDefaultCareerMilestones(),
+    careerChoices: []
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1766,7 +1830,9 @@ function loadGameState() {
       hasEmployment: parsed.hasEmployment ?? false,
       madeIt: parsed.madeIt ?? false,
       unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
-      availablePerkPoints: parsed.availablePerkPoints ?? 0
+      availablePerkPoints: parsed.availablePerkPoints ?? 0,
+      careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
+      careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : []
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -1775,6 +1841,7 @@ function loadGameState() {
 }
 
 function saveGameState() {
+  ensureCareerProgressState();
   const payload = {
     name: state.name, stageTime: state.stageTime, jokes: state.jokes,
     language: state.language, avatar: state.avatar, hasStarted: state.hasStarted,
@@ -1791,6 +1858,7 @@ function saveGameState() {
     pague15Unlocked: state.pague15Unlocked, network: state.network,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
+    careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -2571,7 +2639,7 @@ function generateAvailableShows() {
   // Filter eligible regular shows (exclude specials — they have dedicated unlock paths)
   let eligibleShows = showPool.filter(show => {
     if (show.isSpecialShow) return false;
-    if (show.requiresLevel && show.requiresLevel !== level && (show.requiresLevel === "headliner" || (show.requiresLevel === "elenco" && level === "open"))) return false;
+    if (!contentGates.showEligible(show, level)) return false;
     if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
     return true;
   });
@@ -3093,6 +3161,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function bootGame() {
   state = loadGameState();
+  ensureCareerProgressState();
   updateStats();
   if (state.hasStarted && state.avatar) {
     enterGame(true);
