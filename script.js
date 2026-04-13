@@ -643,6 +643,46 @@ const showPool = [
     typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.6, "humor negro": -0.4, limpo: 0.6, hack: 0.3 }
   },
   {
+    id: "microfone-aberto-padaria", name: "Microfone Aberto da Padaria", minMinutes: 3, difficulty: 0.12,
+    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
+    crowd: "Clientes do bairro esperando pão na chapa e café.",
+    intro: "A padaria liberou um cantinho para talentos locais. Público simpático, mas impaciente.",
+    image: "barzinho.png", vibeHint: "Observações cotidianas simples e diretas funcionam melhor.",
+    typeAffinity: { default: 0.1, besteirol: 0.5, vulgar: -0.2, "humor negro": 0, limpo: 0.6, hack: 0.2 }
+  },
+  {
+    id: "quinta-do-calouro", name: "Quinta do Calouro", minMinutes: 3, difficulty: 0.16,
+    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
+    crowd: "Comediantes iniciantes torcendo uns pelos outros.",
+    intro: "Noite de estreia para quem está começando. Ambiente acolhedor, porém caótico.",
+    image: "open-universitario.png", vibeHint: "Texto curto com punchline clara e energia alta ajuda muito.",
+    typeAffinity: { default: 0.1, besteirol: 0.6, vulgar: 0.2, "humor negro": 0.1, limpo: 0.2, hack: 0.2 }
+  },
+  {
+    id: "rodada-trabalho", name: "Rodada do Pós-Trampo", minMinutes: 4, difficulty: 0.2,
+    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 5,
+    crowd: "Gente cansada do trabalho querendo rir sem pensar muito.",
+    intro: "Você pegou o último slot do pós-trampo. Plateia cansada, mas aberta a bons causos.",
+    image: "coffee-break.png", vibeHint: "Piadas sobre rotina e trabalho conectam rápido.",
+    typeAffinity: { default: 0.05, besteirol: 0.3, vulgar: -0.3, "humor negro": 0.1, limpo: 0.5, hack: 0.4 }
+  },
+  {
+    id: "sarjeta-comedy", name: "Sarjeta Comedy 23h", minMinutes: 3, difficulty: 0.24,
+    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
+    crowd: "Mesa pequena, barulhenta e sem filtro no fim da noite.",
+    intro: "Último bloco da noite. Se você não ganhar a sala em 30 segundos, já era.",
+    image: "motorcycle-club.png", vibeHint: "Entrada forte e ritmo acelerado salvam o set.",
+    typeAffinity: { default: -0.05, besteirol: 0.4, vulgar: 0.4, "humor negro": 0.4, limpo: -0.4, hack: 0.2 }
+  },
+  {
+    id: "teste-domingo-praca", name: "Teste de Domingo na Praça", minMinutes: 4, difficulty: 0.18,
+    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 5,
+    crowd: "Público variado, de família a curiosos de passagem.",
+    intro: "Evento comunitário de domingo. Ótimo para testar material sem tanta pressão.",
+    image: "outdoor-gig.png", vibeHint: "Material limpo e observações universais vão melhor aqui.",
+    typeAffinity: { default: 0.1, besteirol: 0.4, vulgar: -0.4, "humor negro": -0.1, limpo: 0.6, hack: 0.3 }
+  },
+  {
     id: "navio-cruzeiro", name: "Comedy no Cruzeiro", minMinutes: 7, difficulty: 0.4, requiresLevel: "elenco",
     crowd: "Passageiros de cruzeiro de todas as idades e origens.",
     intro: "Um cruzeiro te contrata para a temporada. Público cativo e variado.",
@@ -1206,6 +1246,10 @@ function ensureCareerProgressState() {
     prestige: Math.max(0, state.headlinerSoloState?.prestige || 0),
     bestSoloNota: Math.max(0, state.headlinerSoloState?.bestSoloNota || 0)
   };
+  state.openStageState = {
+    consistencyStreak: Math.max(0, state.openStageState?.consistencyStreak || 0),
+    breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0)
+  };
   state.legacyArchive = Array.isArray(state.legacyArchive) ? state.legacyArchive : [];
   state.legacyEnding = state.legacyEnding || null;
   state.postLegacyMode = !!state.postLegacyMode;
@@ -1376,6 +1420,52 @@ function addHeadlinerPrep(points) {
   const gained = Math.max(0, Math.round(points || 0));
   if (gained <= 0) return;
   state.headlinerSoloState.prepPoints = Math.min(12, (state.headlinerSoloState.prepPoints || 0) + gained);
+}
+
+function pickOpenWeightedShows(eligibleShows, maxCount) {
+  if (!eligibleShows.length || maxCount <= 0) return [];
+  const starter = eligibleShows.filter((show) => show.isOpenStarter);
+  const regular = eligibleShows.filter((show) => !show.isOpenStarter);
+  const pickCount = Math.min(maxCount, eligibleShows.length);
+  const picks = [];
+
+  const shuffledStarter = [...starter].sort(() => Math.random() - 0.5);
+  const shuffledRegular = [...regular].sort(() => Math.random() - 0.5);
+  const starterQuota = Math.min(shuffledStarter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
+
+  for (let i = 0; i < starterQuota && picks.length < pickCount; i += 1) {
+    picks.push(shuffledStarter[i]);
+  }
+  for (let i = 0; i < shuffledRegular.length && picks.length < pickCount; i += 1) {
+    picks.push(shuffledRegular[i]);
+  }
+  for (let i = starterQuota; i < shuffledStarter.length && picks.length < pickCount; i += 1) {
+    picks.push(shuffledStarter[i]);
+  }
+
+  return picks.slice(0, pickCount);
+}
+
+function processOpenStageConsistencyOutcome(nota) {
+  if (getCareerStage() !== "open") return;
+  ensureCareerProgressState();
+  const openState = state.openStageState;
+  if (nota >= 3) {
+    openState.consistencyStreak += 1;
+  } else {
+    openState.consistencyStreak = 0;
+  }
+
+  if (openState.consistencyStreak >= 3) {
+    openState.consistencyStreak = 0;
+    openState.breakthroughs += 1;
+    state.motivation = clamp((state.motivation || 0) + 4, 0, 120);
+    state.texto = clamp((state.texto || 0) + 2, 0, 200);
+    queueCriticalDialog(
+      "📌 Virada de Open!\n\nVocê manteve consistência em 3 shows seguidos. Bônus: motivação +4, texto +2.",
+      [{ label: "Continuar", handler: () => {} }]
+    );
+  }
 }
 
 function registerCareerChoice(choiceId, details = {}) {
@@ -2297,6 +2387,7 @@ function loadGameState() {
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
     headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 },
+    openStageState: { consistencyStreak: 0, breakthroughs: 0 },
     legacyEnding: null, legacyArchive: [], postLegacyMode: false, legacyChoicePrompted: false
   };
   try {
@@ -2362,6 +2453,10 @@ function loadGameState() {
         prestige: Math.max(0, parsed.headlinerSoloState?.prestige || 0),
         bestSoloNota: Math.max(0, parsed.headlinerSoloState?.bestSoloNota || 0)
       },
+      openStageState: {
+        consistencyStreak: Math.max(0, parsed.openStageState?.consistencyStreak || 0),
+        breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0)
+      },
       legacyEnding: parsed.legacyEnding || null,
       legacyArchive: Array.isArray(parsed.legacyArchive) ? parsed.legacyArchive : [],
       postLegacyMode: !!parsed.postLegacyMode,
@@ -2395,6 +2490,7 @@ function saveGameState() {
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
     headlinerSoloState: state.headlinerSoloState,
+    openStageState: state.openStageState,
     legacyEnding: state.legacyEnding, legacyArchive: state.legacyArchive,
     postLegacyMode: state.postLegacyMode, legacyChoicePrompted: state.legacyChoicePrompted,
     lastSave: new Date().toISOString()
@@ -3217,10 +3313,14 @@ function generateAvailableShows() {
   eligibleShows = eligibleShows.filter((show) => !offeredIds.has(show.id));
   const remainingSlots = Math.max(0, 3 - shows.length);
   const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
-  const shuffled = [...eligibleShows].sort(() => Math.random() - 0.5);
-  for (let i = 0; i < numShows && i < shuffled.length; i++) {
+  const selectedShows = careerStage === "open"
+    ? pickOpenWeightedShows(eligibleShows, numShows)
+    : [...eligibleShows].sort(() => Math.random() - 0.5).slice(0, numShows);
+  for (let i = 0; i < selectedShows.length; i++) {
     const daysAhead = Math.random() < 0.3 ? 1 : (Math.random() < 0.6 ? 2 : 3);
-    shows.push({ show: shuffled[i], daysAhead, showType: "normal" });
+    const selectedShow = selectedShows[i];
+    const showType = careerStage === "open" && selectedShow.isOpenStarter ? "openStarter" : "normal";
+    shows.push({ show: selectedShow, daysAhead, showType });
   }
 
   return shows.slice(0, 3);
@@ -3236,6 +3336,7 @@ function presentShowOptions(availableShows) {
     let label = `🎭 ${show.name}`;
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
+    if (showType === "openStarter") label = `🌱 ${show.name} (open iniciante)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
     if (showType === "headlinerSolo") label = `🎤 ${show.name} (pipeline solo)`;
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
@@ -3317,6 +3418,7 @@ function calculateOfferedTime(show, scheduledShow) {
 
   if (scheduledShow?.showType === "5a5") return 3;
   if (scheduledShow?.showType === "pague15") return 5;
+  if (scheduledShow?.showType === "openStarter" || show?.isOpenStarter) return clamp(show.minMinutes + 1, 3, 4);
   if (scheduledShow?.showType === "elenco15" || show?.isElencoCircuit) return 15;
   if (scheduledShow?.showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return Math.max(show.setLengthTarget || 20, show.minMinutes || 10);
   if (show.minMinutes >= 6) return show.minMinutes; // special-invite shows give their full time
@@ -3410,6 +3512,7 @@ function performShow() {
   if (nota >= 4) state.network = (state.network || 10) + 2;
   const entregaGain = nota >= 4 ? 2 : 1;
   state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
+  processOpenStageConsistencyOutcome(nota);
   processElencoCircuitOutcome(showType, nota);
   processHeadlinerSoloOutcome(showPlayed, showType, nota);
 
