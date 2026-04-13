@@ -636,6 +636,30 @@ const showPool = [
     typeAffinity: { default: 0, besteirol: 0.2, vulgar: -0.6, "humor negro": -0.3, limpo: 0.6, hack: 0.5 }
   },
   {
+    id: "elenco-porao-segunda", name: "Circuito Elenco - Porão da Segunda", minMinutes: 8, difficulty: 0.42,
+    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
+    crowd: "Público que acompanha comédia de perto e cobra material consistente.",
+    intro: "Noite de elenco no porão. Você tem 15 minutos para segurar a sala sem muleta.",
+    image: "teatro-legal.png", vibeHint: "Consistência e ritmo importam mais que explosões isoladas.",
+    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.3, limpo: 0.4, hack: 0.4 }
+  },
+  {
+    id: "elenco-comedy-quarta", name: "Circuito Elenco - Quarta de Casa Cheia", minMinutes: 8, difficulty: 0.45,
+    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
+    crowd: "Plateia pagante acostumada com lineups fortes e comparações cruéis.",
+    intro: "A produção te deu 15 minutos no meio da grade. Sem ritmo, o público te engole.",
+    image: "bar-do-tony.png", vibeHint: "Transições sólidas e fechamento forte definem a noite.",
+    typeAffinity: { default: 0.05, besteirol: 0.2, vulgar: -0.3, "humor negro": 0.3, limpo: 0.4, hack: 0.4 }
+  },
+  {
+    id: "elenco-coletivo-domingo", name: "Circuito Elenco - Coletivo de Domingo", minMinutes: 7, difficulty: 0.38,
+    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
+    crowd: "Comediantes e fãs fiéis analisando cada escolha de set.",
+    intro: "Domingo de coletivo: 15 minutos para provar que seu material aguenta repetição semanal.",
+    image: "copo-sujo-comedy.png", vibeHint: "Material autoral e controle de energia fazem diferença.",
+    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
+  },
+  {
     id: "show-solo", name: "Seu Próprio Show", minMinutes: 10, difficulty: 0.45, requiresLevel: "headliner",
     crowd: "Seus fãs que pagaram ingresso para te ver.",
     intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
@@ -1094,6 +1118,13 @@ function ensureCareerProgressState() {
     shownIds: Array.isArray(state.carvalhoDialogState?.shownIds) ? state.carvalhoDialogState.shownIds : [],
     triggerCooldowns: state.carvalhoDialogState?.triggerCooldowns || {}
   };
+  state.elencoCircuitState = {
+    weeklyGoalTarget: Math.max(2, state.elencoCircuitState?.weeklyGoalTarget || 2),
+    weeklyGoalProgress: Math.max(0, state.elencoCircuitState?.weeklyGoalProgress || 0),
+    completedWeek: state.elencoCircuitState?.completedWeek || null,
+    weeklySuccessStreak: Math.max(0, state.elencoCircuitState?.weeklySuccessStreak || 0),
+    bestWeeklyStreak: Math.max(0, state.elencoCircuitState?.bestWeeklyStreak || 0)
+  };
 }
 
 function hasCareerMilestone(milestoneId) {
@@ -1181,6 +1212,42 @@ function maybeTriggerCarvalhoDialog(trigger, context = {}) {
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
   if (!candidates.length) return;
   showCarvalhoDialog(candidates[0]);
+}
+
+function getElencoCircuitShows() {
+  return showPool.filter((show) => show.isElencoCircuit);
+}
+
+function maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay) {
+  const circuitShows = getElencoCircuitShows().filter((show) => !alreadyScheduledIds.includes(show.id));
+  if (!circuitShows.length) return;
+  const targetByWeekDay = { 1: "elenco-porao-segunda", 3: "elenco-comedy-quarta", 0: "elenco-coletivo-domingo" };
+  const preferredId = targetByWeekDay[weekDay];
+  const preferred = circuitShows.find((show) => show.id === preferredId);
+  const selected = preferred || circuitShows[Math.floor(Math.random() * circuitShows.length)];
+  const daysAhead = preferred ? 0 : (Math.random() < 0.5 ? 1 : 2);
+  shows.unshift({ show: selected, daysAhead, showType: "elenco15" });
+}
+
+function processElencoCircuitOutcome(showType, nota) {
+  if (showType !== "elenco15") return;
+  ensureCareerProgressState();
+  const circuit = state.elencoCircuitState;
+  if (nota >= 4) {
+    circuit.weeklyGoalProgress += 1;
+  }
+  const target = circuit.weeklyGoalTarget || 2;
+  if (circuit.weeklyGoalProgress >= target && circuit.completedWeek !== state.currentWeek) {
+    circuit.completedWeek = state.currentWeek;
+    circuit.weeklySuccessStreak += 1;
+    circuit.bestWeeklyStreak = Math.max(circuit.bestWeeklyStreak || 0, circuit.weeklySuccessStreak || 0);
+    state.network = (state.network || 10) + 4;
+    state.texto = clamp((state.texto || 0) + 3, 0, 200);
+    queueCriticalDialog(
+      `📈 Objetivo do circuito concluído!\n\nVocê bateu ${target} sets fortes de elenco nesta semana. Bônus: network +4, texto +3.`,
+      [{ label: "Continuar", handler: () => {} }]
+    );
+  }
 }
 
 function getScheduledShowsForToday() {
@@ -1764,6 +1831,12 @@ function advanceDay() {
   if (state.currentWeekDay === 1) {
     state.currentWeek = (state.currentWeek || 1) + 1;
     state.eventsThisWeek = 0;
+    ensureCareerProgressState();
+    if (state.elencoCircuitState.completedWeek !== state.currentWeek - 1) {
+      state.elencoCircuitState.weeklySuccessStreak = 0;
+    }
+    state.elencoCircuitState.weeklyGoalProgress = 0;
+    state.elencoCircuitState.completedWeek = null;
   }
 
   state.motivation = clamp(state.motivation + 5, 0, 120);
@@ -1971,7 +2044,8 @@ function loadGameState() {
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
     careerChoices: [],
-    carvalhoDialogState: { shownIds: [], triggerCooldowns: {} }
+    carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
+    elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 }
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -2022,6 +2096,13 @@ function loadGameState() {
       carvalhoDialogState: {
         shownIds: Array.isArray(parsed.carvalhoDialogState?.shownIds) ? parsed.carvalhoDialogState.shownIds : [],
         triggerCooldowns: parsed.carvalhoDialogState?.triggerCooldowns || {}
+      },
+      elencoCircuitState: {
+        weeklyGoalTarget: Math.max(2, parsed.elencoCircuitState?.weeklyGoalTarget || 2),
+        weeklyGoalProgress: Math.max(0, parsed.elencoCircuitState?.weeklyGoalProgress || 0),
+        completedWeek: parsed.elencoCircuitState?.completedWeek || null,
+        weeklySuccessStreak: Math.max(0, parsed.elencoCircuitState?.weeklySuccessStreak || 0),
+        bestWeeklyStreak: Math.max(0, parsed.elencoCircuitState?.bestWeeklyStreak || 0)
       }
     };
   } catch (error) {
@@ -2050,6 +2131,7 @@ function saveGameState() {
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
+    elencoCircuitState: state.elencoCircuitState,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -2837,6 +2919,10 @@ function generateAvailableShows() {
 
   const alreadyScheduledIds = (state.scheduledShows || []).map(s => s.showId);
 
+  if (careerStage === "elenco" && Math.random() < 0.85) {
+    maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay);
+  }
+
   // 5 a 5 (Sundays, unlocked via Paulo Araújo)
   if (careerStage === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
     const daysTo5a5 = findDaysToWeekday(0);
@@ -2858,6 +2944,8 @@ function generateAvailableShows() {
   }
 
   // Fill remaining slots with random regular shows
+  const offeredIds = new Set(shows.map((item) => item.show.id));
+  eligibleShows = eligibleShows.filter((show) => !offeredIds.has(show.id));
   const remainingSlots = Math.max(0, 3 - shows.length);
   const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
   const shuffled = [...eligibleShows].sort(() => Math.random() - 0.5);
@@ -2879,6 +2967,7 @@ function presentShowOptions(availableShows) {
     let label = `🎭 ${show.name}`;
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
+    if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
     const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
@@ -2954,19 +3043,20 @@ function skipToShowDay() {
 
 function calculateOfferedTime(show, scheduledShow) {
   const showCount = state.stageTime || 0;
-  const level = state.level || "open";
+  const careerStage = getCareerStage();
 
   if (scheduledShow?.showType === "5a5") return 3;
   if (scheduledShow?.showType === "pague15") return 5;
+  if (scheduledShow?.showType === "elenco15" || show?.isElencoCircuit) return 15;
   if (show.minMinutes >= 6) return show.minMinutes; // special-invite shows give their full time
 
   let maxTime = 3;
   if (showCount >= 10) maxTime = 10;
   else if (showCount >= 4) maxTime = 5;
-  if (level === "elenco") maxTime = Math.max(maxTime, 15);
-  else if (level === "headliner") maxTime = Math.max(maxTime, 20);
+  if (careerStage === "elenco") maxTime = Math.max(maxTime, 15);
+  else if (careerStage === "headliner") maxTime = Math.max(maxTime, 20);
 
-  return Math.max(show.minMinutes, Math.min(maxTime, 5));
+  return Math.max(show.minMinutes, Math.min(maxTime, careerStage === "open" ? 5 : 15));
 }
 
 function beginShowPreparation(show, offeredMinutes, showType) {
@@ -3044,6 +3134,7 @@ function performShow() {
   if (nota >= 4) state.network = (state.network || 10) + 2;
   const entregaGain = nota >= 4 ? 2 : 1;
   state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
+  processElencoCircuitOutcome(showType, nota);
 
   updateStats();
   renderJokeList({ selectable: false });
