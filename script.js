@@ -219,13 +219,66 @@ const PERK_TREES = {
 
 // ─── Classes ───
 const CLASSES = {
-  comicoClassico: { name: "Cômico Clássico", desc: "Stand-up puro, turnês, shows próprios", bonus: { texto: 10, entrega: 10 }, empReq: { texto: 45, entrega: 45 }, madeIt: "Turnê nacional ou especial gravado" },
-  roteirista: { name: "Roteirista", desc: "Escrita para outros, programas", bonus: { texto: 10 }, empReq: { texto: 60 }, writeSpeed: 0.75, madeIt: "Credenciado em programa famoso" },
-  produtor: { name: "Produtor", desc: "Shows e gestão", bonus: { network: 15 }, empReq: { network: 50 }, seeSchedule: true, madeIt: "Casa própria com shows semanais" },
-  atorComico: { name: "Ator Cômico", desc: "Performance, TV, cinema", bonus: { entrega: 10 }, empReq: { entrega: 60 }, actingEvents: true, madeIt: "Papel fixo em série/filme" },
-  influencer: { name: "Influencer", desc: "Conteúdo digital, virais", bonus: { fansMultiplier: 1.5 }, empReq: { fans: 200 }, viralEvents: true, madeIt: "10k+ fãs, viral" },
-  professor: { name: "Professor", desc: "Ensino e teoria da comédia", bonus: { texto: 5, entrega: 5 }, empReq: { texto: 50, entrega: 50 }, workshopEvents: true, xpMultiplier: 2, madeIt: "Curso estabelecido" }
+  comicoClassico: {
+    name: "Cômico Clássico",
+    desc: "Palco, texto autoral e consistência de show.",
+    bonus: { texto: 6, entrega: 6 },
+    passive: "stageConsistency",
+    empReq: { texto: 42, entrega: 42 },
+    opportunityTitle: "convite para lineups mais fortes do circuito",
+    endingFlavor: "Você vira um nome confiável: alguém que pode entrar numa noite difícil e entregar 15 minutos de verdade."
+  },
+  roteirista: {
+    name: "Roteirista",
+    desc: "Escrita forte, lapidação e material para outros formatos.",
+    bonus: { texto: 10 },
+    passive: "betterRewrite",
+    empReq: { texto: 50 },
+    opportunityTitle: "primeiro trabalho escrevendo material profissional",
+    endingFlavor: "Seu texto começa a circular fora da sua própria boca: quadros, vídeos, projetos e ideias que precisam de escrita cômica."
+  },
+  produtor: {
+    name: "Produtor",
+    desc: "Bastidor, agenda, networking e curadoria.",
+    bonus: { network: 12 },
+    passive: "betterShowOffers",
+    empReq: { network: 42 },
+    opportunityTitle: "convite para ajudar a produzir uma noite de comédia",
+    endingFlavor: "Você entende que carreira não é só palco: é escala, bastidor, curadoria, horário, público e responsabilidade."
+  },
+  atorComico: {
+    name: "Ator Cômico",
+    desc: "Presença, personagem, corpo e performance.",
+    bonus: { entrega: 10 },
+    passive: "bigRoomDelivery",
+    empReq: { entrega: 50 },
+    opportunityTitle: "convite para um projeto de atuação cômica",
+    endingFlavor: "Sua presença começa a abrir portas além do microfone: personagem, cena, corpo e timing visual."
+  },
+  influencer: {
+    name: "Influencer",
+    desc: "Conteúdo, clipes, público e presença digital.",
+    bonus: { fans: 25 },
+    passive: "contentBoost",
+    empReq: { fans: 140 },
+    opportunityTitle: "primeira collab/campanha de conteúdo cômico",
+    endingFlavor: "Você percebe que público também é construção: clipe, recorrência, linguagem e gente esperando o próximo post."
+  },
+  professor: {
+    name: "Professor",
+    desc: "Técnica, estudo, método e formação.",
+    bonus: { texto: 5, entrega: 5 },
+    passive: "studyBoost",
+    empReq: { texto: 45, entrega: 35 },
+    opportunityTitle: "convite para auxiliar em uma oficina de comédia",
+    endingFlavor: "Você transforma processo em método: aquilo que você sofreu para aprender começa a virar caminho para outros."
+  }
 };
+
+function hasClassPassive(passiveId) {
+  const cls = CLASSES[state.chosenClass];
+  return cls?.passive === passiveId;
+}
 
 const CARVALHO_DIALOGS = [
   {
@@ -2091,8 +2144,8 @@ function showClassSelectionDialog() {
       playSound('victory');
       spawnConfetti(50);
       flashScreen('rgba(212, 168, 75, 0.4)');
-      const bonusText = cls.bonus ? Object.entries(cls.bonus).filter(([k]) => k !== 'fansMultiplier' && k !== 'xpMultiplier').map(([k, v]) => `${k} +${v}`).join(', ') : '';
-      queueCriticalDialog(`🎭 Você escolheu: ${cls.name}!\n\n${cls.desc}\n\n${bonusText ? `Bônus aplicados: ${bonusText}` : ''}${cls.madeIt ? `\n\nObjetivo final: ${cls.madeIt}` : ''}`);
+      const bonusText = cls.bonus ? Object.entries(cls.bonus).map(([k, v]) => `${k} +${v}`).join(', ') : '';
+      queueCriticalDialog(`🎭 Você escolheu: ${cls.name}!\n\n${cls.desc}\n\n${bonusText ? `Bônus aplicados: ${bonusText}` : ''}`);
       updateStats();
       saveGameState();
     }
@@ -2225,8 +2278,7 @@ function getXpForNextLevel(levelNumber) {
 }
 
 function applyXp(amount) {
-  const xpMultiplier = (state.chosenClass === 'professor' && CLASSES.professor.xpMultiplier) ? CLASSES.professor.xpMultiplier : 1;
-  const gain = Math.max(0, Math.round((amount || 0) * xpMultiplier));
+  const gain = Math.max(0, Math.round(amount || 0));
   if (gain <= 0) return 0;
   state.xp = Math.max(0, Math.round((state.xp || 0) + gain));
   state.levelNumber = getLevelFromXp(state.xp);
@@ -2713,6 +2765,7 @@ function loadGameState() {
     fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
     storytellingUnlocked: false,
     chosenClass: null, hasEmployment: false, madeIt: false,
+    v1Completed: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
     careerChoices: [],
@@ -2768,6 +2821,7 @@ function loadGameState() {
       chosenClass: parsed.chosenClass || null,
       hasEmployment: parsed.hasEmployment ?? false,
       madeIt: parsed.madeIt ?? false,
+      v1Completed: parsed.v1Completed ?? false,
       unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
       availablePerkPoints: parsed.availablePerkPoints ?? 0,
       careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
@@ -2831,6 +2885,7 @@ function saveGameState() {
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
     pague15Unlocked: state.pague15Unlocked, network: state.network, storytellingUnlocked: state.storytellingUnlocked,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
+    v1Completed: !!state.v1Completed,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
@@ -2854,6 +2909,15 @@ function saveGameState() {
 // ═══════════════════════════════════════════════════════════════════
 
 const elements = {};
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 function cacheElements() {
   elements.text = document.querySelector("#text");
@@ -3265,7 +3329,7 @@ function renderJokeList({ selectable }) {
     li.style.transform = 'translateX(-20px)';
 
     li.innerHTML = `
-      <div><strong>${joke.title}</strong> — ${joke.minutes} min | ${joke.structure?.toUpperCase() || "SET"}</div>
+      <div><strong>${escapeHtml(joke.title)}</strong> — ${joke.minutes} min | ${joke.structure?.toUpperCase() || "SET"}</div>
       <div class="joke-history">${formatHistory(joke.history)}</div>
       <div class="joke-meta"><span>${describeTone(joke.tone)}</span><span>${joke.lastResult}</span></div>
     `;
@@ -3315,7 +3379,7 @@ function renderSetSummary() {
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    ${lockedSet ? `<div>📚 Texto selecionado: <strong>${lockedSet.title}</strong> (${getHeadlinerSetRuntime(lockedSet)}min)</div>` : ""}
+    ${lockedSet ? `<div>📚 Texto selecionado: <strong>${escapeHtml(lockedSet.title)}</strong> (${getHeadlinerSetRuntime(lockedSet)}min)</div>` : ""}
     <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
@@ -3501,14 +3565,14 @@ function showJokeCustomization(idea, mode) {
   elements.btnDivLow.innerHTML = `
     <div class="joke-customization">
       <h4>📝 Título da piada:</h4>
-      <input type="text" id="jokeTitleInput" class="joke-title-input" value="${defaultTitle}" maxlength="50" placeholder="Ex: Piada sobre..." />
+      <input type="text" id="jokeTitleInput" class="joke-title-input" value="${escapeHtml(defaultTitle)}" maxlength="50" placeholder="Ex: Piada sobre..." />
       <h4>🎨 Escolha o tom da piada:</h4>
       <div class="tone-buttons">${toneOptions}</div>
       <details class="legend-details"><summary>📖 O que significa cada tom?</summary><div class="legend-content">${toneLegend}</div></details>
       <h4>🏗️ Escolha a estrutura:</h4>
       <div class="structure-buttons">${structureOptions}</div>
       <details class="legend-details"><summary>📖 O que significa cada estrutura?</summary><div class="legend-content">${structureLegend}</div></details>
-      <div class="customization-hint">💡 Ideia original: "${idea.seed}" (${describeTone(idea.tone)})</div>
+      <div class="customization-hint">💡 Ideia original: "${escapeHtml(idea.seed)}" (${describeTone(idea.tone)})</div>
     </div>
   `;
 
@@ -3893,8 +3957,7 @@ function performShow() {
   checkLevelProgression(nota, showType, prevLevelNumber);
   checkFlowState(nota);
 
-  const fanMultiplier = (state.chosenClass === 'influencer' && CLASSES.influencer.bonus.fansMultiplier) ? CLASSES.influencer.bonus.fansMultiplier : 1;
-  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8 * fanMultiplier));
+  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8));
   state.fans += fanGain;
   const motivationShift = nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12;
   state.motivation = clamp(state.motivation + motivationShift, 0, 120);
@@ -4119,7 +4182,7 @@ function renderHeadlinerSetEditor(setId) {
   const listHtml = jokes.length
     ? jokes.map((joke, index) => `
       <li class="joke-item read-only">
-        <div><strong>${joke.title}</strong> — ${joke.minutes} min</div>
+        <div><strong>${escapeHtml(joke.title)}</strong> — ${joke.minutes} min</div>
         <div class="actions">
           <button class="set-joke-up" data-set-id="${setEntry.id}" data-index="${index}">⬆️</button>
           <button class="set-joke-down" data-set-id="${setEntry.id}" data-index="${index}">⬇️</button>
@@ -4132,7 +4195,7 @@ function renderHeadlinerSetEditor(setId) {
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
     <div>
-      <h4>🧩 Editando texto: ${setEntry.title}</h4>
+      <h4>🧩 Editando texto: ${escapeHtml(setEntry.title)}</h4>
       <div>⏱️ ${getHeadlinerSetRuntime(setEntry)} min | 🎯 alvo ${setEntry.targetMinutes} min</div>
       <ul class="joke-list">${listHtml}</ul>
       <button class="headliner-editor-back">⬅️ Voltar para organização</button>
@@ -4189,7 +4252,7 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
       const specialMark = setEntry.isSpecialDraft ? " 🎬 Especial" : "";
       return `
         <div class="joke-item read-only">
-          <div><strong>${activeMark}${setEntry.title}</strong> — ${runtime}min${specialMark}</div>
+          <div><strong>${activeMark}${escapeHtml(setEntry.title)}</strong> — ${runtime}min${specialMark}</div>
           <div class="actions">
             <button class="set-activate-btn" data-set-id="${setEntry.id}">Ativar</button>
             <button class="set-load-btn" data-set-id="${setEntry.id}">Carregar seleção</button>
@@ -4215,7 +4278,7 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
       </div>
       <h4>📚 Seus textos</h4>
       <div>${setsHtml}</div>
-      ${activeSet ? `<div>Texto ativo: <strong>${activeSet.title}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
+      ${activeSet ? `<div>Texto ativo: <strong>${escapeHtml(activeSet.title)}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
     </div>
   `;
 
