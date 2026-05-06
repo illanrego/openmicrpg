@@ -311,7 +311,7 @@ const CARVALHO_DIALOGS = [
     stage: "elenco",
     priority: 110,
     once: true,
-    text: "Professor Carvalho: 'Bem-vindo ao elenco. Agora o jogo é consistência: 15 minutos sólidos, sem depender de sorte.'",
+    text: "Professor Carvalho: 'Bem-vindo ao Elenco.\n\nAté agora você escrevia piadas soltas.\nAgora você trabalha texto.\n\nA piada ainda é a unidade: premissa, virada, punchline, tag.\nMas o jogo mudou. Você precisa juntar várias piadas em blocos, testar ordem, ritmo, transição e consistência.\n\nCinco minutos bons chamam atenção.\nQuinze minutos sólidos começam uma carreira.'",
     choices: [
       { label: "🎯 Focar em consistência semanal", effects: { texto: 4, entrega: 2 }, narration: "Você assume rotina de lapidação com metas semanais." },
       { label: "🤝 Focar em presença no circuito", effects: { network: 6, motivation: 3 }, narration: "Você circula mais no meio, vira rosto conhecido e ganha confiança." }
@@ -1680,6 +1680,7 @@ function createHeadlinerSet(title, jokeIds, options = {}) {
   }
   state.headlinerSets.push(newSet);
   if (!state.activeSetId) state.activeSetId = newSet.id;
+  saveGameState();
   return newSet;
 }
 
@@ -1694,6 +1695,7 @@ function updateHeadlinerSet(setId, updates = {}) {
     if (updates.isSpecialDraft) state.headlinerSets.forEach((entry) => { entry.isSpecialDraft = false; });
     setEntry.isSpecialDraft = updates.isSpecialDraft;
   }
+  saveGameState();
   return setEntry;
 }
 
@@ -1705,6 +1707,7 @@ function deleteHeadlinerSet(setId) {
   if (state.activeSetId === removed.id) {
     state.activeSetId = state.headlinerSets[0]?.id || null;
   }
+  saveGameState();
   return true;
 }
 
@@ -1716,6 +1719,7 @@ function getActiveHeadlinerSet() {
 function setActiveHeadlinerSet(setId) {
   if (!getHeadlinerSetById(setId)) return false;
   state.activeSetId = setId;
+  saveGameState();
   return true;
 }
 
@@ -1753,6 +1757,7 @@ function updateSpecialTapeEligibility() {
 
 function maybeOfferSpecialTaping() {
   ensureCareerProgressState();
+  if (!state.v1Completed) return;
   const tape = state.specialTapeState;
   if (!updateSpecialTapeEligibility()) return;
   if (tape.offered || tape.booked || tape.completed) return;
@@ -1931,6 +1936,7 @@ function finalizeLegacyEnding(pathId) {
 
 function maybeTriggerLegacyChoice() {
   ensureCareerProgressState();
+  if (!state.v1Completed) return;
   if (state.legacyEnding) return;
   if (state.legacyChoicePrompted) return;
   if (getCareerStage() !== "headliner") return;
@@ -1945,6 +1951,41 @@ function maybeTriggerLegacyChoice() {
     "📚 Você chegou ao arco final da carreira.\n\nEscolha como quer consolidar seu legado:",
     options
   );
+}
+
+function maybeShowHeadlinerFutureNotice() {
+  ensureCareerProgressState();
+  const noticeId = "v1-headliner-future";
+  if ((state.carvalhoDialogState?.shownIds || []).includes(noticeId)) return;
+  state.carvalhoDialogState.shownIds.push(noticeId);
+  queueCriticalDialog(
+    "🚧 Conteúdo Headliner será expandido na v2/v3. A v1.0 termina no começo do Elenco.",
+    [{ label: "Continuar jogando", handler: () => {} }]
+  );
+}
+
+function maybeTriggerV1Ending(nota, showType, showPlayed) {
+  ensureCareerProgressState();
+  if (state.v1Completed) return;
+  const isElencoStage = getCareerStage() === "elenco";
+  const hasClass = !!state.chosenClass;
+  const hasOpportunityAccepted = !!state.hasEmployment;
+  const isElencoShowcase = showType === "elenco15" || !!showPlayed?.isElencoCircuit;
+  const goodShow = nota >= 4;
+  if (!(isElencoStage && hasClass && hasOpportunityAccepted && isElencoShowcase && goodShow)) return;
+
+  state.v1Completed = true;
+  const cls = CLASSES[state.chosenClass];
+  const classFlavor = cls?.endingFlavor ? `\n\n${cls.endingFlavor}` : "";
+  queueCriticalDialog(
+    "🏁 FIM DA V1.0 — VOCÊ ENTROU PRO ELENCO\n\nVocê chegou achando que seria descoberto.\n\nNão foi.\n\nVocê escreveu, bombou, reescreveu, testou, insistiu, fez 5 minutos virarem 15 e agora tem uma cadeira no circuito.\n\nA fama não veio.\nVeio coisa pior: responsabilidade semanal.\n\nSua carreira começou." + classFlavor,
+    [
+      { label: "Continuar jogando", handler: () => {} },
+      { label: "Ver histórico", handler: () => handleViewHistory() },
+      { label: "Créditos", handler: () => handleShowCredits() }
+    ]
+  );
+  saveGameState();
 }
 
 function getScheduledShowsForToday() {
@@ -2166,14 +2207,14 @@ function checkEmploymentOffer() {
   }
 
   if (meetsRequirements) {
-    queueCriticalDialog(`💼 Oferta de Emprego!\n\nComo ${cls.name}, você atingiu os requisitos para trabalhar na área.\n\nAceitar significa mais tempo para comédia (2 pontos de atividade por dia).`, [
-      { label: "✅ Aceitar emprego!", handler: () => {
+    queueCriticalDialog(`💼 Primeiro Convite Profissional!\n\nSeu caminho como ${cls.name} começou a ficar claro.\n\nConvite: ${cls.opportunityTitle}\n\nNão é fama.\nNão é contrato milionário.\nÉ o primeiro sinal de que alguém no circuito consegue imaginar você fazendo isso de verdade.\n\nAceitar conclui seu arco inicial da v1.0.`, [
+      { label: "✅ Aceitar convite", handler: () => {
         state.hasEmployment = true;
-        registerCareerChoice("employment-accepted", { classId: state.chosenClass });
+        registerCareerChoice("opportunity-accepted", { classId: state.chosenClass });
         playSound('victory');
         spawnConfetti(40);
         flashScreen('rgba(90, 143, 90, 0.3)');
-        queueCriticalDialog(`🎉 Você agora trabalha como ${cls.name}!\n\nVocê tem 2 pontos de atividade por dia.`);
+        queueCriticalDialog(`🎉 Convite aceito!\n\n${cls.endingFlavor}`);
         saveGameState();
       }},
       { label: "Ainda não", handler: () => {} }
@@ -2322,6 +2363,7 @@ function evaluateShow(setList, show, flowBonus = 0) {
   const remainingDifficultyFactor = Math.max(0.2, 1 - entrega / 500);
   const hecklerDefense = getPerkEffect('hecklerDefense');
   const bigCrowdBonus = (show.minMinutes >= 6) ? getPerkEffect('bigCrowdBonus') : 0;
+  const classBigRoomBonus = hasClassPassive("bigRoomDelivery") && ((show.minMinutes || 0) >= 7 || !!show.isElencoCircuit) ? 0.04 : 0;
   const longSetBonus = (setList.length >= 3) ? getPerkEffect('longSetBonus') : 0;
   const staminaBonus = getPerkEffect('staminaBonus');
   const crowdWorkBonus = getPerkEffect('crowdWorkBonus');
@@ -2330,7 +2372,7 @@ function evaluateShow(setList, show, flowBonus = 0) {
     const typeComponent = getTypeAffinity(show, joke.tone) * 0.2;
     const difficultyPenalty = (show.difficulty || 0) * remainingDifficultyFactor;
     const lateFatigue = (idx >= 3 && staminaBonus > 0) ? staminaBonus : 0;
-    const jokeScore = potencyComponent + typeComponent + chaosRoll - difficultyPenalty + deliveryBonus + flowBonus + hecklerDefense + bigCrowdBonus + longSetBonus + lateFatigue + crowdWorkBonus;
+    const jokeScore = potencyComponent + typeComponent + chaosRoll - difficultyPenalty + deliveryBonus + flowBonus + hecklerDefense + bigCrowdBonus + classBigRoomBonus + longSetBonus + lateFatigue + crowdWorkBonus;
     totalScore += jokeScore;
     breakdown.push({ title: joke.title, score: jokeScore });
   });
@@ -2445,15 +2487,19 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
 
     if (previousCareerStage === "open" && currentCareerStage === "elenco") {
       maybeTriggerCarvalhoDialog("enterElenco", { previousCareerStage, currentCareerStage });
-    } else if (previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
+    } else if (state.v1Completed && previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
       maybeTriggerCarvalhoDialog("enterHeadliner", { previousCareerStage, currentCareerStage });
+    } else if (!state.v1Completed && previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
+      maybeShowHeadlinerFutureNotice();
     }
 
     checkEmploymentOffer();
     checkMadeIt();
-    updateSpecialTapeEligibility();
-    maybeOfferSpecialTaping();
-    maybeTriggerLegacyChoice();
+    if (state.v1Completed) {
+      updateSpecialTapeEligibility();
+      maybeOfferSpecialTaping();
+      maybeTriggerLegacyChoice();
+    }
   }
 }
 
@@ -2513,6 +2559,7 @@ function handleEndDay() {
           state.specialTapeState.offered = false;
         }
         updateStats();
+        saveGameState();
       }},
       { label: "Voltar", handler: hideDialog }
     ]);
@@ -2748,6 +2795,7 @@ function applyEventEffects(effects) {
   if (effects.stageTime) state.stageTime = Math.max(0, state.stageTime + effects.stageTime);
   if (effects.network) state.network = Math.max(0, (state.network || 10) + effects.network);
   if (effects.storytellingUnlocked) state.storytellingUnlocked = true;
+  if (effects.fans) checkFanMilestones();
 }
 
 
@@ -2956,7 +3004,8 @@ function cacheElements() {
     content: document.querySelector("#button5"),
     study: document.querySelector("#button6"),
     history: document.querySelector("#button7"),
-    credits: document.querySelector("#button8")
+    credits: document.querySelector("#button8"),
+    newGame: document.querySelector("#button9")
   };
   elements.stats = {
     name: document.querySelector("#nameText"),
@@ -2964,6 +3013,7 @@ function cacheElements() {
     material: document.querySelector("#xpText"),
     stage: document.querySelector("#stageText"),
     fans: document.querySelector("#fansText"),
+    network: document.querySelector("#networkText"),
     motivation: document.querySelector("#motivationText"),
     texto: document.querySelector("#textoText"),
     entrega: document.querySelector("#entregaText"),
@@ -3206,6 +3256,9 @@ function updateStats(animate = true) {
   if (animate && state.fans !== old.fans) { animateNumber(elements.stats.fans, old.fans, state.fans, 600); animateStatChange('fans', state.fans > old.fans); }
   else elements.stats.fans.textContent = state.fans;
 
+  // Network
+  if (elements.stats.network) elements.stats.network.textContent = `${Math.max(0, Math.round(state.network || 0))}`;
+
   // Motivation
   if (animate && state.motivation !== old.motivation) { animateNumber(elements.stats.motivation, old.motivation, state.motivation, 400); animateStatChange('motivation', state.motivation > old.motivation); }
   else elements.stats.motivation.textContent = `${state.motivation}`;
@@ -3217,6 +3270,14 @@ function updateStats(animate = true) {
   // Entrega
   if (animate && state.entrega !== old.entrega) { animateNumber(elements.stats.entrega, old.entrega, state.entrega, 400); animateStatChange('entrega', state.entrega > old.entrega); }
   else elements.stats.entrega.textContent = `${state.entrega}`;
+
+  const stage = getCareerStage();
+  if (elements.buttons.write) {
+    elements.buttons.write.textContent = stage === "open" ? "✏️ Escrever Piada" : "🧱 Trabalhar Texto";
+  }
+  if (elements.buttons.material) {
+    elements.buttons.material.textContent = stage === "open" ? "📋 Material" : "📚 Textos";
+  }
 
   renderProfileBadges();
 
@@ -3621,6 +3682,7 @@ function finalizeJokeCreation() {
       : "🤷 Anotou umas coisas durante o dia, mas nada que prestasse.";
     displayNarration(`${failMsg} (-1 ponto de atividade)`);
     updateStats();
+    saveGameState();
     return;
   }
 
@@ -3656,11 +3718,16 @@ function finalizeJokeCreation() {
   flashScreen('rgba(212, 168, 75, 0.2)');
   if (adjustedPotential > 0.7) spawnConfetti(15);
 
-  displayNarration(`✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. (-1 ponto) (+${xpGain} XP)`);
+  if (getCareerStage() === "open") {
+    displayNarration(`✏️ Você decide ${mode.label.toLowerCase()}. Sai de lá com uma nova piada: "${chosenTitle}". Tom: ${chosenTone}, estrutura: ${chosenStructure.toUpperCase()}. ${minutes} min, parece ${label}. (-1 ponto) (+${xpGain} XP)`);
+  } else {
+    displayNarration(`🧱 Você trabalha seu texto. Na prática, ainda é piada: premissa, punchline, corte, ordem. Mas agora você pensa em bloco de 15 minutos. Entrou: "${chosenTitle}" (${minutes} min, ${chosenStructure.toUpperCase()}, ${chosenTone}). Parece ${label}. (-1 ponto) (+${xpGain} XP)`);
+  }
 
   if (state.jokes.length === 5) maybeTriggerEvent("jokes5", { source: "writing" });
   maybeTriggerEvent("random", { source: "writing" });
   checkAndShowPendingEvent();
+  saveGameState();
 }
 
 
@@ -3706,7 +3773,7 @@ function generateAvailableShows() {
   if (careerStage === "elenco" && Math.random() < 0.85) {
     maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay);
   }
-  if (careerStage === "headliner" && Math.random() < 0.8) {
+  if (state.v1Completed && careerStage === "headliner" && Math.random() < 0.8) {
     maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay);
   }
 
@@ -3734,7 +3801,9 @@ function generateAvailableShows() {
   const offeredIds = new Set(shows.map((item) => item.show.id));
   eligibleShows = eligibleShows.filter((show) => !offeredIds.has(show.id));
   const remainingSlots = Math.max(0, 3 - shows.length);
-  const numShows = Math.min(eligibleShows.length, remainingSlots, 1 + Math.floor(network / 30));
+  const producerExtraOffer = hasClassPassive("betterShowOffers") ? 1 : 0;
+  const maxOffersByNetwork = 1 + Math.floor(network / 30) + producerExtraOffer;
+  const numShows = Math.min(eligibleShows.length, remainingSlots, maxOffersByNetwork);
   const selectedShows = careerStage === "open"
     ? pickOpenWeightedShows(eligibleShows, numShows)
     : [...eligibleShows]
@@ -3789,6 +3858,7 @@ function scheduleShow(show, scheduledDay, showType = "normal") {
   updateStats();
   displayNarration(`✅ Show marcado! ${show.name} em ${scheduledDay - state.currentDay} dia(s) (${getDayName(scheduledDay)}). Prepare seu material!`);
   setScene("home");
+  saveGameState();
 }
 
 function handleGoToScheduledShow() {
@@ -3833,6 +3903,7 @@ function skipToShowDay() {
       updateStats();
       playSound('comeWithMe');
       displayNarration(`⏩ ${daysUntil} dia(s) passaram... É hora do show!`);
+      saveGameState();
       setTimeout(() => handleGoToScheduledShow(), 1000);
     }},
     { label: "❌ Cancelar", handler: hideDialog }
@@ -3867,18 +3938,29 @@ function beginShowPreparation(show, offeredMinutes, showType) {
   uiMode = "showSelection";
   selectedJokeIds.clear();
   let lockedSet = null;
-  if (activeShowType === "headlinerSolo" || activeShowType === "specialTape") {
+  if (activeShowType === "headlinerSolo" || activeShowType === "specialTape" || activeShowType === "elenco15") {
     lockedSet = getHeadlinerSetForShow(activeShowType);
-    const setValidation = validateSetForShow(lockedSet, show);
-    if (!setValidation.ok) {
-      currentShow = null;
-      uiMode = "idle";
-      displayNarration(`⚠️ ${setValidation.reason}`);
-      handleViewMaterial();
-      return;
+    if (lockedSet) {
+      const setValidation = validateSetForShow(lockedSet, show);
+      if (!setValidation.ok) {
+        currentShow = null;
+        uiMode = "idle";
+        displayNarration(`⚠️ ${setValidation.reason}`);
+        handleViewMaterial();
+        return;
+      }
+      (lockedSet.jokeIds || []).forEach((jokeId) => selectedJokeIds.add(jokeId));
+      currentShow.lockedSetId = lockedSet.id;
+    } else if (activeShowType !== "elenco15") {
+      const setValidation = validateSetForShow(lockedSet, show);
+      if (!setValidation.ok) {
+        currentShow = null;
+        uiMode = "idle";
+        displayNarration(`⚠️ ${setValidation.reason}`);
+        handleViewMaterial();
+        return;
+      }
     }
-    (lockedSet.jokeIds || []).forEach((jokeId) => selectedJokeIds.add(jokeId));
-    currentShow.lockedSetId = lockedSet.id;
   }
 
   let subTitle = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
@@ -3964,13 +4046,17 @@ function performShow() {
   if (nota >= 4) state.network = (state.network || 10) + 2;
   const entregaGain = nota >= 4 ? 2 : 1;
   state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
+  if (nota >= 3 && hasClassPassive("stageConsistency")) {
+    state.texto = clamp((state.texto || 0) + 1, 0, 200);
+  }
   processOpenStageConsistencyOutcome(nota);
   processElencoCircuitOutcome(showType, nota);
   processHeadlinerSoloOutcome(showPlayed, showType, nota);
-  if (showType === "specialTape") {
+  if (state.v1Completed && showType === "specialTape") {
     processSpecialTapeOutcome(nota, adjustedScore);
     maybeTriggerLegacyChoice();
   }
+  maybeTriggerV1Ending(nota, showType, showPlayed);
 
   updateStats();
   renderJokeList({ selectable: false });
@@ -3987,7 +4073,8 @@ function performShow() {
   else maybeTriggerEvent("random", eventContext);
 
   if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
-  if (state.fans >= 20) maybeTriggerEvent("fans20");
+  checkFanMilestones();
+  saveGameState();
 }
 
 function applyOutcome(setList, outcome, breakdown = []) {
@@ -4040,6 +4127,12 @@ function checkAndShowPendingEvent() {
   }
 }
 
+function checkFanMilestones() {
+  if ((state.fans || 0) >= 20) maybeTriggerEvent("fans20");
+  if ((state.fans || 0) >= 30) maybeTriggerEvent("fans30");
+  if ((state.fans || 0) >= 50) maybeTriggerEvent("fans50");
+}
+
 function fallbackEmojiForOutcome(outcome) {
   if (outcome === "kill") return scoreToEmoji(0.4);
   if (outcome === "ok") return scoreToEmoji(0.2);
@@ -4073,7 +4166,8 @@ function handleCreateContent() {
 function createContent() {
   if (!spendActivityPoints(ACTIVITY_COSTS.content, "criar conteúdo")) return;
   const reach = Math.max(3, Math.round(state.stageTime * 1.5 + getTotalMinutes() * 0.75 + Math.random() * 12));
-  const fanGain = reach + Math.round(state.texto / 3);
+  const baseFanGain = reach + Math.round(state.texto / 3);
+  const fanGain = hasClassPassive("contentBoost") ? Math.round(baseFanGain * 1.35) : baseFanGain;
   state.fans += fanGain;
   state.network = (state.network || 10) + 1;
   state.motivation = clamp(state.motivation - 4, 0, 120);
@@ -4083,8 +4177,9 @@ function createContent() {
   displayNarration(`📱 Você cria conteúdo e posta. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade)`);
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
-  maybeTriggerEvent("fans20");
+  checkFanMilestones();
   checkAndShowPendingEvent();
+  saveGameState();
 }
 
 function handleStudy() {
@@ -4092,6 +4187,8 @@ function handleStudy() {
   exitSelectionMode();
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
   state.texto = clamp((state.texto || 0) + 6, 0, 200);
+  if (hasClassPassive("studyBoost")) state.texto = clamp((state.texto || 0) + 1, 0, 200);
+  if (hasClassPassive("studyBoost")) state.entrega = clamp((state.entrega || 0) + 1, 0, 200);
   state.motivation = clamp(state.motivation + 4, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
   addHeadlinerPrep(1);
@@ -4099,6 +4196,7 @@ function handleStudy() {
   flashScreen('rgba(245, 230, 200, 0.2)');
   displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
   updateStats();
+  saveGameState();
 }
 
 function handleShowCredits() {
@@ -4237,6 +4335,8 @@ function renderHeadlinerSetEditor(setId) {
 function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
   ensureCareerProgressState();
   uiMode = "headlinerSetBuilder";
+  const careerStage = getCareerStage();
+  const isElencoStage = careerStage === "elenco";
   if (setId && getHeadlinerSetById(setId)) {
     selectedJokeIds.clear();
     getHeadlinerSetById(setId).jokeIds.forEach((jokeId) => selectedJokeIds.add(jokeId));
@@ -4268,7 +4368,7 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
     <div>
-      <div>🧠 Headliner trabalha com <strong>textos</strong>. Selecione piadas e salve um texto.</div>
+      <div>${isElencoStage ? "🎬 Elenco trabalha com textos de 15 minutos. Selecione piadas e salve um texto." : "🎤 Headliner/solo é conteúdo futuro. V1.0 termina antes disso."}</div>
       <div>Selecionadas agora: <strong>${selectedJokeIds.size}</strong> piadas</div>
       <div style="margin-top: 8px;">
         <button class="set-create-btn">➕ Salvar novo texto</button>
@@ -4276,7 +4376,7 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
         <button class="set-clear-selection-btn">🧹 Limpar seleção</button>
         <button class="set-view-material-btn">📓 Ver material tradicional</button>
       </div>
-      <h4>📚 Seus textos</h4>
+      <h4>${isElencoStage ? "📚 Textos de 15 minutos" : "📚 Seus textos"}</h4>
       <div>${setsHtml}</div>
       ${activeSet ? `<div>Texto ativo: <strong>${escapeHtml(activeSet.title)}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
     </div>
@@ -4285,7 +4385,7 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
   elements.btnDivLow.querySelector(".set-create-btn")?.addEventListener("click", () => {
     if (!selectedJokeIds.size) { displayNarration("Selecione pelo menos uma piada para criar um texto."); return; }
     const title = window.prompt("Nome do novo texto:", `Texto ${state.headlinerSets.length + 1}`) || "";
-    const created = createHeadlinerSet(title, [...selectedJokeIds], { targetMinutes: 25 });
+    const created = createHeadlinerSet(title, [...selectedJokeIds], { targetMinutes: isElencoStage ? 15 : 25 });
     setActiveHeadlinerSet(created.id);
     displayNarration(`📚 Novo texto criado: ${created.title}.`);
     openHeadlinerSetBuilder(created.id);
@@ -4344,10 +4444,21 @@ function showMaterialNotebookView() {
 
 function handleViewMaterial() {
   exitSelectionMode();
-  if (getCareerStage() === "headliner") {
+  const careerStage = getCareerStage();
+  if (careerStage === "open") {
+    showMaterialNotebookView();
+    return;
+  }
+  if (careerStage === "elenco") {
     setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
     openHeadlinerSetBuilder(null, true);
-    displayNarration("🧠 Fase headliner: organize seus textos para solos e especial.");
+    displayNarration("🎬 Elenco trabalha com textos de 15 minutos. Selecione piadas, organize e ative um texto.");
+    return;
+  }
+  if (careerStage === "headliner") {
+    setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
+    openHeadlinerSetBuilder(null, true);
+    displayNarration("🚧 Conteúdo Headliner será expandido na v2/v3. A v1.0 termina no começo do Elenco.");
     return;
   }
   showMaterialNotebookView();
@@ -4358,6 +4469,13 @@ function handleSaveGame() {
   playSound('save');
   flashScreen('rgba(90, 143, 90, 0.25)');
   displayNarration("💾 Jogo salvo no seu navegador. Pode fechar o bloco e voltar quando quiser.");
+}
+
+function handleNewGameReset() {
+  const confirmed = window.confirm("Tem certeza que deseja começar um Novo Jogo? Seu progresso salvo será apagado.");
+  if (!confirmed) return;
+  localStorage.removeItem(STORAGE_KEY);
+  window.location.reload();
 }
 
 function deleteJoke(jokeId) {
@@ -4377,6 +4495,7 @@ function deleteJoke(jokeId) {
       elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
     }
     displayNarration(`🗑️ ${removed.title} foi aposentada. Hora de escrever algo no lugar.`);
+    saveGameState();
   }, 300);
 }
 
@@ -4435,7 +4554,8 @@ function finalizeRewrite() {
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const rewritePerkBonus = getPerkEffect('rewriteBonus');
-  joke.truePotential = clamp(basePotential + (state.texto / 160) + flowBonus + rewritePerkBonus, 0.2, 0.98);
+  const classRewriteBonus = hasClassPassive("betterRewrite") ? 0.04 : 0;
+  joke.truePotential = clamp(basePotential + (state.texto / 160) + flowBonus + rewritePerkBonus + classRewriteBonus, 0.2, 0.98);
   joke.tone = _newTone || joke.tone;
   joke.structure = _newStructure || joke.structure;
   joke.minutes = Math.random() > 0.7 ? 2 : 1;
@@ -4453,6 +4573,7 @@ function finalizeRewrite() {
   displayNarration(`✏️ "${joke.title}" foi completamente reescrita! Tom: ${joke.tone}, estrutura: ${joke.structure.toUpperCase()}. ${joke.minutes} min. Parece ${label}. (+${xpGain} XP)`);
   handleViewMaterial();
   updateStats();
+  saveGameState();
 }
 
 
@@ -4484,19 +4605,23 @@ function bootGame() {
     if ((state.availablePerkPoints || 0) > 0) {
       setTimeout(() => showPerkSelectionDialog(), 1000);
     }
-    if (getCareerStage() === "headliner" && (!state.headlinerSets || state.headlinerSets.length === 0)) {
+    if (state.v1Completed && getCareerStage() === "headliner" && (!state.headlinerSets || state.headlinerSets.length === 0)) {
       setTimeout(() => {
         queueCriticalDialog(
           "📚 Você chegou ao headliner.\n\nAgora organize seus textos no menu Material para preparar solos e especial.",
           [{ label: "Abrir Material", handler: () => handleViewMaterial() }]
         );
       }, 850);
+    } else if (!state.v1Completed && getCareerStage() === "headliner") {
+      setTimeout(() => maybeShowHeadlinerFutureNotice(), 850);
     }
-    setTimeout(() => {
-      updateSpecialTapeEligibility();
-      maybeOfferSpecialTaping();
-    }, 900);
-    if (!state.legacyEnding && getCareerStage() === "headliner" && (state.levelNumber || 1) >= 18) {
+    if (state.v1Completed) {
+      setTimeout(() => {
+        updateSpecialTapeEligibility();
+        maybeOfferSpecialTaping();
+      }, 900);
+    }
+    if (state.v1Completed && !state.legacyEnding && getCareerStage() === "headliner" && (state.levelNumber || 1) >= 18) {
       setTimeout(() => maybeTriggerLegacyChoice(), 1200);
     }
   } else {
@@ -4523,6 +4648,7 @@ function attachEvents() {
   addButtonEffects(elements.buttons.study, handleStudy);
   addButtonEffects(elements.buttons.history, handleViewHistory);
   if (elements.buttons.credits) addButtonEffects(elements.buttons.credits, handleShowCredits);
+  if (elements.buttons.newGame) addButtonEffects(elements.buttons.newGame, handleNewGameReset);
   addButtonEffects(elements.btnContinuar, performShow);
   addButtonEffects(elements.btnEndDay, handleEndDay);
   addButtonEffects(elements.btnGoToShow, handleGoToScheduledShow);
