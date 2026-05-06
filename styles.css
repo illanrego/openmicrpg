@@ -21,6 +21,66 @@
   --highlight: #c9a227;
 }
 
+body.theme-classic {
+  --brick-dark: #4a2c2a;
+  --brick-medium: #8b4537;
+  --brick-light: #a65d4e;
+  --wood-dark: #2d1f1a;
+  --wood-medium: #4a3728;
+  --cream: #f5e6c8;
+  --cream-dark: #e6d4a8;
+  --gold: #d4a84b;
+  --gold-bright: #ffd966;
+  --spotlight: #fff8dc;
+  --text-dark: #2d1f1a;
+  --text-light: #f5e6c8;
+  --menu-bg: #1a1410;
+  --menu-border: #8b7355;
+  --success: #5a8f5a;
+  --danger: #a64444;
+  --highlight: #c9a227;
+}
+
+body.theme-crystal {
+  --brick-dark: #1d2b4f;
+  --brick-medium: #3d5a99;
+  --brick-light: #627ec7;
+  --wood-dark: #0f1830;
+  --wood-medium: #22355f;
+  --cream: #e8efff;
+  --cream-dark: #c5d3ff;
+  --gold: #7fd3ff;
+  --gold-bright: #c9f0ff;
+  --spotlight: #f5fbff;
+  --text-dark: #0f1830;
+  --text-light: #e8efff;
+  --menu-bg: #121c39;
+  --menu-border: #5d79c0;
+  --success: #6ec1a5;
+  --danger: #c46e8c;
+  --highlight: #7fd3ff;
+}
+
+body.theme-forest {
+  --brick-dark: #243d2d;
+  --brick-medium: #3f6b4b;
+  --brick-light: #5d8c69;
+  --wood-dark: #14241a;
+  --wood-medium: #2b4734;
+  --cream: #eef7e8;
+  --cream-dark: #d3e8c7;
+  --gold: #b8d36c;
+  --gold-bright: #dff39b;
+  --spotlight: #f8fff2;
+  --text-dark: #14241a;
+  --text-light: #eef7e8;
+  --menu-bg: #182c1f;
+  --menu-border: #5f8a67;
+  --success: #72b57b;
+  --danger: #b56262;
+  --highlight: #9fcb66;
+}
+
 * {
   box-sizing: border-box;
   image-rendering: pixelated;

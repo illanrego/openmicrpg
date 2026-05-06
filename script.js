@@ -2806,6 +2806,7 @@ function applyEventEffects(effects) {
 function loadGameState() {
   const baseState = {
     name: "Red", stageTime: 0, jokes: [], language: "pt",
+    theme: "classic",
     avatar: null, hasStarted: false, fans: 0, motivation: 60, texto: 10, entrega: 5,
     eventsSeen: [], lastSave: null, xp: 0, levelNumber: 1,
     ...createInitialTimeState(),
@@ -2839,6 +2840,7 @@ function loadGameState() {
       stageTime: parsed.stageTime ?? baseState.stageTime,
       jokes: Array.isArray(parsed.jokes) && parsed.jokes.length ? cloneJokes(parsed.jokes) : [],
       language: parsed.language || baseState.language,
+      theme: parsed.theme || baseState.theme,
       avatar: parsed.avatar || baseState.avatar,
       hasStarted: parsed.hasStarted ?? baseState.hasStarted,
       fans: parsed.fans ?? baseState.fans,
@@ -2920,7 +2922,7 @@ function saveGameState() {
   ensureCareerProgressState();
   const payload = {
     name: state.name, stageTime: state.stageTime, jokes: state.jokes,
-    language: state.language, avatar: state.avatar, hasStarted: state.hasStarted,
+    language: state.language, theme: state.theme || "classic", avatar: state.avatar, hasStarted: state.hasStarted,
     fans: state.fans, motivation: state.motivation, texto: state.texto, entrega: state.entrega,
     eventsSeen: state.eventsSeen, xp: state.xp, levelNumber: state.levelNumber,
     currentDay: state.currentDay, currentWeekDay: state.currentWeekDay,
@@ -2957,6 +2959,11 @@ function saveGameState() {
 // ═══════════════════════════════════════════════════════════════════
 
 const elements = {};
+const THEME_PRESETS = {
+  classic: { label: "🎭 Clássico (Jazz Club)", bodyClass: "theme-classic" },
+  crystal: { label: "💎 Crystal Blue", bodyClass: "theme-crystal" },
+  forest: { label: "🌿 Forest Quest", bodyClass: "theme-forest" }
+};
 
 function escapeHtml(value) {
   return String(value)
@@ -2965,6 +2972,13 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function applyTheme(themeId) {
+  const validThemeId = THEME_PRESETS[themeId] ? themeId : "classic";
+  document.body.classList.remove("theme-classic", "theme-crystal", "theme-forest");
+  document.body.classList.add(THEME_PRESETS[validThemeId].bodyClass);
+  state.theme = validThemeId;
 }
 
 function cacheElements() {
@@ -3005,7 +3019,8 @@ function cacheElements() {
     study: document.querySelector("#button6"),
     history: document.querySelector("#button7"),
     credits: document.querySelector("#button8"),
-    newGame: document.querySelector("#button9")
+    newGame: document.querySelector("#button9"),
+    settings: document.querySelector("#button10")
   };
   elements.stats = {
     name: document.querySelector("#nameText"),
@@ -4478,6 +4493,24 @@ function handleNewGameReset() {
   window.location.reload();
 }
 
+function openSettingsMenu() {
+  const options = Object.entries(THEME_PRESETS).map(([themeId, theme]) => {
+    const selectedMark = state.theme === themeId ? " ✅" : "";
+    return {
+      label: `${theme.label}${selectedMark}`,
+      handler: () => {
+        applyTheme(themeId);
+        saveGameState();
+        updateStats(false);
+        hideDialog();
+        displayNarration(`🎨 Tema aplicado: ${theme.label}`);
+      }
+    };
+  });
+  options.push({ label: "Fechar", handler: hideDialog });
+  showDialog("⚙️ Configurações\n\nEscolha um tema de cores:", options);
+}
+
 function deleteJoke(jokeId) {
   const jokeIndex = state.jokes.findIndex((joke) => joke.id === jokeId);
   if (jokeIndex === -1) return;
@@ -4590,6 +4623,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function bootGame() {
   state = loadGameState();
+  applyTheme(state.theme || "classic");
   ensureCareerProgressState();
   updateStats();
   if (state.hasStarted && state.avatar) {
@@ -4649,6 +4683,7 @@ function attachEvents() {
   addButtonEffects(elements.buttons.history, handleViewHistory);
   if (elements.buttons.credits) addButtonEffects(elements.buttons.credits, handleShowCredits);
   if (elements.buttons.newGame) addButtonEffects(elements.buttons.newGame, handleNewGameReset);
+  if (elements.buttons.settings) addButtonEffects(elements.buttons.settings, openSettingsMenu);
   addButtonEffects(elements.btnContinuar, performShow);
   addButtonEffects(elements.btnEndDay, handleEndDay);
   addButtonEffects(elements.btnGoToShow, handleGoToScheduledShow);
