@@ -79,7 +79,7 @@ function getUnlockedTones() {
 
 function getUnlockedStructures() {
   const base = ["oneliner", "bit"];
-  if (state && state.levelNumber >= 6) base.push("storytelling");
+  if (state && (state.storytellingUnlocked || state.levelNumber >= 6)) base.push("storytelling");
   if (state && state.levelNumber >= 10) base.push("prop");
   return base;
 }
@@ -107,6 +107,24 @@ const structureDescriptions = {
   storytelling: "Uma narrativa, uma história com vários punchs.",
   bit: "Sequência de piadas conectadas sobre um mesmo tema.",
   prop: "Usa objetos ou elementos visuais para complementar a piada."
+};
+
+const PROFILE_BADGE_LABELS = {
+  storytellingUnlocked: { label: "📚 Storytelling", kind: "feature" },
+  fiveA5Unlocked: { label: "⭐ 5 a 5", kind: "milestone" },
+  pague15Unlocked: { label: "🏆 Pague 15", kind: "milestone" },
+  timingBasico: { label: "⏱️ Timing", kind: "perk" },
+  timingAvancado: { label: "⏱️ Timing Pro", kind: "perk" },
+  presencaDePalco: { label: "🎭 Presença", kind: "perk" },
+  crowdWorkIniciante: { label: "🗣️ Crowd Work", kind: "perk" },
+  crowdWorkPro: { label: "🗣️ Crowd Work Pro", kind: "perk" },
+  lidarComHeckler: { label: "🛡️ Hecklers", kind: "perk" },
+  energiaAlta: { label: "⚡ Energia Alta", kind: "perk" },
+  premissaSolida: { label: "📝 Premissa", kind: "perk" },
+  economiaDePalavras: { label: "✂️ Economia", kind: "perk" },
+  tagMachine: { label: "🏷️ Tag Machine", kind: "perk" },
+  callbackMaster: { label: "🔁 Callback", kind: "perk" },
+  setupKiller: { label: "🎯 Setup Killer", kind: "perk" }
 };
 
 // ─── Score scale (nota 5 → 1) ───
@@ -987,7 +1005,7 @@ const eventPool = [
     text: "Rossini Luz, mestre da escrita de comédia, te manda mensagem: 'Ei, vi que você tá evoluindo! Quero te convidar pro meu workshop de texto. Vou te ensinar storytelling — a arte de contar uma história que prende, diverte e explode no final.'",
     image: "rossini-luz.png",
     choices: [
-      { label: "Aceitar o workshop de storytelling", effects: { texto: 15, motivation: 5, entrega: 3 }, narration: "Rossini te ensina a construir narrativas com setup, desenvolvimento e payoff. Você desbloqueia STORYTELLING como estrutura! Um mundo novo de possibilidades se abre." },
+      { label: "Aceitar o workshop de storytelling", effects: { texto: 15, motivation: 5, entrega: 3, storytellingUnlocked: true }, narration: "Rossini te ensina a construir narrativas com setup, desenvolvimento e payoff. Você desbloqueia STORYTELLING como estrutura! Um mundo novo de possibilidades se abre." },
       { label: "Focar em oneliners por enquanto", effects: { texto: 5, motivation: 3 }, narration: "Você agradece mas prefere dominar o que já sabe. Rossini entende e diz: 'Quando estiver pronto, me procura.'" }
     ]
   },
@@ -1215,6 +1233,58 @@ function resolveCareerStage(level = state?.level, levelNumber = state?.levelNumb
 
 function getCareerStage() {
   return resolveCareerStage(state?.level, state?.levelNumber);
+}
+
+function getProfileTitle() {
+  if (!state) return "Comediante em formação";
+  if (state.chosenClass && CLASSES[state.chosenClass]) return CLASSES[state.chosenClass].name;
+  if (state.madeIt) return "Headliner";
+  const stage = getCareerStage();
+  if (stage === "elenco") return "Em circuito";
+  if (stage === "headliner") return "Headliner";
+  if ((state.levelNumber || 1) >= 3) return "Em ascensão";
+  return "Comediante em formação";
+}
+
+function getProfileBadges() {
+  if (!state) return [];
+  const badges = [];
+  if (state.chosenClass && CLASSES[state.chosenClass]) {
+    badges.push({ label: `💼 ${CLASSES[state.chosenClass].name}`, kind: "career" });
+  } else {
+    const stage = getCareerStage();
+    badges.push({
+      label: stage === "headliner" ? "🎤 Headliner" : stage === "elenco" ? "🎬 Elenco" : "🌱 Open Mic",
+      kind: "career"
+    });
+  }
+
+  if (state.storytellingUnlocked) badges.push(PROFILE_BADGE_LABELS.storytellingUnlocked);
+  if (state.fiveA5Unlocked) badges.push(PROFILE_BADGE_LABELS.fiveA5Unlocked);
+  if (state.pague15Unlocked) badges.push(PROFILE_BADGE_LABELS.pague15Unlocked);
+
+  const visiblePerks = Array.isArray(state.unlockedPerks)
+    ? state.unlockedPerks
+        .map((perkId) => ({ perkId, badge: PROFILE_BADGE_LABELS[perkId] }))
+        .filter((entry) => !!entry.badge)
+        .map((entry) => entry.badge)
+    : [];
+
+  badges.push(...visiblePerks);
+  return badges.slice(0, 6);
+}
+
+function renderProfileBadges() {
+  if (!elements.profile?.title || !elements.profile?.badges) return;
+
+  elements.profile.title.textContent = getProfileTitle();
+
+  const badges = getProfileBadges();
+  const visibleBadges = badges.slice(0, 5);
+  const overflow = Math.max(0, badges.length - visibleBadges.length);
+  const badgeMarkup = visibleBadges.map((badge) => `<span class="profile-badge profile-badge-${badge.kind || "perk"}">${badge.label}</span>`).join("");
+  const overflowMarkup = overflow > 0 ? `<span class="profile-badge profile-badge-overflow">+${overflow}</span>` : "";
+  elements.profile.badges.innerHTML = `${badgeMarkup}${overflowMarkup}`;
 }
 
 function getCareerStageIndex(stage) {
@@ -2625,6 +2695,7 @@ function applyEventEffects(effects) {
   if (effects.entrega) state.entrega = clamp(state.entrega + effects.entrega, 0, 200);
   if (effects.stageTime) state.stageTime = Math.max(0, state.stageTime + effects.stageTime);
   if (effects.network) state.network = Math.max(0, (state.network || 10) + effects.network);
+  if (effects.storytellingUnlocked) state.storytellingUnlocked = true;
 }
 
 
@@ -2640,6 +2711,7 @@ function loadGameState() {
     ...createInitialTimeState(),
     level: "open", showsAtLevel4: 0, shows5a5AtLevel4: 0,
     fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
+    storytellingUnlocked: false,
     chosenClass: null, hasEmployment: false, madeIt: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
@@ -2686,6 +2758,7 @@ function loadGameState() {
       consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
       flowState: parsed.flowState || null,
       eventsThisWeek: parsed.eventsThisWeek ?? 0,
+      storytellingUnlocked: parsed.storytellingUnlocked ?? false,
       level: getLevelTier(resolvedLevelNumber),
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
@@ -2756,7 +2829,7 @@ function saveGameState() {
     eventsThisWeek: state.eventsThisWeek,
     level: state.level, showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
-    pague15Unlocked: state.pague15Unlocked, network: state.network,
+    pague15Unlocked: state.pague15Unlocked, network: state.network, storytellingUnlocked: state.storytellingUnlocked,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
@@ -2833,6 +2906,10 @@ function cacheElements() {
     day: document.querySelector("#dayText"),
     points: document.querySelector("#pointsText"),
     flow: document.querySelector("#flowText")
+  };
+  elements.profile = {
+    title: document.querySelector("#profileTitleText"),
+    badges: document.querySelector("#profileBadges")
   };
 }
 
@@ -3076,6 +3153,8 @@ function updateStats(animate = true) {
   // Entrega
   if (animate && state.entrega !== old.entrega) { animateNumber(elements.stats.entrega, old.entrega, state.entrega, 400); animateStatChange('entrega', state.entrega > old.entrega); }
   else elements.stats.entrega.textContent = `${state.entrega}`;
+
+  renderProfileBadges();
 
   previousStats = { fans: state.fans, motivation: state.motivation, texto: state.texto, entrega: state.entrega, stageTime: state.stageTime, xp: state.xp };
 }

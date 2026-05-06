@@ -382,6 +382,76 @@ h3 {
     inset -2px -2px 0 rgba(0,0,0,0.2);
 }
 
+.profile-panel {
+  margin-top: 4px;
+  padding: 8px 6px;
+  border-top: 2px solid rgba(245, 230, 200, 0.12);
+  background: linear-gradient(180deg, rgba(74, 55, 40, 0.45) 0%, rgba(26, 20, 16, 0.85) 100%);
+  border-radius: 4px;
+}
+
+.profile-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--cream);
+}
+
+.profile-title strong {
+  color: var(--gold-bright);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55rem;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  border: 1px solid rgba(245, 230, 200, 0.22);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--cream);
+  white-space: nowrap;
+}
+
+.profile-badge-career {
+  background: linear-gradient(180deg, rgba(212, 168, 75, 0.35) 0%, rgba(166, 93, 78, 0.35) 100%);
+  border-color: rgba(255, 217, 102, 0.45);
+  color: var(--gold-bright);
+}
+
+.profile-badge-feature {
+  background: rgba(90, 143, 90, 0.28);
+  border-color: rgba(90, 143, 90, 0.5);
+}
+
+.profile-badge-milestone {
+  background: rgba(166, 68, 68, 0.26);
+  border-color: rgba(166, 68, 68, 0.5);
+}
+
+.profile-badge-perk {
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.profile-badge-overflow {
+  opacity: 0.8;
+}
+
 .stat {
   font-size: 1rem;
   color: var(--cream);
@@ -907,6 +977,15 @@ button:active {
   
   #stats {
     width: 100%;
+  }
+
+  .profile-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-title strong {
+    text-align: left;
   }
   
   #btnDivUp {
