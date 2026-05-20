@@ -2020,7 +2020,7 @@ body.flow-active #game {
   border: 5px solid var(--gold, #d4a84b);
   border-radius: 8px;
   padding: 24px;
-  max-width: 420px;
+  max-width: 560px;
   width: 100%;
   color: var(--text-dark, #1a1a2e);
   box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 20px rgba(212, 168, 75, 0.3);
@@ -2049,6 +2049,35 @@ body.flow-active #game {
   line-height: 1.6;
   margin-bottom: 16px;
   white-space: pre-line;
+}
+
+.critical-dialog-content {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.critical-dialog-content.no-image {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.critical-dialog-image {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border: 3px solid var(--menu-border, #3d2e1f);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.critical-dialog-image.character-image {
+  border-radius: 999px;
+}
+
+.critical-dialog-content #criticalDialogText {
+  margin-bottom: 0;
 }
 
 #criticalDialogActions {
@@ -2085,4 +2114,17 @@ body.flow-active #game {
 #criticalDialogActions button:hover {
   background: linear-gradient(180deg, var(--wood-dark, #5c4a32) 0%, var(--wood-medium, #8b7355) 100%);
   transform: translateX(3px);
+}
+
+@media (max-width: 680px) {
+  .critical-dialog-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .critical-dialog-image {
+    width: min(220px, 100%);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    justify-self: center;
+  }
 }

@@ -531,6 +531,20 @@ const showPool = [
     typeAffinity: { default: -0.1, besteirol: 0, vulgar: 0.2, "humor negro": 0.7, limpo: -0.4, hack: -0.2 }
   },
   {
+    id: "casa-de-swing", name: "Casa de Swing", minMinutes: 5, difficulty: 0.42,
+    crowd: "Adultos em mesas baixas, clima de flerte e risadas desconfortáveis esperando alguém quebrar o gelo.",
+    intro: "Uma casa noturna adulta quer stand-up antes da pista esquentar. O ambiente é estranho, íntimo e zero família.",
+    image: "casa-de-swing.png", vibeHint: "Ousadia, vulgaridade controlada e leitura de sala fazem a diferença.",
+    typeAffinity: { default: -0.05, besteirol: 0.2, vulgar: 0.7, "humor negro": 0.3, limpo: -0.7, hack: 0.1 }
+  },
+  {
+    id: "bem-bolado", name: "Bem Bolado", minMinutes: 5, difficulty: 0.3,
+    crowd: "Plateia relaxada demais, rindo atrasado e perdendo o fio se a piada demora muito.",
+    intro: "Um lounge temático de cannabis abriu espaço para comédia. O clima é lento, verde e cheio de gente filosofando no sofá.",
+    image: "bem-bolado.png", vibeHint: "Besteirol, observações absurdas e ritmo simples funcionam melhor.",
+    typeAffinity: { default: 0.05, besteirol: 0.7, vulgar: 0.2, "humor negro": 0.1, limpo: 0, hack: 0.3 }
+  },
+  {
     id: "teatro-limpo", name: "Teatro Municipal - Noite Limpa", minMinutes: 7, difficulty: 0.5,
     crowd: "Plateia educada, paga e extremamente crítica.",
     intro: "A prefeitura convidou novos talentos para um mini-festival. Som perfeito, mas você precisa merecer cada aplauso.",
@@ -569,7 +583,7 @@ const showPool = [
     id: "metro-linha-azul", name: "Linha Azul After-Work", minMinutes: 3, difficulty: 0.27,
     crowd: "Passageiros cansados que só querem chegar em casa.",
     intro: "Uma ação cultural leva stand-up para o vagão especial. Você tem pouco tempo entre as estações.",
-    image: "barzinho.png", vibeHint: "One-liners rápidos e humor sobre transporte são essenciais.",
+    image: "metro-comedy.png", vibeHint: "One-liners rápidos e humor sobre transporte são essenciais.",
     typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.3, "humor negro": 0, limpo: 0.2, hack: 0.5 }
   },
   {
@@ -618,21 +632,21 @@ const showPool = [
     id: "churrascaria", name: "Comedy & Carne", minMinutes: 4, difficulty: 0.22,
     crowd: "Famílias em rodízio que não vieram pra prestar atenção.",
     intro: "Uma churrascaria resolveu colocar entretenimento. Concorra com a picanha.",
-    image: "bar-do-tony.png", vibeHint: "Material limpo e observações sobre comida ganham a mesa.",
+    image: "churrascaria-comedy.png", vibeHint: "Material limpo e observações sobre comida ganham a mesa.",
     typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.4, "humor negro": -0.3, limpo: 0.6, hack: 0.4 }
   },
   {
     id: "teatro-alternativo", name: "Teatro do Porão", minMinutes: 6, difficulty: 0.38,
     crowd: "Plateia cult que curte o underground e detesta o mainstream.",
     intro: "Um teatro de porão te convida para a noite experimental. Vale tudo.",
-    image: "teatro-legal.png", vibeHint: "Ousadia e originalidade são mais importantes que punchlines perfeitas.",
+    image: "basement-theater.png", vibeHint: "Ousadia e originalidade são mais importantes que punchlines perfeitas.",
     typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: 0.3, "humor negro": 0.6, limpo: -0.3, hack: -0.2 }
   },
   {
     id: "stand-up-sertanejo", name: "Riso & Viola", minMinutes: 5, difficulty: 0.25,
     crowd: "Fãs de sertanejo entre uma música e outra do show principal.",
     intro: "Uma casa de shows sertaneja quer esquentar a plateia antes da banda.",
-    image: "bar-do-tony.png", vibeHint: "Piadas sobre interior, família e relacionamento agradam.",
+    image: "sertanejo-house.png", vibeHint: "Piadas sobre interior, família e relacionamento agradam.",
     typeAffinity: { default: 0, besteirol: 0.4, vulgar: 0.2, "humor negro": -0.2, limpo: 0.5, hack: 0.3 }
   },
   {
@@ -667,7 +681,7 @@ const showPool = [
     id: "sindicato", name: "Show do Sindicato", minMinutes: 6, difficulty: 0.35,
     crowd: "Trabalhadores em assembleia que querem descontrair.",
     intro: "O sindicato te chamou para a confraternização anual. Público exigente.",
-    image: "bar-do-tony.png", vibeHint: "Piadas sobre trabalho e patrão funcionam. Evite política direta.",
+    image: "sindicato-hall.png", vibeHint: "Piadas sobre trabalho e patrão funcionam. Evite política direta.",
     typeAffinity: { default: 0, besteirol: 0.2, vulgar: 0.1, "humor negro": 0.3, limpo: 0.3, hack: 0.5 }
   },
   {
@@ -681,7 +695,7 @@ const showPool = [
     id: "show-lgbtq", name: "Rainbow Comedy", minMinutes: 5, difficulty: 0.28,
     crowd: "Comunidade LGBTQ+ que valoriza autenticidade e ousadia.",
     intro: "Uma casa noturna LGBTQ+ faz noite de stand-up. Seja você mesmo.",
-    image: "teatro-legal.png", vibeHint: "Autenticidade e humor sobre experiências pessoais conectam.",
+    image: "rainbow-nightclub.png", vibeHint: "Autenticidade e humor sobre experiências pessoais conectam.",
     typeAffinity: { default: 0.15, besteirol: 0.3, vulgar: 0.4, "humor negro": 0.3, limpo: 0.1, hack: 0.2 }
   },
   {
@@ -710,7 +724,7 @@ const showPool = [
     id: "parque-ao-ar-livre", name: "Comedy no Parque", minMinutes: 5, difficulty: 0.35,
     crowd: "Famílias passeando no domingo, crianças correndo.",
     intro: "Um evento cultural no parque te chama. Som ao ar livre, público disperso.",
-    image: "outdoor-gig.png", vibeHint: "Material limpo e energia alta para segurar atenção.",
+    image: "park-comedy.png", vibeHint: "Material limpo e energia alta para segurar atenção.",
     typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.6, "humor negro": -0.4, limpo: 0.6, hack: 0.3 }
   },
   {
@@ -718,7 +732,7 @@ const showPool = [
     requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
     crowd: "Clientes do bairro esperando pão na chapa e café.",
     intro: "A padaria liberou um cantinho para talentos locais. Público simpático, mas impaciente.",
-    image: "barzinho.png", vibeHint: "Observações cotidianas simples e diretas funcionam melhor.",
+    image: "padaria-open-mic.png", vibeHint: "Observações cotidianas simples e diretas funcionam melhor.",
     typeAffinity: { default: 0.1, besteirol: 0.5, vulgar: -0.2, "humor negro": 0, limpo: 0.6, hack: 0.2 }
   },
   {
@@ -750,21 +764,21 @@ const showPool = [
     requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 5,
     crowd: "Público variado, de família a curiosos de passagem.",
     intro: "Evento comunitário de domingo. Ótimo para testar material sem tanta pressão.",
-    image: "outdoor-gig.png", vibeHint: "Material limpo e observações universais vão melhor aqui.",
+    image: "park-comedy.png", vibeHint: "Material limpo e observações universais vão melhor aqui.",
     typeAffinity: { default: 0.1, besteirol: 0.4, vulgar: -0.4, "humor negro": -0.1, limpo: 0.6, hack: 0.3 }
   },
   {
     id: "navio-cruzeiro", name: "Comedy no Cruzeiro", minMinutes: 7, difficulty: 0.4, requiresLevel: "elenco",
     crowd: "Passageiros de cruzeiro de todas as idades e origens.",
     intro: "Um cruzeiro te contrata para a temporada. Público cativo e variado.",
-    image: "teatro-legal.png", vibeHint: "Humor universal, nada muito local ou nichado.",
+    image: "cruise-lounge-comedy.png", vibeHint: "Humor universal, nada muito local ou nichado.",
     typeAffinity: { default: 0.05, besteirol: 0.3, vulgar: -0.3, "humor negro": -0.1, limpo: 0.5, hack: 0.5 }
   },
   {
     id: "programa-tv", name: "Participação em TV", minMinutes: 4, difficulty: 0.5, requiresLevel: "elenco",
     crowd: "Plateia de programa de TV, câmeras ligadas.",
     intro: "Você foi chamado para um quadro de comédia na TV. É sua chance de aparecer.",
-    image: "teatro-legal.png", vibeHint: "Material polido e timing perfeito. Cada segundo conta.",
+    image: "tv-studio-comedy.png", vibeHint: "Material polido e timing perfeito. Cada segundo conta.",
     typeAffinity: { default: 0, besteirol: 0.2, vulgar: -0.6, "humor negro": -0.3, limpo: 0.6, hack: 0.5 }
   },
   {
@@ -772,7 +786,7 @@ const showPool = [
     requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
     crowd: "Público que acompanha comédia de perto e cobra material consistente.",
     intro: "Noite de elenco no porão. Você tem 15 minutos para segurar a sala sem muleta.",
-    image: "teatro-legal.png", vibeHint: "Consistência e ritmo importam mais que explosões isoladas.",
+    image: "basement-theater.png", vibeHint: "Consistência e ritmo importam mais que explosões isoladas.",
     typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.3, limpo: 0.4, hack: 0.4 }
   },
   {
@@ -2714,7 +2728,11 @@ function showPendingEvent() {
   const actions = (event.choices || []).map((choice, index) => ({
     label: choice.label, handler: () => handleEventChoiceIndex(index)
   }));
-  showDialog(event.text, actions);
+  queueCriticalDialog(event.text, actions, {
+    imageSrc: event.image || "",
+    imageAlt: event.id ? `Evento: ${event.id}` : "Evento",
+    imageIsCharacter: !!event.isCharacterEvent
+  });
 }
 
 function showEvent(event) {
@@ -2728,7 +2746,11 @@ function showEvent(event) {
   const actions = (event.choices || []).map((choice, index) => ({
     label: choice.label, handler: () => handleEventChoiceIndex(index)
   }));
-  showDialog(event.text, actions);
+  queueCriticalDialog(event.text, actions, {
+    imageSrc: event.image || "",
+    imageAlt: event.id ? `Evento: ${event.id}` : "Evento",
+    imageIsCharacter: !!event.isCharacterEvent
+  });
 }
 
 function handleEventChoiceIndex(index) {
@@ -2763,7 +2785,11 @@ function handleEventChoiceIndex(index) {
       const daysAhead = Math.random() < 0.5 ? 1 : 2;
       addScheduledShow(show.id, state.currentDay + daysAhead, "normal");
       updateStats();
-      showDialog(`${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`);
+      queueCriticalDialog(`${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
+        imageSrc: eventRef.image || "",
+        imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+        imageIsCharacter: !!eventRef.isCharacterEvent
+      });
     }
     return;
   }
@@ -2778,12 +2804,22 @@ function handleEventChoiceIndex(index) {
       else if (choice.scheduleShow === "pague15") { daysAhead = findDaysToWeekday(4) || 7; showType = "pague15"; }
       addScheduledShow(show.id, state.currentDay + daysAhead, showType);
       updateStats();
-      showDialog(`${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`);
+      queueCriticalDialog(`${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
+        imageSrc: eventRef.image || "",
+        imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+        imageIsCharacter: !!eventRef.isCharacterEvent
+      });
     }
     return;
   }
 
-  if (hasNarration) showDialog(`${choice.narration}${effectsSummary}`);
+  if (hasNarration) {
+    queueCriticalDialog(`${choice.narration}${effectsSummary}`, [], {
+      imageSrc: eventRef.image || "",
+      imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+      imageIsCharacter: !!eventRef.isCharacterEvent
+    });
+  }
 }
 
 function applyEventEffects(effects) {
@@ -3105,19 +3141,21 @@ function hideDialog() {
 
 // ─── Critical Dialog Queue (never conflicts, shown sequentially) ───
 
-function queueCriticalDialog(message, actions = []) {
-  criticalDialogQueue.push({ message, actions });
+function queueCriticalDialog(message, actions = [], options = {}) {
+  criticalDialogQueue.push({ message, actions, options });
   if (criticalDialogQueue.length === 1) showNextCriticalDialog();
 }
 
 function showNextCriticalDialog() {
   if (!criticalDialogQueue.length) return;
-  const { message, actions } = criticalDialogQueue[0];
+  const { message, actions, options } = criticalDialogQueue[0];
 
   const overlay = document.getElementById('criticalOverlay');
   const textEl = document.getElementById('criticalDialogText');
   const actionsEl = document.getElementById('criticalDialogActions');
-  if (!overlay || !textEl || !actionsEl) {
+  const contentEl = document.getElementById('criticalDialogContent');
+  const imageEl = document.getElementById('criticalDialogImage');
+  if (!overlay || !textEl || !actionsEl || !contentEl || !imageEl) {
     criticalDialogQueue.shift();
     return;
   }
@@ -3125,6 +3163,20 @@ function showNextCriticalDialog() {
   playSound('menu');
   textEl.textContent = message || "";
   actionsEl.innerHTML = "";
+  const imageSrc = options?.imageSrc ? String(options.imageSrc).trim() : "";
+  const hasImage = !!imageSrc;
+  contentEl.classList.toggle("no-image", !hasImage);
+  if (hasImage) {
+    imageEl.src = imageSrc;
+    imageEl.alt = options?.imageAlt || "Imagem do evento";
+    imageEl.classList.remove("hidden");
+    imageEl.classList.toggle("character-image", !!options?.imageIsCharacter);
+  } else {
+    imageEl.src = "";
+    imageEl.alt = "";
+    imageEl.classList.add("hidden");
+    imageEl.classList.remove("character-image");
+  }
 
   if (actions && actions.length > 0) {
     actions.forEach((action, index) => {
@@ -3159,7 +3211,16 @@ function showNextCriticalDialog() {
 
 function dismissCriticalDialog() {
   const overlay = document.getElementById('criticalOverlay');
+  const contentEl = document.getElementById('criticalDialogContent');
+  const imageEl = document.getElementById('criticalDialogImage');
   if (overlay) overlay.classList.add("hidden");
+  if (contentEl) contentEl.classList.remove("no-image");
+  if (imageEl) {
+    imageEl.src = "";
+    imageEl.alt = "";
+    imageEl.classList.add("hidden");
+    imageEl.classList.remove("character-image");
+  }
   criticalDialogQueue.shift();
   if (criticalDialogQueue.length > 0) {
     setTimeout(() => showNextCriticalDialog(), 300);
@@ -4134,10 +4195,15 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
 function checkAndShowPendingEvent() {
   if (pendingEvent) {
     setTimeout(() => {
-      showDialog("🎲 Algo aconteceu...", [
-        { label: "Ver Evento Surpresa", handler: () => { hideDialog(); showPendingEvent(); } },
-        { label: "Depois", handler: () => { pendingEvent = null; hideDialog(); } }
-      ]);
+      const queuedEvent = pendingEvent;
+      queueCriticalDialog("🎲 Algo aconteceu...", [
+        { label: "Ver Evento Surpresa", handler: () => showPendingEvent() },
+        { label: "Depois", handler: () => { pendingEvent = null; } }
+      ], {
+        imageSrc: queuedEvent?.image || "",
+        imageAlt: queuedEvent?.id ? `Evento: ${queuedEvent.id}` : "Evento surpresa",
+        imageIsCharacter: !!queuedEvent?.isCharacterEvent
+      });
     }, 1000);
   }
 }
