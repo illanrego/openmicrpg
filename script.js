@@ -2112,9 +2112,6 @@ function spendActivityPoints(cost, activityName) {
     return false;
   }
   state.activityPoints = Math.max(0, state.activityPoints - cost);
-  if (state.activityPoints <= 0) {
-    setTimeout(() => displayNarration("💤 Seus pontos de atividade acabaram. Considere encerrar o dia."), 500);
-  }
   updateStats();
   return true;
 }
