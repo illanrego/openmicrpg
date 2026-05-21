@@ -301,8 +301,7 @@ const CARVALHO_DIALOGS = [
     once: true,
     text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público.'",
     choices: [
-      { label: "🔁 Repetir e testar em outro contexto", effects: { texto: 3, network: 2 }, narration: "Você anota ajustes para testar em salas diferentes." },
-      { label: "📓 Organizar caderno com disciplina", effects: { motivation: 4, texto: 2 }, narration: "Você organiza estrutura, transições e próximas hipóteses." }
+      { label: "✅ Entendido", effects: { texto: 3, motivation: 3, network: 1 }, narration: "Você anota ajustes, organiza o caderno e volta para testar o material em salas diferentes." }
     ]
   },
   {
@@ -440,12 +439,32 @@ const ideaPool = [
 // ═══════════════════════════════════════════════════════════════════
 
 function inferShowAudienceType(show) {
+  if (show?.typeAffinity && typeof show.typeAffinity === "object") {
+    return inferAudienceTypeFromAffinity(show.typeAffinity);
+  }
   const id = show.id || "";
   if (id.includes("corporativo") || id.includes("sindicato")) return "corporate";
   if (id.includes("teatro") || id.includes("show-solo") || id.includes("programa-tv")) return "theater";
   if (id.includes("universitario") || id.includes("republica")) return "young-chaotic";
   if (id.includes("podcast") || id.includes("rooftop-tech") || id.includes("metro")) return "digital-urban";
   if (id.includes("shopping") || id.includes("familia") || id.includes("churrascaria")) return "family";
+  return "mixed-room";
+}
+
+function inferAudienceTypeFromAffinity(typeAffinity) {
+  const safe = typeAffinity || {};
+  const fallback = (typeof safe.default === "number") ? safe.default : 0;
+  const limpo = (typeof safe.limpo === "number") ? safe.limpo : fallback;
+  const hack = (typeof safe.hack === "number") ? safe.hack : fallback;
+  const vulgar = (typeof safe.vulgar === "number") ? safe.vulgar : fallback;
+  const humorNegro = (typeof safe["humor negro"] === "number") ? safe["humor negro"] : fallback;
+  const besteirol = (typeof safe.besteirol === "number") ? safe.besteirol : fallback;
+
+  if (limpo >= 0.55 && vulgar <= -0.6) return "corporate";
+  if (limpo >= 0.55 && vulgar <= -0.25 && humorNegro <= -0.15) return "family";
+  if (hack >= 0.45 && limpo >= 0.1) return "digital-urban";
+  if (besteirol >= 0.45 && vulgar >= 0.2) return "young-chaotic";
+  if (humorNegro >= 0.25 && limpo >= 0.25 && vulgar <= 0.2) return "theater";
   return "mixed-room";
 }
 
@@ -1108,11 +1127,10 @@ const eventPool = [
   },
   {
     id: "hackWarning", trigger: "random", once: true, isCharacterEvent: true,
-    text: "Professor Carvalho te liga: 'Parabéns pelas 5 piadas! Agora, um aviso importante sobre CALLBACKS. Callback é quando você repete algo que deu certo. É fácil, eficiente, mas é muleta. Se você só faz callback, seu show vira um truque previsível. Use com moderação.'",
+    text: "Professor Carvalho te liga: 'Parabéns pelas 5 piadas! Agora, um aviso importante sobre CALLBACKS. Callback fraco só menciona algo antigo e repete referência. Callback forte usa o elemento anterior para criar uma piada nova: nova premissa, nova virada ou novo punchline. Se você só repete, vira truque previsível. Use com moderação e intenção.'",
     image: "carvalho.png",
     choices: [
-      { label: "Anotar o conselho", effects: { texto: 5, motivation: 5 }, narration: "Você anota no caderno: 'Callback = muleta. Usar com moderação.' Professor Carvalho sorri: 'Isso. Agora vai lá e escreve material original.'" },
-      { label: "Discordar educadamente", effects: { motivation: 8, entrega: 3 }, narration: "Você argumenta que callbacks são uma ferramenta legítima. Carvalho ri: 'Tá certo, vai descobrir por conta própria. Faz parte.'" }
+      { label: "✅ Entendido", effects: { texto: 5, motivation: 6, entrega: 2 }, narration: "Você anota no caderno: 'Callback bom cria piada nova; callback fraco só repete.' Carvalho sorri e te manda voltar pro texto original." }
     ]
   }
 ];
@@ -2172,7 +2190,7 @@ function showPerkSelectionDialog() {
       playSound('getSomething');
       spawnConfetti(20);
       flashScreen('rgba(212, 168, 75, 0.3)');
-      queueCriticalDialog(`✨ Vantagem desbloqueada: ${perk.name}!\n\n${perk.desc}${perk.warning ? "\n\n⚠️ Professor Carvalho avisa: 'Callback é eficiente, mas é muleta. Use com moderação.'" : ""}`);
+      queueCriticalDialog(`✨ Vantagem desbloqueada: ${perk.name}!\n\n${perk.desc}${perk.warning ? "\n\n⚠️ Professor Carvalho avisa: 'Callback fraco só repete referência. Callback forte reaproveita o elemento e gera piada nova. Use com moderação.'" : ""}`);
       saveGameState();
     }
   }));
