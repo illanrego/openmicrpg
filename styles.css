@@ -740,6 +740,13 @@ button:active {
   color: var(--text-dark);
 }
 
+.joke-item.set-focused {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 2px rgba(255, 217, 102, 0.45),
+    inset 1px 1px 0 rgba(255,255,255,0.2);
+}
+
 .joke-item strong {
   color: var(--gold);
   font-size: 1.1rem;
@@ -913,6 +920,10 @@ button:active {
 
 #btnDivLow strong {
   color: var(--gold);
+}
+
+.material-sets-panel h4 {
+  margin: 8px 0 4px;
 }
 
 .writing-mode-btn {

@@ -141,22 +141,22 @@ const writingModes = {
   desk: {
     id: "desk",
     label: "Sentar e escrever",
-    desc: "Gasta mais motivação mas gera piadas com potencial muito maior. 25% de chance de não render nada.",
+    desc: "Gasta mais motivação mas gera piadas com potencial muito maior. 10% de chance de não render nada.",
     costLabel: "⚡ 1 ponto",
     motivationCost: 15,
     textoBonus: 0.10,
     timeBonus: 0.5,
-    failChance: 0.25
+    failChance: 0.10
   },
   day: {
     id: "day",
     label: "Anotar durante o dia",
-    desc: "Não gasta motivação mas o material sai mais cru. 50% de chance de não render nada.",
+    desc: "Não gasta motivação mas o material sai mais cru. 20% de chance de não render nada.",
     costLabel: "⚡ 1 ponto",
     motivationCost: 0,
     textoBonus: 0,
     timeBonus: 0,
-    failChance: 0.50
+    failChance: 0.20
   }
 };
 
@@ -1044,7 +1044,7 @@ const eventPool = [
     ]
   },
   {
-    id: "festaPosShow", trigger: "showKill",
+    id: "festaPosShow", trigger: "showKill", once: true,
     text: "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
     choices: [
       { label: "Ir para a festa", effects: { motivation: 8, network: 10, texto: -3 }, narration: "Você faz amigos e conexões importantes. A noite foi épica." },
@@ -1296,6 +1296,8 @@ let _customJokeTitle = null;
 let _rewritingJoke = null;
 let _newTone = null;
 let _newStructure = null;
+let _focusedMaterialSetId = null;
+let _materialJokeScope = "set";
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3445,6 +3447,7 @@ function updateFlowUI() {
 
 function renderJokeList({ selectable }) {
   const shouldDisplay = uiMode === "showSelection" || uiMode === "viewMaterial" || uiMode === "headlinerSetBuilder";
+  setMaterialLayoutOrder(uiMode === "headlinerSetBuilder");
   elements.jokeList.dataset.selectable = selectable ? "true" : "false";
   elements.jokeList.innerHTML = "";
 
@@ -3458,6 +3461,9 @@ function renderJokeList({ selectable }) {
   if (uiMode === "showSelection") {
     elements.subTitle.textContent = "📝 Material";
     elements.subTitle.style.display = "block";
+  } else if (uiMode === "headlinerSetBuilder") {
+    elements.subTitle.textContent = "📚 Textos e Piadas Avulsas";
+    elements.subTitle.style.display = "block";
   }
 
   elements.legend.textContent = LEGEND_TEXT;
@@ -3465,13 +3471,22 @@ function renderJokeList({ selectable }) {
   elements.legend.style.opacity = '0';
   setTimeout(() => { elements.legend.style.transition = 'opacity 0.3s ease'; elements.legend.style.opacity = '1'; }, 100);
 
-  if (!state.jokes.length) {
-    elements.jokeList.innerHTML = '<li class="joke-item read-only"><strong>📝 Sem piadas no bloco.</strong> Bora escrever algo.</li>';
+  const listToRender = uiMode === "headlinerSetBuilder" ? getHeadlinerBuilderVisibleJokes() : state.jokes;
+
+  if (!listToRender.length) {
+    if (uiMode === "headlinerSetBuilder") {
+      const builderEmptyMessage = _materialJokeScope === "unassigned"
+        ? "📝 Sem piadas avulsas fora de texto no momento."
+        : "📝 Este texto ainda não tem piadas.";
+      elements.jokeList.innerHTML = `<li class="joke-item read-only"><strong>${builderEmptyMessage}</strong></li>`;
+    } else {
+      elements.jokeList.innerHTML = '<li class="joke-item read-only"><strong>📝 Sem piadas no bloco.</strong> Bora escrever algo.</li>';
+    }
     elements.jokeList.style.display = "block";
     return;
   }
 
-  state.jokes.forEach((joke, index) => {
+  listToRender.forEach((joke, index) => {
     const li = document.createElement("li");
     li.classList.add("joke-item");
     if (!selectable) li.classList.add("read-only");
@@ -3495,6 +3510,42 @@ function renderJokeList({ selectable }) {
     setTimeout(() => { li.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'; li.style.opacity = '1'; li.style.transform = 'translateX(0)'; }, 50 + index * 60);
   });
   elements.jokeList.style.display = "block";
+}
+
+function getAssignedJokeIdsInSets() {
+  const assignedIds = new Set();
+  (state.headlinerSets || []).forEach((setEntry) => {
+    (setEntry.jokeIds || []).forEach((jokeId) => assignedIds.add(jokeId));
+  });
+  return assignedIds;
+}
+
+function getUnassignedJokes() {
+  const assignedIds = getAssignedJokeIdsInSets();
+  return (state.jokes || []).filter((joke) => !assignedIds.has(joke.id));
+}
+
+function getHeadlinerBuilderVisibleJokes() {
+  const focusedSet = getHeadlinerSetById(_focusedMaterialSetId);
+  if (_materialJokeScope === "set" && focusedSet) {
+    const byId = new Map((state.jokes || []).map((joke) => [joke.id, joke]));
+    return (focusedSet.jokeIds || []).map((jokeId) => byId.get(jokeId)).filter(Boolean);
+  }
+  return getUnassignedJokes();
+}
+
+function setMaterialLayoutOrder(textosFirst = false) {
+  const container = elements.jokeList?.parentElement;
+  if (!container || !elements.btnDivLow || !elements.jokeList || !elements.btnContinuar) return;
+  if (textosFirst) {
+    if (elements.btnDivLow.nextElementSibling !== elements.jokeList) {
+      container.insertBefore(elements.btnDivLow, elements.jokeList);
+    }
+    return;
+  }
+  if (elements.btnDivLow.nextElementSibling !== elements.btnContinuar) {
+    container.insertBefore(elements.btnDivLow, elements.btnContinuar);
+  }
 }
 
 function handleJokeListClick(event) {
@@ -3784,8 +3835,30 @@ function finalizeJokeCreation() {
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const perkPotentialBonus = getPerkEffect('jokePotentialBonus') + getPerkEffect('setupBonus');
-  const adjustedPotential = clamp(basePotential + (state.texto / 250) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus, 0.2, 0.98);
-  const label = adjustedPotential > 0.75 ? "🔥 perigosa porém promissora" : adjustedPotential > 0.5 ? "🙂 tem caminho" : "😶 parece frágil";
+  const skillFactor = clamp(((state.texto || 0) - 10) / 140, 0, 1);
+  const badChance = 0.78 - (0.18 * skillFactor);
+  const mediumChance = 0.18 + (0.12 * skillFactor);
+  const qualityRoll = Math.random();
+  let qualityTier = "bad";
+  if (qualityRoll >= badChance + mediumChance) qualityTier = "good";
+  else if (qualityRoll >= badChance) qualityTier = "medium";
+
+  const baseScore = basePotential + (state.texto / 250) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus;
+  let qualityOffset = 0;
+  if (qualityTier === "bad") {
+    qualityOffset = (-0.16 + (0.10 * skillFactor)) + ((Math.random() * 0.06) - 0.03);
+  } else if (qualityTier === "medium") {
+    qualityOffset = (-0.02 + (0.07 * skillFactor)) + ((Math.random() * 0.04) - 0.02);
+  } else {
+    qualityOffset = (0.06 + (0.08 * skillFactor)) + ((Math.random() * 0.04) - 0.02);
+  }
+
+  const adjustedPotential = clamp(baseScore + qualityOffset, 0.2, 0.98);
+  const label = qualityTier === "good"
+    ? "🔥 encaixou forte"
+    : qualityTier === "medium"
+      ? "🙂 tem caminho"
+      : "😶 veio crua";
 
   const chosenTone = _selectedTone || idea.tone;
   const chosenStructure = _selectedStructure || getUnlockedStructures()[0];
@@ -4371,7 +4444,9 @@ function handleViewHistory() {
 function renderHeadlinerSetEditor(setId) {
   const setEntry = getHeadlinerSetById(setId);
   if (!setEntry) return;
+  _focusedMaterialSetId = setEntry.id;
   uiMode = "headlinerSetEditor";
+  renderJokeList({ selectable: false });
   const jokes = getHeadlinerSetJokes(setEntry);
   const listHtml = jokes.length
     ? jokes.map((joke, index) => `
@@ -4434,24 +4509,43 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
   const careerStage = getCareerStage();
   const isElencoStage = careerStage === "elenco";
   if (setId && getHeadlinerSetById(setId)) {
+    _materialJokeScope = "set";
+    _focusedMaterialSetId = setId;
     selectedJokeIds.clear();
     getHeadlinerSetById(setId).jokeIds.forEach((jokeId) => selectedJokeIds.add(jokeId));
   } else if (resetSelection) {
     selectedJokeIds.clear();
+    _focusedMaterialSetId = null;
+    _materialJokeScope = "unassigned";
   }
-  renderJokeList({ selectable: true });
   const activeSet = getActiveHeadlinerSet();
+  if (_focusedMaterialSetId && !getHeadlinerSetById(_focusedMaterialSetId)) _focusedMaterialSetId = null;
+  const focusedSet = getHeadlinerSetById(_focusedMaterialSetId) || activeSet || state.headlinerSets?.[0] || null;
+  if (focusedSet) _focusedMaterialSetId = focusedSet.id;
+  if (_materialJokeScope === "set" && !focusedSet) _materialJokeScope = "unassigned";
+  const unassignedJokes = getUnassignedJokes();
+  renderJokeList({ selectable: true });
+  const showingSetScope = _materialJokeScope === "set" && !!focusedSet;
+  const listScopeLabel = showingSetScope
+    ? `🧾 Lista abaixo: piadas do texto "${escapeHtml(focusedSet.title)}".`
+    : "🧾 Lista abaixo: piadas avulsas (fora de qualquer texto).";
+  const scopeToggleLabel = showingSetScope
+    ? "🧩 Ver piadas avulsas"
+    : focusedSet
+      ? `🎯 Voltar para "${escapeHtml(focusedSet.title)}"`
+      : "🧩 Ver piadas avulsas";
   const setsHtml = (state.headlinerSets || []).length
     ? state.headlinerSets.map((setEntry) => {
       const runtime = getHeadlinerSetRuntime(setEntry);
       const activeMark = state.activeSetId === setEntry.id ? "✅ " : "";
+      const focusMark = focusedSet?.id === setEntry.id ? " 👀" : "";
       const specialMark = setEntry.isSpecialDraft ? " 🎬 Especial" : "";
       return `
-        <div class="joke-item read-only">
-          <div><strong>${activeMark}${escapeHtml(setEntry.title)}</strong> — ${runtime}min${specialMark}</div>
+        <div class="joke-item read-only ${focusedSet?.id === setEntry.id ? "set-focused" : ""}">
+          <div><strong>${activeMark}${escapeHtml(setEntry.title)}</strong>${focusMark} — ${runtime}min${specialMark}</div>
           <div class="actions">
             <button class="set-activate-btn" data-set-id="${setEntry.id}">Ativar</button>
-            <button class="set-load-btn" data-set-id="${setEntry.id}">Carregar seleção</button>
+            <button class="set-load-btn" data-set-id="${setEntry.id}">Selecionar piadas</button>
             <button class="set-special-btn" data-set-id="${setEntry.id}">Marcar especial</button>
             <button class="set-edit-btn" data-set-id="${setEntry.id}">Editar</button>
             <button class="set-delete-btn" data-set-id="${setEntry.id}">Apagar</button>
@@ -4463,18 +4557,23 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    <div>
+    <div class="material-sets-panel">
       <div>${isElencoStage ? "🎬 Elenco trabalha com textos de 15 minutos. Selecione piadas e salve um texto." : "🎤 Headliner/solo é conteúdo futuro. V1.0 termina antes disso."}</div>
       <div>Selecionadas agora: <strong>${selectedJokeIds.size}</strong> piadas</div>
       <div style="margin-top: 8px;">
         <button class="set-create-btn">➕ Salvar novo texto</button>
         <button class="set-update-active-btn">💾 Atualizar texto ativo</button>
         <button class="set-clear-selection-btn">🧹 Limpar seleção</button>
+        <button class="set-toggle-scope-btn" ${(focusedSet || showingSetScope) ? "" : "disabled"}>${scopeToggleLabel}</button>
         <button class="set-view-material-btn">📓 Ver material tradicional</button>
       </div>
       <h4>${isElencoStage ? "📚 Textos de 15 minutos" : "📚 Seus textos"}</h4>
       <div>${setsHtml}</div>
       ${activeSet ? `<div>Texto ativo: <strong>${escapeHtml(activeSet.title)}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
+      <div><strong>Texto selecionado:</strong> ${focusedSet ? escapeHtml(focusedSet.title) : "Nenhum"}</div>
+      <div>${listScopeLabel}</div>
+      <div>Piadas avulsas disponíveis: <strong>${unassignedJokes.length}</strong></div>
+      <div>Clique na lista abaixo para selecionar/deselecionar e montar o texto.</div>
     </div>
   `;
 
@@ -4498,6 +4597,15 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
     selectedJokeIds.clear();
     openHeadlinerSetBuilder(null, false);
   });
+  elements.btnDivLow.querySelector(".set-toggle-scope-btn")?.addEventListener("click", () => {
+    if (showingSetScope) {
+      _materialJokeScope = "unassigned";
+    } else if (focusedSet) {
+      _materialJokeScope = "set";
+      _focusedMaterialSetId = focusedSet.id;
+    }
+    openHeadlinerSetBuilder(null, false);
+  });
   elements.btnDivLow.querySelector(".set-view-material-btn")?.addEventListener("click", () => showMaterialNotebookView());
 
   elements.btnDivLow.querySelectorAll(".set-activate-btn").forEach((btn) => {
@@ -4507,7 +4615,13 @@ function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
     });
   });
   elements.btnDivLow.querySelectorAll(".set-load-btn").forEach((btn) => {
-    btn.addEventListener("click", () => openHeadlinerSetBuilder(btn.dataset.setId));
+    btn.addEventListener("click", () => {
+      const selectedSet = getHeadlinerSetById(btn.dataset.setId);
+      if (!selectedSet) return;
+      _materialJokeScope = "set";
+      _focusedMaterialSetId = selectedSet.id;
+      openHeadlinerSetBuilder(selectedSet.id);
+    });
   });
   elements.btnDivLow.querySelectorAll(".set-special-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
