@@ -140,26 +140,31 @@ openmicrpg1/
 ├── index.html          # Página principal / Main page
 ├── script.js           # Lógica principal do jogo / Main game logic
 ├── styles.css          # Estilos e animações / Styles and animations
-├── BALANCE_ANALYSIS.md # Análise de balanceamento / Balance analysis
-├── BALANCE_CHANGES.md  # Mudanças de balanceamento / Balance changes
-├── CAP_*.md           # Documentação de caps e simulações / Cap documentation
+├── BALANCE_ANALYSIS.md # Histórico de balanceamento / Balance history
+├── BALANCE_CHANGES.md  # Histórico de mudanças / Change history
+├── CAP_*.md           # Histórico de caps e simulações / Cap history
+├── docs/
+│   └── GAME_MECHANICS.md # Referência canônica / Canonical mechanics reference
 └── assets/            # Imagens e recursos / Images and resources
     ├── avatar*.png    # Avatares do jogador / Player avatars
     ├── carvalho.png   # Professor Carvalho / Professor Carvalho
     └── *.png          # Imagens de cenas e shows / Scene and show images
 ```
 
-**`index.html` - Main page | `script.js` - Main game logic | `styles.css` - Styles and animations | `BALANCE_*.md` - Balance documentation | `assets/` - Images and resources**
+**`index.html` - Main page | `script.js` - Main game logic | `styles.css` - Styles and animations | `docs/GAME_MECHANICS.md` - Canonical mechanics reference | `BALANCE_*.md`/`CAP_*.md` - Historical balance notes | `assets/` - Images and resources**
 
 ## Mecânicas do Jogo / Game Mechanics 🎲
 
+> Referência canônica para agentes e mudanças de balanceamento: [`docs/GAME_MECHANICS.md`](docs/GAME_MECHANICS.md).
+> Os arquivos `BALANCE_*.md` e `CAP_*.md` são histórico de decisões e podem estar parcialmente defasados.
+
 ### Sistema de Escrita / Writing System
 - **Potencial base**: 0.35-0.85 (aleatório)
-- **Modificadores**: texto/220, (motivação-60)/400, modo de escrita, flow, perks
-- **Cap máximo**: 0.95 (pode ser aumentado com perks)
-- **Falha**: Chance de não gerar piada (25% desk, 50% day)
+- **Modificadores**: texto/250, (motivação-60)/400, modo de escrita, flow, perks
+- **Cap máximo**: 0.98
+- **Falha**: Chance de não gerar piada (25% sentar e escrever, 50% anotar durante o dia)
 
-**Base potential**: 0.35-0.85 (random) | **Modifiers**: texto/220, (motivation-60)/400, writing mode, flow, perks | **Max cap**: 0.95 (can be increased with perks) | **Failure**: Chance of not generating joke (25% desk, 50% day)**
+**Base potential**: 0.35-0.85 (random) | **Modifiers**: texto/250, (motivation-60)/400, writing mode, flow, perks | **Max cap**: 0.98 | **Failure**: Chance of not generating joke (25% desk, 50% day)**
 
 ### Sistema de Performance / Performance System
 - **Componentes de score**:

@@ -2053,7 +2053,7 @@ body.flow-active #game {
 
 .critical-dialog-content {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 170px minmax(0, 1fr);
   gap: 14px;
   align-items: start;
   margin-bottom: 14px;
@@ -2064,16 +2064,22 @@ body.flow-active #game {
 }
 
 .critical-dialog-image {
-  width: 150px;
-  height: 150px;
-  object-fit: cover;
+  width: 170px;
+  height: 170px;
+  object-fit: contain;
+  object-position: center center;
+  padding: 6px;
+  box-sizing: border-box;
   border: 3px solid var(--menu-border, #3d2e1f);
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .critical-dialog-image.character-image {
-  border-radius: 999px;
+  width: 150px;
+  height: 200px;
+  object-position: center top;
+  border-radius: 12px;
 }
 
 .critical-dialog-content #criticalDialogText {
@@ -2122,9 +2128,14 @@ body.flow-active #game {
   }
 
   .critical-dialog-image {
-    width: min(220px, 100%);
+    width: min(240px, 100%);
     height: auto;
     aspect-ratio: 1 / 1;
     justify-self: center;
+  }
+
+  .critical-dialog-image.character-image {
+    width: min(180px, 70vw);
+    aspect-ratio: 3 / 4;
   }
 }
