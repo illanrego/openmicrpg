@@ -191,8 +191,9 @@ const homeText =
 
 const mentorIntroLines = [
   "Olá! Meu nome é Illan Carvalho, mas no circuito me chamam de Professor Carvalho.",
-  "Este mundo é habitado por criaturas perigosas chamadas PIADAS. Algumas brilham, outras explodem na sua cara.",
-  "Seu trabalho é escrever, testar, ajustar, repetir... até transformar palco em laboratório.",
+  "Você vai ouvir muito conselho por aí. Na maior parte do tempo, é só outro comediante explicando como ele funciona.",
+  "Estudar não é copiar especial. É entender como o comediante pensa, corta, acelera, constrói e reescreve.",
+  "Seu trabalho é escrever, testar, ajustar e repetir até transformar palco em laboratório.",
   "Antes de te mandar pro ringue, me diz: quem é você nessa busca pela próxima risada?"
 ];
 
@@ -282,15 +283,47 @@ function hasClassPassive(passiveId) {
 
 const CARVALHO_DIALOGS = [
   {
+    id: "carvalho-first-show",
+    trigger: "firstShow",
+    stage: "open",
+    priority: 110,
+    once: true,
+    text: "Professor Carvalho te segura por um minuto: 'É isso aqui. Você escolhe as piadas, testa no palco, presta atenção no que realmente aconteceu e volta pro caderno. As fortes ficam. As fracas você reescreve ou mata. Depois escreve material novo e repete. Set bom é repetição, não revelação.'",
+    choices: [
+      { label: "OK", effects: { motivation: 3, texto: 1 } }
+    ]
+  },
+  {
+    id: "carvalho-first-study",
+    trigger: "firstStudy",
+    stage: "open",
+    priority: 105,
+    once: true,
+    text: "Carvalho aponta para a tela: 'Estudar não é sair falando igual ao comediante que você admira. É observar como ele pensa. Onde entra a premissa, onde corta gordura, como sustenta a tensão e onde vira a chave da piada. Rouba processo, não personalidade.'",
+    choices: [
+      { label: "OK", effects: { texto: 3, motivation: 2 } }
+    ]
+  },
+  {
+    id: "carvalho-first-rewrite",
+    trigger: "firstRewrite",
+    stage: "open",
+    priority: 102,
+    once: true,
+    text: "Carvalho bate no caderno: 'Agora começou a parte séria. Escrever qualquer um escreve uma vez. Evoluir é voltar, cortar, trocar ordem, mexer no setup e insistir até a piada ficar mais honesta e mais forte.'",
+    choices: [
+      { label: "OK", effects: { texto: 4 } }
+    ]
+  },
+  {
     id: "carvalho-first-bomb",
     trigger: "firstBomb",
     stage: "open",
     priority: 100,
     once: true,
-    text: "Professor Carvalho aparece no camarim: 'Todo mundo toma água no começo. Seu trabalho agora é transformar vergonha em material.'",
+    text: "Professor Carvalho aparece no camarim: 'Todo mundo toma água no começo. O erro agora é achar que o problema foi só coragem. Volta no set e transforma o constrangimento em informação: onde perdeu a sala, onde alongou demais, onde a ideia não se sustentou.'",
     choices: [
-      { label: "📝 Revisar o set com ele", effects: { texto: 4, motivation: 3 }, narration: "Vocês destrincham seu set linha por linha. Dói, mas clareia." },
-      { label: "😮‍💨 Respirar e voltar amanhã", effects: { motivation: 8 }, narration: "Você aceita o golpe sem dramatizar. Amanhã você sobe de novo." }
+      { label: "OK", effects: { texto: 4, motivation: 4 } }
     ]
   },
   {
@@ -301,7 +334,29 @@ const CARVALHO_DIALOGS = [
     once: true,
     text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público.'",
     choices: [
-      { label: "✅ Entendido", effects: { texto: 3, motivation: 3, network: 1 }, narration: "Você anota ajustes, organiza o caderno e volta para testar o material em salas diferentes." }
+      { label: "OK", effects: { texto: 3, motivation: 2, network: 1 } }
+    ]
+  },
+  {
+    id: "carvalho-jokes10",
+    trigger: "jokes10",
+    stage: "open",
+    priority: 93,
+    once: true,
+    text: "Carvalho folheia seu caderno: 'Agora para de colecionar fragmento como se quantidade fosse set. Dez piadas já te deixam ver padrão, voz e repetição de vício. Começa a pensar em bloco, contraste, ordem e no que realmente merece continuar vivo.'",
+    choices: [
+      { label: "OK", effects: { texto: 4, motivation: 2 } }
+    ]
+  },
+  {
+    id: "carvalho-consistency-streak",
+    trigger: "consistencyStreak",
+    stage: "open",
+    priority: 92,
+    once: true,
+    text: "Carvalho cruza os braços: 'Uma noite boa anima. Três noites boas começam a dizer alguma coisa. Carreira não é pico, é consistência. O jogo agora é repetir nível, não caçar sensação.'",
+    choices: [
+      { label: "OK", effects: { motivation: 4, texto: 2 } }
     ]
   },
   {
@@ -312,8 +367,18 @@ const CARVALHO_DIALOGS = [
     once: true,
     text: "Professor Carvalho: 'Bem-vindo ao Elenco.\n\nAté agora você escrevia piadas soltas.\nAgora você trabalha texto.\n\nA piada ainda é a unidade: premissa, virada, punchline, tag.\nMas o jogo mudou. Você precisa juntar várias piadas em blocos, testar ordem, ritmo, transição e consistência.\n\nCinco minutos bons chamam atenção.\nQuinze minutos sólidos começam uma carreira.'",
     choices: [
-      { label: "🎯 Focar em consistência semanal", effects: { texto: 4, entrega: 2 }, narration: "Você assume rotina de lapidação com metas semanais." },
-      { label: "🤝 Focar em presença no circuito", effects: { network: 6, motivation: 3 }, narration: "Você circula mais no meio, vira rosto conhecido e ganha confiança." }
+      { label: "OK", effects: { texto: 5, entrega: 3, network: 2 } }
+    ]
+  },
+  {
+    id: "carvalho-first-texto15",
+    trigger: "firstTexto15",
+    stage: "elenco",
+    priority: 108,
+    once: true,
+    text: "Carvalho olha o texto montado: 'Quinze minutos não é juntar qualquer coisa até fechar a conta. É ritmo, ordem, respiro, entrada, saída. Agora você começa a sentir a diferença entre ter material e ter um texto de verdade.'",
+    choices: [
+      { label: "OK", effects: { texto: 4, entrega: 2, motivation: 3 } }
     ]
   },
   {
@@ -324,8 +389,7 @@ const CARVALHO_DIALOGS = [
     once: true,
     text: "Carvalho ajeita o microfone e diz: 'Headliner não é status, é responsabilidade. Você sustenta uma noite inteira com assinatura autoral.'",
     choices: [
-      { label: "🎭 Priorizar profundidade de material", effects: { texto: 6, motivation: 2 }, narration: "Você entra em modo oficina para fortalecer blocos longos." },
-      { label: "📣 Priorizar presença e público", effects: { fans: 25, network: 6, motivation: -2 }, narration: "Você acelera agenda e presença. A pressão aumenta junto." }
+      { label: "OK", effects: { texto: 6, entrega: 3, fans: 8, motivation: 2 } }
     ]
   },
   {
@@ -334,10 +398,9 @@ const CARVALHO_DIALOGS = [
     stage: "open",
     priority: 80,
     cooldown: 4,
-    text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. Escolhe uma ação curta e volta com foco.'",
+    text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. Descansar também faz parte da carreira. Recupera o eixo antes de começar a repetir gesto vazio.'",
     choices: [
-      { label: "🧠 Fazer revisão leve", effects: { texto: 2, motivation: 5 }, narration: "Você revisa só o essencial e guarda energia para amanhã." },
-      { label: "🛌 Descansar de verdade", effects: { motivation: 10 }, narration: "Você respeita o limite e evita transformar rotina em desgaste." }
+      { label: "OK", effects: { texto: 1, motivation: 8 } }
     ]
   }
 ];
@@ -956,11 +1019,10 @@ const eventPool = [
   {
     id: "bombMentor", trigger: "showBomb", cooldown: 5, requiresCopoSujo: true,
     isCharacterEvent: true,
-    text: "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga. Ele pode te dar dicas técnicas ou te levar para assistir shows.",
+    text: "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga: 'Quando um set afunda, não adianta sair dizendo que a plateia era ruim. Primeiro revisa o que você fez: abertura, ritmo, excesso de palavra, premissa frouxa, punch previsível. Técnica antes de ego.'",
     image: "carvalho.png",
     choices: [
-      { label: "Pedir análise técnica", effects: { texto: 15, motivation: -5 }, narration: "Vocês destrincham cada minuto do set. Dói muito, mas você aprende bastante." },
-      { label: "Assistir shows juntos", effects: { motivation: 15, network: 3 }, narration: "Vocês dão risada de outros fracassos e você recupera o moral." }
+      { label: "OK", effects: { texto: 10, motivation: 4 } }
     ]
   },
   {
@@ -1385,8 +1447,14 @@ function isCareerStageAtLeast(stage, targetStage) {
 
 function createDefaultCareerMilestones() {
   return {
+    firstShow: false,
+    firstStudy: false,
+    firstRewrite: false,
     firstBomb: false,
     firstKill: false,
+    jokes10: false,
+    firstConsistencyStreak: false,
+    firstTexto15: false,
     firstElencoGig: false,
     firstHeadlinerGig: false,
     firstSoloGig: false
@@ -1714,6 +1782,9 @@ function createHeadlinerSet(title, jokeIds, options = {}) {
   }
   state.headlinerSets.push(newSet);
   if (!state.activeSetId) state.activeSetId = newSet.id;
+  if (getCareerStage() === "elenco" && getHeadlinerSetRuntime(newSet) >= 15 && markCareerMilestone("firstTexto15")) {
+    maybeTriggerCarvalhoDialog("firstTexto15", { setId: newSet.id, runtime: getHeadlinerSetRuntime(newSet) });
+  }
   saveGameState();
   return newSet;
 }
@@ -1728,6 +1799,9 @@ function updateHeadlinerSet(setId, updates = {}) {
   if (typeof updates.isSpecialDraft === "boolean") {
     if (updates.isSpecialDraft) state.headlinerSets.forEach((entry) => { entry.isSpecialDraft = false; });
     setEntry.isSpecialDraft = updates.isSpecialDraft;
+  }
+  if (getCareerStage() === "elenco" && getHeadlinerSetRuntime(setEntry) >= 15 && markCareerMilestone("firstTexto15")) {
+    maybeTriggerCarvalhoDialog("firstTexto15", { setId: setEntry.id, runtime: getHeadlinerSetRuntime(setEntry) });
   }
   saveGameState();
   return setEntry;
@@ -1873,6 +1947,9 @@ function processOpenStageConsistencyOutcome(nota) {
     openState.breakthroughs += 1;
     state.motivation = clamp((state.motivation || 0) + 4, 0, 120);
     state.texto = clamp((state.texto || 0) + 2, 0, 200);
+    if (markCareerMilestone("firstConsistencyStreak")) {
+      maybeTriggerCarvalhoDialog("consistencyStreak", { streaks: openState.breakthroughs });
+    }
     queueCriticalDialog(
       "📌 Virada de Open!\n\nVocê manteve consistência em 3 shows seguidos. Bônus: motivação +4, texto +2.",
       [{ label: "Continuar", handler: () => {} }]
@@ -3869,6 +3946,9 @@ function finalizeJokeCreation() {
     minutes, lastResult: "⏱️ ainda não testada", freshness: "nova",
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
+  if ((state.jokes.length || 0) >= 10 && markCareerMilestone("jokes10")) {
+    maybeTriggerCarvalhoDialog("jokes10", { jokeCount: state.jokes.length });
+  }
   const xpGain = applyXp(XP_GAIN.jokeNew);
   addHeadlinerPrep(1);
 
@@ -4175,13 +4255,18 @@ function performShow() {
   const outcomeType = getOutcomeType(nota);
   const careerStage = getCareerStage();
   const venueRepChange = applyVenueReputationOutcome(showPlayed.id, nota, showType);
+  const hadPreviousShows = (state.showHistory || []).length > 0;
 
   applyOutcome(setList, outcomeType, breakdownWithEmoji);
 
-  if (outcomeType === "bomb" && markCareerMilestone("firstBomb")) {
+  if (markCareerMilestone("firstShow")) {
+    maybeTriggerCarvalhoDialog("firstShow", { nota, show: showPlayed, showType });
+  }
+
+  if (hadPreviousShows && outcomeType === "bomb" && markCareerMilestone("firstBomb")) {
     maybeTriggerCarvalhoDialog("firstBomb", { nota, show: showPlayed, showType });
   }
-  if (outcomeType === "kill" && markCareerMilestone("firstKill")) {
+  if (hadPreviousShows && outcomeType === "kill" && markCareerMilestone("firstKill")) {
     maybeTriggerCarvalhoDialog("firstKill", { nota, show: showPlayed, showType });
   }
   if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
@@ -4355,6 +4440,9 @@ function handleStudy() {
   if (uiMode === "event") return;
   exitSelectionMode();
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
+  if (markCareerMilestone("firstStudy")) {
+    maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
+  }
   state.texto = clamp((state.texto || 0) + 6, 0, 200);
   if (hasClassPassive("studyBoost")) state.texto = clamp((state.texto || 0) + 1, 0, 200);
   if (hasClassPassive("studyBoost")) state.entrega = clamp((state.entrega || 0) + 1, 0, 200);
@@ -4778,6 +4866,9 @@ function finalizeRewrite() {
   }
 
   state.motivation = clamp(state.motivation - 4, 0, 120);
+  if (markCareerMilestone("firstRewrite")) {
+    maybeTriggerCarvalhoDialog("firstRewrite", { jokeId: joke.id });
+  }
   state.texto = clamp((state.texto || 0) + 1, 0, 200);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
