@@ -2393,6 +2393,8 @@ const XP_GAIN = {
   study: 20
 };
 
+const HECKLER_EVENT_CHANCE = 0.15;
+
 function getTotalXpForLevel(level) {
   if (level <= 1) return 0;
   if (level < XP_TOTAL_BY_LEVEL.length) return XP_TOTAL_BY_LEVEL[level];
@@ -2554,6 +2556,102 @@ function evaluateStageTime(actualMinutes, expectedMinutes, baseScore) {
   }
 
   return { adjustment, note, ratio };
+}
+
+function pickHecklerAffectedIndices(jokeCount) {
+  const count = Math.max(1, Math.ceil(jokeCount / 2));
+  const indices = Array.from({ length: jokeCount }, (_, idx) => idx);
+  indices.sort(() => Math.random() - 0.5);
+  return indices.slice(0, count);
+}
+
+function resolveHecklerResponse(affectedIndices) {
+  const entrega = state.entrega || 0;
+  const crowdWorkBonus = getPerkEffect('crowdWorkBonus');
+  const hecklerDefense = getPerkEffect('hecklerDefense');
+  const perkBoost = (crowdWorkBonus * 1.8) + (hecklerDefense * 1.4);
+  const perkText = [];
+  if (crowdWorkBonus > 0) perkText.push("seu crowd work ajudou a retomar a sala");
+  if (hecklerDefense > 0) perkText.push("sua defesa contra heckler segurou a pressão");
+  const perkSuffix = perkText.length ? ` ${perkText.join(" e ")}.` : "";
+  const responsePower = (entrega / 55) + (Math.random() * 0.55) + perkBoost;
+  if (responsePower >= 0.95) {
+    return {
+      type: "respondWin",
+      affectedIndices,
+      scoreDelta: 0.1,
+      text: `Você respondeu firme, a sala comprou e o barulho virou energia a seu favor.${perkSuffix}`
+    };
+  }
+  if (responsePower >= 0.55) {
+    return {
+      type: "respondHold",
+      affectedIndices,
+      scoreDelta: 0.02,
+      text: `Você respondeu sem dominar totalmente a situação, mas conseguiu retomar a atenção da sala.${perkSuffix}`
+    };
+  }
+  return {
+    type: "respondFail",
+    affectedIndices,
+    scoreDelta: -0.16,
+    text: perkText.length
+      ? `Você tentou responder, mas nem com ajuda das vantagens o confronto encaixou. Metade do set sentiu o golpe.${perkSuffix}`
+      : "Você tentou responder, mas o confronto te tirou do eixo e metade do set sentiu o golpe."
+  };
+}
+
+function maybeInterruptShowWithHeckler(setList) {
+  if (!currentShow || currentShow.hecklerChecked) return false;
+  currentShow.hecklerChecked = true;
+  if (!setList.length || Math.random() >= HECKLER_EVENT_CHANCE) {
+    currentShow.hecklerOutcome = { type: "none", affectedIndices: [], scoreDelta: 0, text: "" };
+    return false;
+  }
+
+  const affectedIndices = pickHecklerAffectedIndices(setList.length);
+  queueCriticalDialog(
+    "🗣️ Um heckler te interrompe no meio da preparação mental para subir. Você pode ignorar e seguir o set, ou responder na hora e tentar tomar a sala de volta.",
+    [
+      {
+        label: "Ignorar",
+        handler: () => {
+          currentShow.hecklerOutcome = {
+            type: "ignore",
+            affectedIndices,
+            scoreDelta: -0.12,
+            text: "Você ignorou o heckler e seguiu. A interrupção contaminou metade do set antes da sala voltar para você."
+          };
+          performShow();
+        }
+      },
+      {
+        label: "Responder",
+        handler: () => {
+          currentShow.hecklerOutcome = resolveHecklerResponse(affectedIndices);
+          performShow();
+        }
+      }
+    ]
+  );
+  return true;
+}
+
+function applyHecklerOutcomeToEvaluation(evaluation, hecklerOutcome) {
+  if (!hecklerOutcome || hecklerOutcome.type === "none" || !Array.isArray(hecklerOutcome.affectedIndices) || !hecklerOutcome.affectedIndices.length) {
+    return evaluation;
+  }
+
+  const delta = hecklerOutcome.scoreDelta || 0;
+  const affectedSet = new Set(hecklerOutcome.affectedIndices);
+  let totalScore = 0;
+  const breakdown = evaluation.breakdown.map((entry, idx) => {
+    const nextScore = affectedSet.has(idx) ? entry.score + delta : entry.score;
+    totalScore += nextScore;
+    return { ...entry, score: nextScore };
+  });
+
+  return { averageScore: totalScore / breakdown.length, breakdown };
 }
 
 function classifyOutcome(score) {
@@ -4240,10 +4338,12 @@ function performShow() {
     const validation = validateSetForShow(forcedSet, showPlayed);
     if (!validation.ok) { shakeScreen(); displayNarration(`⚠️ ${validation.reason}`); return; }
   }
+  if (maybeInterruptShowWithHeckler(setList)) return;
 
   flashScreen('rgba(255, 248, 220, 0.3)');
   const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
-  const evaluation = evaluateShow(setList, currentShow, flowBonus);
+  const baseEvaluation = evaluateShow(setList, currentShow, flowBonus);
+  const evaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, currentShow.hecklerOutcome);
   const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
     const mood = scoreToEmoji(entry.score);
     return { ...entry, emoji: mood.emoji, label: mood.label, nota: mood.nota };
@@ -4314,7 +4414,15 @@ function performShow() {
   const venueRepText = venueRepChange.delta
     ? `Casa ${venueRepChange.tier} (${formatSigned(venueRepChange.delta)})`
     : "";
-  showResultNarrative(nota, breakdownWithEmoji, timeImpact, { fans: fanGain, motivation: motivationShift, stageTimeGain, xp: xpGain, entrega: entregaGain, venueRepText });
+  showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
+    fans: fanGain,
+    motivation: motivationShift,
+    stageTimeGain,
+    xp: xpGain,
+    entrega: entregaGain,
+    venueRepText,
+    hecklerText: currentShow.hecklerOutcome?.text || ""
+  });
 
   const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
   if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
@@ -4361,7 +4469,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
   if (deltas.xp) statFragments.push(`XP +${deltas.xp}`);
   if (deltas.venueRepText) statFragments.push(deltas.venueRepText);
 
-  displayNarration(`${messages[nota] || messages[3]}${timeImpact?.note ? ` ${timeImpact.note}` : ""}${detalhes ? ` (${detalhes})` : ""} [${statFragments.join(" | ")}]`);
+  displayNarration(`${messages[nota] || messages[3]}${deltas.hecklerText ? ` ${deltas.hecklerText}` : ""}${timeImpact?.note ? ` ${timeImpact.note}` : ""}${detalhes ? ` (${detalhes})` : ""} [${statFragments.join(" | ")}]`);
   checkAndShowPendingEvent();
 }
 
