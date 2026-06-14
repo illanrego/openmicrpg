@@ -1217,13 +1217,14 @@ const eventPool = [
   document.head.appendChild(s);
 })();
 
-const showText = (target, message, index, interval, callback) => {
+const showText = (target, message, index, interval, callback, token = null) => {
   if (index < message.length) {
     const element = document.querySelector(target);
     if (element) {
+      if (token !== null && token !== narrationRenderToken) return;
       element.textContent = message.substring(0, index + 1);
     }
-    setTimeout(() => showText(target, message, index + 1, interval, callback), interval);
+    setTimeout(() => showText(target, message, index + 1, interval, callback, token), interval);
   } else if (callback) {
     callback();
   }
@@ -1344,6 +1345,10 @@ let lastLevelLabel = null;
 let dialogTimeout = null;
 const selectedJokeIds = new Set();
 const criticalDialogQueue = [];
+let suspendCriticalDialogs = false;
+const deferredCriticalDialogs = [];
+let narrationRenderToken = 0;
+let sceneRenderToken = 0;
 
 // Stat animation tracking
 let previousStats = { fans: 0, motivation: 60, texto: 10, entrega: 5, stageTime: 0, xp: 0 };
@@ -3334,8 +3339,23 @@ function hideDialog() {
 // ─── Critical Dialog Queue (never conflicts, shown sequentially) ───
 
 function queueCriticalDialog(message, actions = [], options = {}) {
+  if (suspendCriticalDialogs) {
+    deferredCriticalDialogs.push({ message, actions, options });
+    return;
+  }
   criticalDialogQueue.push({ message, actions, options });
   if (criticalDialogQueue.length === 1) showNextCriticalDialog();
+}
+
+function flushDeferredCriticalDialogs() {
+  if (!deferredCriticalDialogs.length) return;
+  const shouldShowImmediately = criticalDialogQueue.length === 0;
+  criticalDialogQueue.push(...deferredCriticalDialogs.splice(0));
+  if (shouldShowImmediately) {
+    setTimeout(() => {
+      if (criticalDialogQueue.length > 0) showNextCriticalDialog();
+    }, 250);
+  }
 }
 
 function showNextCriticalDialog() {
@@ -3437,23 +3457,29 @@ function resetSubtitle() {
 }
 
 function displayNarration(message) {
+  narrationRenderToken += 1;
+  const token = narrationRenderToken;
   elements.text.innerHTML = "";
   elements.text.style.opacity = '0';
   elements.text.style.transform = 'translateY(10px)';
   setTimeout(() => {
+    if (token !== narrationRenderToken) return;
     elements.text.style.transition = 'all 0.3s ease';
     elements.text.style.opacity = '1';
     elements.text.style.transform = 'translateY(0)';
-    showText("#text", message, 0, 18);
+    showText("#text", message, 0, 18, null, token);
   }, 100);
 }
 
 function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   const scene = scenes[sceneKey] || {};
+  sceneRenderToken += 1;
+  const token = sceneRenderToken;
 
   elements.title.style.opacity = '0';
   elements.title.style.transform = 'translateY(-10px)';
   setTimeout(() => {
+    if (token !== sceneRenderToken) return;
     const titleText = customTitle !== undefined ? customTitle : (scene.title || "Na estrada");
     elements.title.textContent = titleText;
     elements.title.style.opacity = titleText ? '1' : '0';
@@ -3463,13 +3489,19 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   elements.image.style.opacity = '0';
   elements.image.style.transform = 'scale(0.95)';
   setTimeout(() => {
+    if (token !== sceneRenderToken) return;
     let imageToUse = customImage || scene.image;
     if (!customImage && !scene.image && state && typeof state.currentWeekDay !== 'undefined') {
       imageToUse = getQuartoForWeekday(state.currentWeekDay);
     }
     elements.image.classList.toggle('character-image', !!isCharacter);
+    elements.image.onload = () => {
+      if (token !== sceneRenderToken) return;
+      elements.image.style.opacity = '1';
+      elements.image.style.transform = 'scale(1)';
+    };
     elements.image.src = imageToUse || "quarto1.png";
-    elements.image.onload = () => { elements.image.style.opacity = '1'; elements.image.style.transform = 'scale(1)'; };
+    if (elements.image.complete) elements.image.onload();
   }, 200);
 
   elements.title.style.transition = 'all 0.3s ease';
@@ -4341,97 +4373,103 @@ function performShow() {
   if (maybeInterruptShowWithHeckler(setList)) return;
 
   flashScreen('rgba(255, 248, 220, 0.3)');
-  const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
-  const baseEvaluation = evaluateShow(setList, currentShow, flowBonus);
-  const evaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, currentShow.hecklerOutcome);
-  const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
-    const mood = scoreToEmoji(entry.score);
-    return { ...entry, emoji: mood.emoji, label: mood.label, nota: mood.nota };
-  });
+  suspendCriticalDialogs = true;
+  try {
+    const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
+    const baseEvaluation = evaluateShow(setList, showPlayed, flowBonus);
+    const evaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, showPlayed.hecklerOutcome);
+    const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
+      const mood = scoreToEmoji(entry.score);
+      return { ...entry, emoji: mood.emoji, label: mood.label, nota: mood.nota };
+    });
 
-  const timeImpact = evaluateStageTime(totalMinutes, currentShow.minMinutes, evaluation.averageScore);
-  const adjustedScore = evaluation.averageScore + timeImpact.adjustment;
-  const nota = classifyOutcome(adjustedScore);
-  const outcomeType = getOutcomeType(nota);
-  const careerStage = getCareerStage();
-  const venueRepChange = applyVenueReputationOutcome(showPlayed.id, nota, showType);
-  const hadPreviousShows = (state.showHistory || []).length > 0;
+    const timeImpact = evaluateStageTime(totalMinutes, showPlayed.minMinutes, evaluation.averageScore);
+    const adjustedScore = evaluation.averageScore + timeImpact.adjustment;
+    const nota = classifyOutcome(adjustedScore);
+    const outcomeType = getOutcomeType(nota);
+    const careerStage = getCareerStage();
+    const venueRepChange = applyVenueReputationOutcome(showPlayed.id, nota, showType);
+    const hadPreviousShows = (state.showHistory || []).length > 0;
 
-  applyOutcome(setList, outcomeType, breakdownWithEmoji);
+    applyOutcome(setList, outcomeType, breakdownWithEmoji);
 
-  if (markCareerMilestone("firstShow")) {
-    maybeTriggerCarvalhoDialog("firstShow", { nota, show: showPlayed, showType });
+    if (markCareerMilestone("firstShow")) {
+      maybeTriggerCarvalhoDialog("firstShow", { nota, show: showPlayed, showType });
+    }
+
+    if (hadPreviousShows && outcomeType === "bomb" && markCareerMilestone("firstBomb")) {
+      maybeTriggerCarvalhoDialog("firstBomb", { nota, show: showPlayed, showType });
+    }
+    if (hadPreviousShows && outcomeType === "kill" && markCareerMilestone("firstKill")) {
+      maybeTriggerCarvalhoDialog("firstKill", { nota, show: showPlayed, showType });
+    }
+    if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
+    if (careerStage === "headliner") markCareerMilestone("firstHeadlinerGig");
+    if (showType === "headlinerSolo" || showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
+
+    const stageTimeGain = state.flowState?.active ? 2 : 1;
+    state.stageTime += stageTimeGain;
+
+    state.showHistory = state.showHistory || [];
+    state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
+    if (forcedSet) {
+      forcedSet.history = [...(forcedSet.history || []), { day: state.currentDay, showId: showPlayed.id, nota }].slice(-20);
+    }
+    state.performedShowToday = true;
+
+    const prevLevelNumber = state.levelNumber;
+    const xpGain = applyXp(XP_GAIN.show[nota] || 0);
+    checkLevelProgression(nota, showType, prevLevelNumber);
+    checkFlowState(nota);
+
+    const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8));
+    state.fans += fanGain;
+    const motivationShift = nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12;
+    state.motivation = clamp(state.motivation + motivationShift, 0, 120);
+    if (nota >= 4) state.network = (state.network || 10) + 2;
+    const entregaGain = nota >= 4 ? 2 : 1;
+    state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
+    if (nota >= 3 && hasClassPassive("stageConsistency")) {
+      state.texto = clamp((state.texto || 0) + 1, 0, 200);
+    }
+    processOpenStageConsistencyOutcome(nota);
+    processElencoCircuitOutcome(showType, nota);
+    processHeadlinerSoloOutcome(showPlayed, showType, nota);
+    if (state.v1Completed && showType === "specialTape") {
+      processSpecialTapeOutcome(nota, adjustedScore);
+      maybeTriggerLegacyChoice();
+    }
+    maybeTriggerV1Ending(nota, showType, showPlayed);
+
+    updateStats();
+    renderJokeList({ selectable: false });
+    exitSelectionMode();
+
+    const venueRepText = venueRepChange.delta
+      ? `Casa ${venueRepChange.tier} (${formatSigned(venueRepChange.delta)})`
+      : "";
+    showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
+      fans: fanGain,
+      motivation: motivationShift,
+      stageTimeGain,
+      xp: xpGain,
+      entrega: entregaGain,
+      venueRepText,
+      hecklerText: showPlayed.hecklerOutcome?.text || ""
+    });
+
+    const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
+    if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
+    else if (outcomeType === "bomb") maybeTriggerEvent("showBomb", eventContext);
+    else maybeTriggerEvent("random", eventContext);
+
+    if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
+    checkFanMilestones();
+    saveGameState();
+  } finally {
+    suspendCriticalDialogs = false;
+    flushDeferredCriticalDialogs();
   }
-
-  if (hadPreviousShows && outcomeType === "bomb" && markCareerMilestone("firstBomb")) {
-    maybeTriggerCarvalhoDialog("firstBomb", { nota, show: showPlayed, showType });
-  }
-  if (hadPreviousShows && outcomeType === "kill" && markCareerMilestone("firstKill")) {
-    maybeTriggerCarvalhoDialog("firstKill", { nota, show: showPlayed, showType });
-  }
-  if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
-  if (careerStage === "headliner") markCareerMilestone("firstHeadlinerGig");
-  if (showType === "headlinerSolo" || showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
-
-  const stageTimeGain = state.flowState?.active ? 2 : 1;
-  state.stageTime += stageTimeGain;
-
-  state.showHistory = state.showHistory || [];
-  state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
-  if (forcedSet) {
-    forcedSet.history = [...(forcedSet.history || []), { day: state.currentDay, showId: showPlayed.id, nota }].slice(-20);
-  }
-  state.performedShowToday = true;
-
-  const prevLevelNumber = state.levelNumber;
-  const xpGain = applyXp(XP_GAIN.show[nota] || 0);
-  checkLevelProgression(nota, showType, prevLevelNumber);
-  checkFlowState(nota);
-
-  const fanGain = Math.max(0, Math.round(totalMinutes * (nota - 1) * 0.8));
-  state.fans += fanGain;
-  const motivationShift = nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12;
-  state.motivation = clamp(state.motivation + motivationShift, 0, 120);
-  if (nota >= 4) state.network = (state.network || 10) + 2;
-  const entregaGain = nota >= 4 ? 2 : 1;
-  state.entrega = clamp((state.entrega || 0) + entregaGain, 0, 200);
-  if (nota >= 3 && hasClassPassive("stageConsistency")) {
-    state.texto = clamp((state.texto || 0) + 1, 0, 200);
-  }
-  processOpenStageConsistencyOutcome(nota);
-  processElencoCircuitOutcome(showType, nota);
-  processHeadlinerSoloOutcome(showPlayed, showType, nota);
-  if (state.v1Completed && showType === "specialTape") {
-    processSpecialTapeOutcome(nota, adjustedScore);
-    maybeTriggerLegacyChoice();
-  }
-  maybeTriggerV1Ending(nota, showType, showPlayed);
-
-  updateStats();
-  renderJokeList({ selectable: false });
-  exitSelectionMode();
-
-  const venueRepText = venueRepChange.delta
-    ? `Casa ${venueRepChange.tier} (${formatSigned(venueRepChange.delta)})`
-    : "";
-  showResultNarrative(nota, breakdownWithEmoji, timeImpact, {
-    fans: fanGain,
-    motivation: motivationShift,
-    stageTimeGain,
-    xp: xpGain,
-    entrega: entregaGain,
-    venueRepText,
-    hecklerText: currentShow.hecklerOutcome?.text || ""
-  });
-
-  const eventContext = { outcome: outcomeType, nota, show: showPlayed, averageScore: evaluation.averageScore, adjustedScore, showType };
-  if (outcomeType === "kill") maybeTriggerEvent("showKill", eventContext);
-  else if (outcomeType === "bomb") maybeTriggerEvent("showBomb", eventContext);
-  else maybeTriggerEvent("random", eventContext);
-
-  if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
-  checkFanMilestones();
-  saveGameState();
 }
 
 function applyOutcome(setList, outcome, breakdown = []) {
