@@ -349,12 +349,25 @@ After a show:
 
 ```js
 stageTime += flowActive ? 2 : 1
-xp += XP_GAIN.show[nota]
+xp += resolveShowXpReward(show, showType, setList).xp
 fans += max(0, round(totalMinutes * (nota - 1) * 0.8))
 motivation += nota >= 4 ? 12 : nota >= 3 ? 2 : nota >= 2 ? -5 : -12
 if (nota >= 4) network += 2
 entrega += nota >= 4 ? 2 : 1
 ```
+
+Show XP does not depend on `nota`.
+
+If the set contains at least one joke with fewer than `3` prior test results (`joke.history.length < 3`), the show uses the `new material` value. Otherwise it uses the `consolidated` value.
+
+| Show bucket | Consolidated XP | New material XP |
+| --- | ---: | ---: |
+| Open | 40 | 48 |
+| `5a5` | 50 | 60 |
+| `pague15` | 60 | 72 |
+| Elenco / `elenco15` | 68 | 82 |
+| Headliner / `headlinerSolo` | 84 | 100 |
+| `specialTape` | 120 | 120 |
 
 Caps:
 
@@ -398,7 +411,6 @@ quality = clamp(round((nota * 15) + (adjustedScore * 25) + prepPoints * 2), 0, 1
 XP gains:
 
 ```js
-show: { 1: 5, 2: 15, 3: 30, 4: 60, 5: 100 }
 jokeNew: 12
 jokeRewrite: 6
 study: 15

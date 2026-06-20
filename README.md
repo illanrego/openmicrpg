@@ -182,11 +182,11 @@ openmicrpg1/
 
 ### Sistema de Progressão / Progression System
 - **Caps de estatísticas**: Texto e Entrega têm cap de 200
-- **Níveis**: Progressão baseada em XP ganho através de shows
+- **Níveis**: Progressão baseada em experiência de palco; sets com material novo rendem mais XP que sets já consolidados
 - **Perks**: Desbloqueados em níveis específicos, requerem pré-requisitos
 - **Flow State**: Ativado por shows consecutivos bons, aumenta eficiência
 
-**Stat caps**: Texto and Entrega have cap of 200 | **Levels**: Progression based on XP gained through shows | **Perks**: Unlocked at specific levels, require prerequisites | **Flow State**: Activated by consecutive good shows, increases efficiency**
+**Stat caps**: Texto and Entrega have cap of 200 | **Levels**: Progression is based on stage experience; sets with newer material grant more XP than consolidated sets | **Perks**: Unlocked at specific levels, require prerequisites | **Flow State**: Activated by consecutive good shows, increases efficiency**
 
 ## Funcionalidades em Destaque / Highlighted Features
 

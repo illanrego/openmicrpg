@@ -2440,8 +2440,16 @@ const XP_TOTAL_BY_LEVEL = [
   15000   // level 20
 ];
 
+const SHOW_XP_VALUES = {
+  open: { consolidated: 40, newMaterial: 48 },
+  fiveA5: { consolidated: 50, newMaterial: 60 },
+  pague15: { consolidated: 60, newMaterial: 72 },
+  elenco: { consolidated: 68, newMaterial: 82 },
+  headliner: { consolidated: 84, newMaterial: 100 },
+  specialTape: { consolidated: 120, newMaterial: 120 }
+};
+
 const XP_GAIN = {
-  show: { 1: 5, 2: 15, 3: 30, 4: 60, 5: 100 },
   jokeNew: 12,
   jokeRewrite: 6,
   study: 15,
@@ -4399,6 +4407,27 @@ function calculateOfferedTime(show, scheduledShow) {
   return Math.max(show.minMinutes, Math.min(maxTime, careerStage === "open" ? 5 : 15));
 }
 
+function getShowXpCategory(show, showType = "normal") {
+  if (showType === "specialTape" || show?.isSpecialTapeShow) return "specialTape";
+  if (showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return "headliner";
+  if (showType === "elenco15" || show?.isElencoCircuit) return "elenco";
+  if (showType === "pague15" || show?.id === "pague15") return "pague15";
+  if (showType === "5a5" || show?.id === "5a5") return "fiveA5";
+  return "open";
+}
+
+function resolveShowXpReward(show, showType, setList = []) {
+  const hasNewMaterial = setList.some((joke) => ((joke.history || []).length < 3));
+  const category = getShowXpCategory(show, showType);
+  const xpTable = SHOW_XP_VALUES[category] || SHOW_XP_VALUES.open;
+  return {
+    category,
+    hasNewMaterial,
+    mode: hasNewMaterial ? "new material" : "consolidated",
+    xp: hasNewMaterial ? xpTable.newMaterial : xpTable.consolidated
+  };
+}
+
 function beginShowPreparation(show, offeredMinutes, showType) {
   if (offeredMinutes === undefined) offeredMinutes = calculateOfferedTime(show, { showType: showType || "normal" });
   const activeShowType = showType || show.special || "normal";
@@ -4469,6 +4498,7 @@ function performShow() {
   flashScreen('rgba(255, 248, 220, 0.3)');
   suspendCriticalDialogs = true;
   try {
+    const showXpReward = resolveShowXpReward(showPlayed, showType, setList);
     const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
     const baseEvaluation = evaluateShow(setList, showPlayed, flowBonus);
     const evaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, showPlayed.hecklerOutcome);
@@ -4512,7 +4542,7 @@ function performShow() {
     state.performedShowToday = true;
 
     const prevLevelNumber = state.levelNumber;
-    const xpGain = applyXp(XP_GAIN.show[nota] || 0);
+    const xpGain = applyXp(showXpReward.xp);
     checkLevelProgression(nota, showType, prevLevelNumber);
     checkFlowState(nota);
 
@@ -4547,6 +4577,7 @@ function performShow() {
       motivation: motivationShift,
       stageTimeGain,
       xp: xpGain,
+      xpMode: showXpReward.mode,
       entrega: entregaGain,
       venueRepText,
       hecklerText: showPlayed.hecklerOutcome?.text || ""
@@ -4594,6 +4625,7 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
 
   const detalhes = breakdown.length ? breakdown.map((entry) => `${entry.title} ${entry.emoji}`).join(" | ") : "";
   const statFragments = [`Nota ${nota}/5`];
+  if (deltas.xp) statFragments.push(`XP +${deltas.xp}${deltas.xpMode ? ` (${deltas.xpMode})` : ""}`);
   if (deltas.fans) statFragments.push(`Fãs ${formatSigned(deltas.fans)}`);
   if (deltas.motivation) statFragments.push(`Motivação ${formatSigned(deltas.motivation)}`);
   if (deltas.stageTimeGain && deltas.stageTimeGain > 1) statFragments.push(`Tempo de Palco +${deltas.stageTimeGain} (FLOW!)`);
