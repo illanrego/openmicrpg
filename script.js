@@ -1466,9 +1466,35 @@ function createDefaultCareerMilestones() {
   };
 }
 
+function createDefaultRouteCounters() {
+  return {
+    studyCount: 0,
+    writeCount: 0,
+    rewriteCount: 0,
+    contentCount: 0,
+    showsScheduledCount: 0
+  };
+}
+
+function normalizeRouteCounters(counters = {}) {
+  return Object.fromEntries(
+    Object.entries(createDefaultRouteCounters()).map(([key, defaultValue]) => {
+      const value = Number(counters[key] ?? defaultValue);
+      return [key, Number.isFinite(value) ? Math.max(0, Math.round(value)) : defaultValue];
+    })
+  );
+}
+
+function incrementRouteCounter(counterKey, amount = 1) {
+  state.routeCounters = normalizeRouteCounters(state.routeCounters);
+  if (!(counterKey in state.routeCounters)) return;
+  state.routeCounters[counterKey] += Math.max(0, Math.round(amount || 0));
+}
+
 function ensureCareerProgressState() {
   if (!state) return;
   state.careerMilestones = { ...createDefaultCareerMilestones(), ...(state.careerMilestones || {}) };
+  state.routeCounters = normalizeRouteCounters(state.routeCounters);
   state.careerChoices = state.careerChoices || [];
   state.carvalhoDialogState = {
     shownIds: Array.isArray(state.carvalhoDialogState?.shownIds) ? state.carvalhoDialogState.shownIds : [],
@@ -2120,6 +2146,7 @@ function addScheduledShow(showId, dayScheduled, showType = "normal") {
   if (!state.scheduledShows) state.scheduledShows = [];
   if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS) return false;
   state.scheduledShows.push({ showId, dayScheduled, showType });
+  incrementRouteCounter("showsScheduledCount");
   return true;
 }
 
@@ -2981,8 +3008,17 @@ function handleEventChoiceIndex(index) {
     const show = findShowById(choice.startShowId);
     if (show) {
       const daysAhead = Math.random() < 0.5 ? 1 : 2;
-      addScheduledShow(show.id, state.currentDay + daysAhead, "normal");
+      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, "normal");
       updateStats();
+      saveGameState();
+      if (!scheduled) {
+        queueCriticalDialog("📅 Sua agenda já está cheia. Resolva um show marcado antes de aceitar outro convite.", [], {
+          imageSrc: eventRef.image || "",
+          imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+          imageIsCharacter: !!eventRef.isCharacterEvent
+        });
+        return;
+      }
       queueCriticalDialog(`${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
         imageSrc: eventRef.image || "",
         imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
@@ -3000,8 +3036,17 @@ function handleEventChoiceIndex(index) {
       let showType = "normal";
       if (choice.scheduleShow === "5a5") { daysAhead = findDaysToWeekday(0) || 7; showType = "5a5"; }
       else if (choice.scheduleShow === "pague15") { daysAhead = findDaysToWeekday(4) || 7; showType = "pague15"; }
-      addScheduledShow(show.id, state.currentDay + daysAhead, showType);
+      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, showType);
       updateStats();
+      saveGameState();
+      if (!scheduled) {
+        queueCriticalDialog("📅 Sua agenda já está cheia. Resolva um show marcado antes de aceitar outro convite.", [], {
+          imageSrc: eventRef.image || "",
+          imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+          imageIsCharacter: !!eventRef.isCharacterEvent
+        });
+        return;
+      }
       queueCriticalDialog(`${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
         imageSrc: eventRef.image || "",
         imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
@@ -3051,6 +3096,7 @@ function loadGameState() {
     v1Completed: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
+    routeCounters: createDefaultRouteCounters(),
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
@@ -3109,6 +3155,7 @@ function loadGameState() {
       unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
       availablePerkPoints: parsed.availablePerkPoints ?? 0,
       careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
+      routeCounters: normalizeRouteCounters(parsed.routeCounters),
       careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : [],
       carvalhoDialogState: {
         shownIds: Array.isArray(parsed.carvalhoDialogState?.shownIds) ? parsed.carvalhoDialogState.shownIds : [],
@@ -3171,7 +3218,8 @@ function saveGameState() {
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
     v1Completed: !!state.v1Completed,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
-    careerMilestones: state.careerMilestones, careerChoices: state.careerChoices,
+    careerMilestones: state.careerMilestones, routeCounters: state.routeCounters,
+    careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
     headlinerSoloState: state.headlinerSoloState,
@@ -4077,6 +4125,7 @@ function finalizeJokeCreation() {
     minutes, lastResult: "⏱️ ainda não testada", freshness: "nova",
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
+  incrementRouteCounter("writeCount");
   if ((state.jokes.length || 0) >= 10 && markCareerMilestone("jokes10")) {
     maybeTriggerCarvalhoDialog("jokes10", { jokeCount: state.jokes.length });
   }
@@ -4572,6 +4621,7 @@ function createContent() {
   state.fans += fanGain;
   state.network = (state.network || 10) + 1;
   state.motivation = clamp(state.motivation - 4, 0, 120);
+  incrementRouteCounter("contentCount");
   const xpGain = applyXp(XP_GAIN.content);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.15)');
@@ -4595,6 +4645,7 @@ function handleStudy() {
   if (hasClassPassive("studyBoost")) state.texto = clamp((state.texto || 0) + 1, 0, 200);
   if (hasClassPassive("studyBoost")) state.entrega = clamp((state.entrega || 0) + 1, 0, 200);
   state.motivation = clamp(state.motivation + 2, 0, 120);
+  incrementRouteCounter("studyCount");
   const xpGain = applyXp(XP_GAIN.study);
   addHeadlinerPrep(1);
   setScene("home");
@@ -5029,6 +5080,7 @@ function finalizeRewrite() {
   joke.freshness = "reescrita";
   joke.history = [];
   joke.lastResult = "⏱️ reescrita, ainda não testada";
+  incrementRouteCounter("rewriteCount");
 
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
   const xpGain = applyXp(XP_GAIN.jokeRewrite);

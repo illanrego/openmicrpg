@@ -39,6 +39,13 @@ stageTime: 0
 activityPoints: 1
 currentDay: 1
 currentWeekDay: 1 // Segunda
+routeCounters: {
+  studyCount: 0,
+  writeCount: 0,
+  rewriteCount: 0,
+  contentCount: 0,
+  showsScheduledCount: 0
+}
 ```
 
 Important caps:
@@ -173,6 +180,7 @@ Where:
 - `perkPotentialBonus = getPerkEffect("jokePotentialBonus") + getPerkEffect("setupBonus")`
 - New jokes grant `XP_GAIN.jokeNew = 12`
 - New jokes add `1` headliner prep point if the player is currently headliner
+- Successful new jokes increment `routeCounters.writeCount`
 
 Open players cannot exceed `10` total minutes of material. They must delete material or progress before writing more.
 
@@ -205,6 +213,7 @@ Where:
 - Rewritten joke length is `2` minutes with `30%` chance, otherwise `1`
 - Rewrite grants `XP_GAIN.jokeRewrite = 6`
 - Rewrite adds `2` headliner prep points if the player is currently headliner
+- Successful rewrites increment `routeCounters.rewriteCount`
 
 ## Show Scoring Formula
 
@@ -549,6 +558,8 @@ Special offer insertion:
 - Unlocked `5a5` can appear for open players with `75%` chance around Sunday
 - Unlocked `pague15` can appear around Thursday
 
+Successful scheduled shows increment `routeCounters.showsScheduledCount`, including event-driven scheduling.
+
 Remaining offer count:
 
 ```js
@@ -661,6 +672,7 @@ xp += XP_GAIN.content // 10
 Motivation is clamped to `0..120`.
 
 Content can trigger random events and fan milestones.
+Successful content actions increment `routeCounters.contentCount`.
 
 ## Study Action
 
@@ -676,6 +688,7 @@ xp += XP_GAIN.study // 15
 ```
 
 Study adds `1` headliner prep point if the player is currently headliner.
+Successful study actions increment `routeCounters.studyCount`.
 
 ## Event Engine
 
