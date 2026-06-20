@@ -171,7 +171,7 @@ Where:
 
 - `flowBonus = 0.1` if flow is active, otherwise `0`
 - `perkPotentialBonus = getPerkEffect("jokePotentialBonus") + getPerkEffect("setupBonus")`
-- New jokes grant `XP_GAIN.jokeNew = 10`
+- New jokes grant `XP_GAIN.jokeNew = 12`
 - New jokes add `1` headliner prep point if the player is currently headliner
 
 Open players cannot exceed `10` total minutes of material. They must delete material or progress before writing more.
@@ -203,7 +203,7 @@ Where:
 - `rewritePerkBonus = getPerkEffect("rewriteBonus")`
 - `classRewriteBonus = 0.04` if the player has the `betterRewrite` class passive
 - Rewritten joke length is `2` minutes with `30%` chance, otherwise `1`
-- Rewrite grants `XP_GAIN.jokeRewrite = 5`
+- Rewrite grants `XP_GAIN.jokeRewrite = 6`
 - Rewrite adds `2` headliner prep points if the player is currently headliner
 
 ## Show Scoring Formula
@@ -381,9 +381,10 @@ XP gains:
 
 ```js
 show: { 1: 5, 2: 15, 3: 30, 4: 60, 5: 100 }
-jokeNew: 10
-jokeRewrite: 5
-study: 20
+jokeNew: 12
+jokeRewrite: 6
+study: 15
+content: 10
 ```
 
 Total XP thresholds:
@@ -654,6 +655,7 @@ Then:
 fans += fanGain
 network += 1
 motivation -= 4
+xp += XP_GAIN.content // 10
 ```
 
 Motivation is clamped to `0..120`.
@@ -665,12 +667,12 @@ Content can trigger random events and fan milestones.
 Costs `1` activity point.
 
 ```js
-texto += 6
+texto += 4
 if studyBoost:
   texto += 1
   entrega += 1
-motivation += 4
-xp += XP_GAIN.study // 20
+motivation += 2
+xp += XP_GAIN.study // 15
 ```
 
 Study adds `1` headliner prep point if the player is currently headliner.

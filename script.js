@@ -2393,9 +2393,10 @@ const XP_TOTAL_BY_LEVEL = [
 
 const XP_GAIN = {
   show: { 1: 5, 2: 15, 3: 30, 4: 60, 5: 100 },
-  jokeNew: 10,
-  jokeRewrite: 5,
-  study: 20
+  jokeNew: 12,
+  jokeRewrite: 6,
+  study: 15,
+  content: 10
 };
 
 const HECKLER_EVENT_CHANCE = 0.15;
@@ -4571,10 +4572,11 @@ function createContent() {
   state.fans += fanGain;
   state.network = (state.network || 10) + 1;
   state.motivation = clamp(state.motivation - 4, 0, 120);
+  const xpGain = applyXp(XP_GAIN.content);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.15)');
   if (fanGain > 20) spawnConfetti(15);
-  displayNarration(`📱 Você cria conteúdo e posta. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade)`);
+  displayNarration(`📱 Você cria conteúdo e posta. ${fanGain} novas pessoas começam a te seguir. (-1 ponto de atividade, +${xpGain} XP)`);
   updateStats();
   maybeTriggerEvent("random", { source: "content" });
   checkFanMilestones();
@@ -4589,10 +4591,10 @@ function handleStudy() {
   if (markCareerMilestone("firstStudy")) {
     maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
   }
-  state.texto = clamp((state.texto || 0) + 6, 0, 200);
+  state.texto = clamp((state.texto || 0) + 4, 0, 200);
   if (hasClassPassive("studyBoost")) state.texto = clamp((state.texto || 0) + 1, 0, 200);
   if (hasClassPassive("studyBoost")) state.entrega = clamp((state.entrega || 0) + 1, 0, 200);
-  state.motivation = clamp(state.motivation + 4, 0, 120);
+  state.motivation = clamp(state.motivation + 2, 0, 120);
   const xpGain = applyXp(XP_GAIN.study);
   addHeadlinerPrep(1);
   setScene("home");
