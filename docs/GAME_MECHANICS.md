@@ -126,10 +126,10 @@ Skipping to a scheduled show advances each skipped day manually:
 
 There are two writing modes.
 
-| Mode id | Label | Activity cost | Motivation cost | Fail chance | `textoBonus` | Time bonus |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `desk` | Sentar e escrever | 1 | 15 | 25% | 0.10 | 50% chance |
-| `day` | Anotar durante o dia | 1 | 0 | 50% | 0 | 0% |
+| Mode id | Label | Activity cost | Motivation cost | Fail chance | `textoBonus` |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `desk` | Sentar e escrever | 1 | 15 | 10% | 0.10 |
+| `day` | Anotar durante o dia | 1 | 0 | 20% | 0 |
 
 `desk` requires at least `15` motivation before writing starts.
 
@@ -146,9 +146,17 @@ This means:
 
 Joke length:
 
-```js
-minutes = clamp(idea.baseMinutes + (addMinute ? 1 : 0), 1, 2)
-```
+Duration is based on the selected structure:
+
+| Structure | Minutes |
+| --- | ---: |
+| `oneliner` | 1 |
+| `prop` | 1 |
+| `bit` | 2-3 |
+| `storytelling` | 3-5 |
+
+New and rewritten jokes roll inside the structure range. Loaded/saved jokes are normalized into the valid range for their structure.
+For Open players, creation validates the selected structure length before spending activity/motivation so the material cap remains `10` minutes.
 
 Base potential:
 
@@ -210,7 +218,8 @@ Where:
 - `flowBonus = 0.1` if flow is active
 - `rewritePerkBonus = getPerkEffect("rewriteBonus")`
 - `classRewriteBonus = 0.04` if the player has the `betterRewrite` class passive
-- Rewritten joke length is `2` minutes with `30%` chance, otherwise `1`
+- Rewritten joke length is rerolled from the selected structure range
+- Open-player rewrites reject structure changes that would push the caderno over `10` total minutes
 - Rewrite grants `XP_GAIN.jokeRewrite = 6`
 - Rewrite adds `2` headliner prep points if the player is currently headliner
 - Successful rewrites increment `routeCounters.rewriteCount`

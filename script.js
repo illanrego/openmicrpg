@@ -102,11 +102,18 @@ const toneDescriptionsLong = {
 
 const structures = ["oneliner", "storytelling", "bit", "prop"];
 
+const STRUCTURE_MINUTE_RANGES = {
+  oneliner: [1, 1],
+  prop: [1, 1],
+  bit: [2, 3],
+  storytelling: [3, 5]
+};
+
 const structureDescriptions = {
-  oneliner: "Piada curta e direta, que não necessita de mais contexto.",
-  storytelling: "Uma narrativa, uma história com vários punchs.",
-  bit: "Sequência de piadas conectadas sobre um mesmo tema.",
-  prop: "Usa objetos ou elementos visuais para complementar a piada."
+  oneliner: "Piada curta e direta, que não necessita de mais contexto. 1 min.",
+  storytelling: "Uma narrativa, uma história com vários punchs. 3-5 min.",
+  bit: "Sequência de piadas conectadas sobre um mesmo tema. 2-3 min.",
+  prop: "Usa objetos ou elementos visuais para complementar a piada. 1 min."
 };
 
 const PROFILE_BADGE_LABELS = {
@@ -145,7 +152,6 @@ const writingModes = {
     costLabel: "⚡ 1 ponto",
     motivationCost: 15,
     textoBonus: 0.10,
-    timeBonus: 0.5,
     failChance: 0.10
   },
   day: {
@@ -155,7 +161,6 @@ const writingModes = {
     costLabel: "⚡ 1 ponto",
     motivationCost: 0,
     textoBonus: 0,
-    timeBonus: 0,
     failChance: 0.20
   }
 };
@@ -2161,12 +2166,29 @@ const createId = () =>
     ? crypto.randomUUID()
     : `jk-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+function getStructureMinuteRange(structure) {
+  return STRUCTURE_MINUTE_RANGES[structure] || STRUCTURE_MINUTE_RANGES.oneliner;
+}
+
+function getRandomMinutesForStructure(structure) {
+  const [min, max] = getStructureMinuteRange(structure);
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function normalizeMinutesForStructure(minutes, structure) {
+  const [min, max] = getStructureMinuteRange(structure);
+  const numericMinutes = Number(minutes);
+  const fallbackMinutes = getRandomMinutesForStructure(structure);
+  const safeMinutes = Number.isFinite(numericMinutes) ? Math.round(numericMinutes) : fallbackMinutes;
+  return clamp(safeMinutes, min, max);
+}
+
 const sanitizeJoke = (joke) => {
   const tone = allowedTones.includes(joke.tone) ? joke.tone : allowedTones[Math.floor(Math.random() * allowedTones.length)];
   const structure = structures.includes(joke.structure) ? joke.structure : structures[Math.floor(Math.random() * structures.length)];
   return {
     ...joke, tone, structure,
-    minutes: clamp(joke.minutes || 1, 1, 2),
+    minutes: normalizeMinutesForStructure(joke.minutes, structure),
     truePotential: typeof joke.truePotential === "number" ? clamp(joke.truePotential, 0.1, 0.99) : generatePotential(),
     history: Array.isArray(joke.history) ? [...joke.history].slice(-7) : [],
     lastResult: joke.lastResult || "⏱️ ainda não testada",
@@ -3969,6 +3991,20 @@ function exitWritingMode() {
   resetSubtitle();
 }
 
+function clearPendingJokeCreation() {
+  _pendingJokeIdea = null;
+  _pendingJokeMode = null;
+  _selectedTone = null;
+  _selectedStructure = null;
+  _customJokeTitle = null;
+}
+
+function clearPendingRewrite() {
+  _rewritingJoke = null;
+  _newTone = null;
+  _newStructure = null;
+}
+
 function createJokeFromMode(modeId) {
   const mode = writingModes[modeId] || writingModes.desk;
   const activityCost = mode.id === "desk" ? ACTIVITY_COSTS.desk : ACTIVITY_COSTS.day;
@@ -4053,7 +4089,7 @@ function showJokeCustomization(idea, mode) {
 
   showDialog("Personalize sua nova piada e confirme:", [
     { label: "✅ Criar Piada", handler: () => { hideDialog(); finalizeJokeCreation(); } },
-    { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); _pendingJokeIdea = null; _pendingJokeMode = null; _customJokeTitle = null; } }
+    { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); clearPendingJokeCreation(); } }
   ]);
 
   setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
@@ -4064,6 +4100,20 @@ function finalizeJokeCreation() {
   const mode = _pendingJokeMode;
   if (!idea || !mode) { exitWritingMode(); return; }
 
+  const chosenTone = _selectedTone || idea.tone;
+  const chosenStructure = _selectedStructure || getUnlockedStructures()[0];
+  const chosenTitle = _customJokeTitle || formatIdeaTitle(idea);
+  const minutes = getRandomMinutesForStructure(chosenStructure);
+
+  if (state.level === "open" && getTotalMinutes() + minutes > 10) {
+    shakeScreen();
+    showDialog(`📝 Essa estrutura deixaria seu caderno com ${getTotalMinutes() + minutes} minutos.\n\nComo Open, o limite é 10 minutos de material. Apague algo ou escolha uma estrutura mais curta.`, [
+      { label: "Ver Material", handler: () => { hideDialog(); clearPendingJokeCreation(); exitWritingMode(); handleViewMaterial(); } },
+      { label: "Fechar", handler: () => { hideDialog(); clearPendingJokeCreation(); exitWritingMode(); } }
+    ]);
+    return;
+  }
+
   const activityCost = mode.id === "desk" ? ACTIVITY_COSTS.desk : ACTIVITY_COSTS.day;
   spendActivityPoints(activityCost, mode.label);
 
@@ -4071,7 +4121,7 @@ function finalizeJokeCreation() {
 
   // Fail check: chance of nothing getting written
   if (Math.random() < (mode.failChance || 0)) {
-    _pendingJokeIdea = null; _pendingJokeMode = null; _selectedTone = null; _selectedStructure = null; _customJokeTitle = null;
+    clearPendingJokeCreation();
     exitWritingMode();
     renderJokeList({ selectable: false });
     setScene("home");
@@ -4086,8 +4136,6 @@ function finalizeJokeCreation() {
 
   state.texto = clamp((state.texto || 0) + 1 + Math.round(mode.textoBonus * 20), 0, 200);
 
-  const addMinute = Math.random() < Math.max(0, mode.timeBonus);
-  const minutes = clamp(idea.baseMinutes + (addMinute ? 1 : 0), 1, 2);
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const perkPotentialBonus = getPerkEffect('jokePotentialBonus') + getPerkEffect('setupBonus');
@@ -4116,10 +4164,6 @@ function finalizeJokeCreation() {
       ? "🙂 tem caminho"
       : "😶 veio crua";
 
-  const chosenTone = _selectedTone || idea.tone;
-  const chosenStructure = _selectedStructure || getUnlockedStructures()[0];
-  const chosenTitle = _customJokeTitle || formatIdeaTitle(idea);
-
   state.jokes.push({
     id: createId(), title: chosenTitle, tone: chosenTone, structure: chosenStructure,
     minutes, lastResult: "⏱️ ainda não testada", freshness: "nova",
@@ -4132,7 +4176,7 @@ function finalizeJokeCreation() {
   const xpGain = applyXp(XP_GAIN.jokeNew);
   addHeadlinerPrep(1);
 
-  _pendingJokeIdea = null; _pendingJokeMode = null; _selectedTone = null; _selectedStructure = null; _customJokeTitle = null;
+  clearPendingJokeCreation();
 
   exitWritingMode();
   renderJokeList({ selectable: false });
@@ -5048,7 +5092,7 @@ function rewriteJoke(jokeId) {
 
   showDialog(`Reescrever "${joke.title}"?`, [
     { label: "✅ Reescrever", handler: () => { hideDialog(); finalizeRewrite(); } },
-    { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); _rewritingJoke = null; handleViewMaterial(); } }
+    { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); clearPendingRewrite(); handleViewMaterial(); } }
   ]);
 
   setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
@@ -5064,6 +5108,16 @@ function finalizeRewrite() {
     exitWritingMode(); handleViewMaterial(); return;
   }
 
+  const nextStructure = _newStructure || joke.structure;
+  const nextMinutes = getRandomMinutesForStructure(nextStructure);
+  const currentTotalMinutes = getTotalMinutes();
+  if (state.level === "open" && currentTotalMinutes - (joke.minutes || 0) + nextMinutes > 10) {
+    shakeScreen();
+    displayNarration("📝 Essa reescrita ficaria longa demais para seu caderno de Open. Apague material ou escolha uma estrutura mais curta.");
+    clearPendingRewrite();
+    exitWritingMode(); handleViewMaterial(); return;
+  }
+
   state.motivation = clamp(state.motivation - 4, 0, 120);
   if (markCareerMilestone("firstRewrite")) {
     maybeTriggerCarvalhoDialog("firstRewrite", { jokeId: joke.id });
@@ -5075,8 +5129,8 @@ function finalizeRewrite() {
   const classRewriteBonus = hasClassPassive("betterRewrite") ? 0.04 : 0;
   joke.truePotential = clamp(basePotential + (state.texto / 160) + flowBonus + rewritePerkBonus + classRewriteBonus, 0.2, 0.98);
   joke.tone = _newTone || joke.tone;
-  joke.structure = _newStructure || joke.structure;
-  joke.minutes = Math.random() > 0.7 ? 2 : 1;
+  joke.structure = nextStructure;
+  joke.minutes = nextMinutes;
   joke.freshness = "reescrita";
   joke.history = [];
   joke.lastResult = "⏱️ reescrita, ainda não testada";
@@ -5086,7 +5140,7 @@ function finalizeRewrite() {
   const xpGain = applyXp(XP_GAIN.jokeRewrite);
   addHeadlinerPrep(2);
 
-  _rewritingJoke = null; _newTone = null; _newStructure = null;
+  clearPendingRewrite();
   exitWritingMode();
   flashScreen('rgba(212, 168, 75, 0.15)');
   displayNarration(`✏️ "${joke.title}" foi completamente reescrita! Tom: ${joke.tone}, estrutura: ${joke.structure.toUpperCase()}. ${joke.minutes} min. Parece ${label}. (+${xpGain} XP)`);

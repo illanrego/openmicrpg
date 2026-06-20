@@ -161,10 +161,11 @@ openmicrpg1/
 ### Sistema de Escrita / Writing System
 - **Potencial base**: 0.35-0.85 (aleatório)
 - **Modificadores**: texto/250, (motivação-60)/400, modo de escrita, flow, perks
+- **Duração por estrutura**: oneliner/prop 1 min, bit 2-3 min, storytelling 3-5 min
 - **Cap máximo**: 0.98
-- **Falha**: Chance de não gerar piada (25% sentar e escrever, 50% anotar durante o dia)
+- **Falha**: Chance de não gerar piada (10% sentar e escrever, 20% anotar durante o dia)
 
-**Base potential**: 0.35-0.85 (random) | **Modifiers**: texto/250, (motivation-60)/400, writing mode, flow, perks | **Max cap**: 0.98 | **Failure**: Chance of not generating joke (25% desk, 50% day)**
+**Base potential**: 0.35-0.85 (random) | **Modifiers**: texto/250, (motivation-60)/400, writing mode, flow, perks | **Structure duration**: oneliner/prop 1 min, bit 2-3 min, storytelling 3-5 min | **Max cap**: 0.98 | **Failure**: Chance of not generating joke (10% desk, 20% day)**
 
 ### Sistema de Performance / Performance System
 - **Componentes de score**:
