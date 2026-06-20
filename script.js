@@ -1036,7 +1036,7 @@ const eventPool = [
     image: "paulo-araujo.png",
     choices: [
       { label: "Aceitar o convite", effects: { motivation: 8, texto: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
-      { label: "Quero mais material primeiro", effects: { motivation: -2 }, narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar." }
+      { label: "Quero mais material primeiro", effects: { motivation: -2 }, narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar.", delayRouteInviteDays: 3 }
     ]
   },
   {
@@ -1045,7 +1045,7 @@ const eventPool = [
     image: "paulo-araujo.png",
     choices: [
       { label: "Aceitar fazer parte do elenco fixo", effects: { motivation: 10, network: 8, texto: 5 }, unlockPague15: true, narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!" },
-      { label: "Ainda não me sinto pronto", effects: { motivation: -3 }, narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta." }
+      { label: "Ainda não me sinto pronto", effects: { motivation: -3 }, narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta.", delayRouteInviteDays: 4 }
     ]
   },
   {
@@ -1481,6 +1481,25 @@ function createDefaultRouteCounters() {
   };
 }
 
+function createDefaultRouteInviteState() {
+  return {
+    cincoPiadas: { pending: false, nextOfferDay: 1 },
+    pauloAraujoPague15: { pending: false, nextOfferDay: 1 }
+  };
+}
+
+function normalizeRouteInviteState(routeInviteState = {}) {
+  return Object.fromEntries(
+    Object.entries(createDefaultRouteInviteState()).map(([key, defaults]) => {
+      const raw = routeInviteState?.[key] || {};
+      return [key, {
+        pending: !!raw.pending,
+        nextOfferDay: Math.max(1, Math.round(raw.nextOfferDay || defaults.nextOfferDay || 1))
+      }];
+    })
+  );
+}
+
 function normalizeRouteCounters(counters = {}) {
   return Object.fromEntries(
     Object.entries(createDefaultRouteCounters()).map(([key, defaultValue]) => {
@@ -1500,6 +1519,7 @@ function ensureCareerProgressState() {
   if (!state) return;
   state.careerMilestones = { ...createDefaultCareerMilestones(), ...(state.careerMilestones || {}) };
   state.routeCounters = normalizeRouteCounters(state.routeCounters);
+  state.routeInviteState = normalizeRouteInviteState(state.routeInviteState);
   state.careerChoices = state.careerChoices || [];
   state.carvalhoDialogState = {
     shownIds: Array.isArray(state.carvalhoDialogState?.shownIds) ? state.carvalhoDialogState.shownIds : [],
@@ -1545,6 +1565,47 @@ function ensureCareerProgressState() {
   state.legacyEnding = state.legacyEnding || null;
   state.postLegacyMode = !!state.postLegacyMode;
   state.legacyChoicePrompted = !!state.legacyChoicePrompted;
+}
+
+function isRouteInviteEvent(eventOrId) {
+  const eventId = typeof eventOrId === "string" ? eventOrId : eventOrId?.id;
+  return eventId === "cincoPiadas" || eventId === "pauloAraujoPague15";
+}
+
+function canRouteInviteAppearNow(eventId) {
+  if (!state) return false;
+  const inviteState = state.routeInviteState?.[eventId];
+  if (!inviteState?.pending) return false;
+  if ((state.currentDay || 1) < (inviteState.nextOfferDay || 1)) return false;
+  if (!Array.isArray(state.showHistory) || state.showHistory.length === 0) return false;
+  return true;
+}
+
+function refreshRouteInviteAvailability(source = "system") {
+  if (!state || !Array.isArray(eventPool)) return;
+  ensureCareerProgressState();
+
+  if (!state.fiveA5Unlocked && !state.eventsSeen.includes("cincoPiadas") && Array.isArray(state.jokes) && state.jokes.length >= 5) {
+    state.routeInviteState.cincoPiadas.pending = true;
+  }
+  if (!state.pague15Unlocked && !state.eventsSeen.includes("pauloAraujoPague15") && (state.shows5a5AtLevel4 || 0) >= 3) {
+    state.routeInviteState.pauloAraujoPague15.pending = true;
+  }
+
+  if (activeEvent || pendingEvent) return;
+
+  const routeInviteOrder = ["cincoPiadas", "pauloAraujoPague15"];
+  for (const eventId of routeInviteOrder) {
+    if (!canRouteInviteAppearNow(eventId)) continue;
+    const event = eventPool.find((entry) => entry.id === eventId);
+    if (!event) continue;
+    if (source === "newDay") {
+      showEvent(event);
+    } else {
+      pendingEvent = event;
+    }
+    break;
+  }
 }
 
 function hasCareerMilestone(milestoneId) {
@@ -2875,6 +2936,7 @@ function advanceDay() {
   if (hasHadFirstShow && (state.eventsThisWeek || 0) < 2 && Math.random() < 0.1) {
     maybeTriggerEvent("random", { source: "newDay" });
   }
+  refreshRouteInviteAvailability("newDay");
 
   if (state.motivation <= 25) {
     maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
@@ -2955,8 +3017,8 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     case "fans20":     return state.fans >= 20;
     case "fans30":     return state.fans >= 30;
     case "fans50":     return state.fans >= 50;
-    case "jokes5":     return Array.isArray(state.jokes) && state.jokes.length === 5;
-    case "pague15Invite": return (state.shows5a5AtLevel4 || 0) >= 3 && !state.pague15Unlocked;
+    case "jokes5":     return false;
+    case "pague15Invite": return false;
     case "random":     return Math.random() < 0.25;
     case "levelUp3":   return state.levelNumber >= 3;
     default:           return false;
@@ -3014,8 +3076,20 @@ function handleEventChoiceIndex(index) {
   const eventRef = activeEvent;
   const choice = eventRef.choices && eventRef.choices[index];
   if (!choice) { hideDialog(); activeEvent = null; uiMode = "idle"; return; }
-
-  if (eventRef.once && !state.eventsSeen.includes(eventRef.id)) state.eventsSeen.push(eventRef.id);
+  const isRouteInvite = isRouteInviteEvent(eventRef);
+  const routeInviteAccepted = isRouteInvite ? (choice.unlock5a5 || choice.unlockPague15 || choice.startShowId || choice.scheduleShow) : false;
+  if (eventRef.once && !isRouteInvite && !state.eventsSeen.includes(eventRef.id)) state.eventsSeen.push(eventRef.id);
+  if (isRouteInvite) {
+    ensureCareerProgressState();
+    const inviteState = state.routeInviteState[eventRef.id];
+    if (inviteState) {
+      inviteState.pending = !routeInviteAccepted;
+      if (choice.delayRouteInviteDays) {
+        inviteState.nextOfferDay = (state.currentDay || 1) + Math.max(1, Math.round(choice.delayRouteInviteDays));
+      }
+    }
+    if (routeInviteAccepted && !state.eventsSeen.includes(eventRef.id)) state.eventsSeen.push(eventRef.id);
+  }
   if (eventRef.cooldown) eventRef.lastTriggered = state.currentDay;
 
   const hasStartShow = !!choice.startShowId;
@@ -3032,6 +3106,7 @@ function handleEventChoiceIndex(index) {
   if (choice.unlock5a5) state.fiveA5Unlocked = true;
   if (choice.unlockPague15) state.pague15Unlocked = true;
   updateStats();
+  saveGameState();
 
   // ─── Start-show choice: schedule and narrate ───
   if (hasStartShow) {
@@ -3127,6 +3202,7 @@ function loadGameState() {
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
     routeCounters: createDefaultRouteCounters(),
+    routeInviteState: createDefaultRouteInviteState(),
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
@@ -3186,6 +3262,7 @@ function loadGameState() {
       availablePerkPoints: parsed.availablePerkPoints ?? 0,
       careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
       routeCounters: normalizeRouteCounters(parsed.routeCounters),
+      routeInviteState: normalizeRouteInviteState(parsed.routeInviteState),
       careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : [],
       carvalhoDialogState: {
         shownIds: Array.isArray(parsed.carvalhoDialogState?.shownIds) ? parsed.carvalhoDialogState.shownIds : [],
@@ -3249,6 +3326,7 @@ function saveGameState() {
     v1Completed: !!state.v1Completed,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, routeCounters: state.routeCounters,
+    routeInviteState: state.routeInviteState,
     careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
@@ -4200,7 +4278,7 @@ function finalizeJokeCreation() {
     displayNarration(`🧱 Você trabalha seu texto. Na prática, ainda é piada: premissa, punchline, corte, ordem. Mas agora você pensa em bloco de 15 minutos. Entrou: "${chosenTitle}" (${minutes} min, ${chosenStructure.toUpperCase()}, ${chosenTone}). Parece ${label}. (-1 ponto) (+${xpGain} XP)`);
   }
 
-  if (state.jokes.length === 5) maybeTriggerEvent("jokes5", { source: "writing" });
+  refreshRouteInviteAvailability("writing");
   maybeTriggerEvent("random", { source: "writing" });
   checkAndShowPendingEvent();
   saveGameState();
@@ -4588,7 +4666,7 @@ function performShow() {
     else if (outcomeType === "bomb") maybeTriggerEvent("showBomb", eventContext);
     else maybeTriggerEvent("random", eventContext);
 
-    if (showType === "5a5" && nota >= 4) maybeTriggerEvent("pague15Invite", eventContext);
+    refreshRouteInviteAvailability("show");
     checkFanMilestones();
     saveGameState();
   } finally {
@@ -5201,6 +5279,10 @@ function bootGame() {
   if (state.hasStarted && state.avatar) {
     enterGame(true);
     displayNarration(homeText);
+    refreshRouteInviteAvailability("load");
+    if (pendingEvent) {
+      setTimeout(() => checkAndShowPendingEvent(), 1400);
+    }
 
     // Catch-up: if player is elenco+ but never chose a class
     if (state.level !== "open" && !state.chosenClass) {

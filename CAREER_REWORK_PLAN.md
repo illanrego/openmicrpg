@@ -304,11 +304,11 @@ This plan is intended to fix these contradictions:
 
 The work should be done one module at a time:
 
-1. remove `Professor` as a class
-2. nerf `study` and rebalance general XP
-3. add route counters to state/save/load
-4. implement structure-based joke duration
-5. refactor show XP into `consolidated` vs `new material`
+1. remove `Professor` as a class [done]
+2. nerf `study` and rebalance general XP [done]
+3. add route counters to state/save/load [done]
+4. implement structure-based joke duration [done]
+5. refactor show XP into `consolidated` vs `new material` [done]
 6. make route invites non-missable (`Paulo`, `Pague15`, etc.)
 7. add route events (phase 1 and phase 2)
 8. implement automatic class lock
