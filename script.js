@@ -30,20 +30,64 @@
  * ║  §24 BOOT SEQUENCE                                              ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
-
-
 // ═══════════════════════════════════════════════════════════════════
 // §1  CONSTANTS & CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = "openMicRPG.save.v2";
+const LEGACY_STORAGE_KEY = "openMicRPG.legacyArchive.v1";
+const SAVE_SCHEMA_VERSION = 3;
+const GAME_CONTENT = window.OpenMicRpgContent || {};
+const V2_PROGRESSION = GAME_CONTENT.progression || { classOrder: [], classPaths: {}, endingRules: {}, politico: {} };
+const V2_EVENTS = GAME_CONTENT.v2Events || { classEvents: {} };
+const V2_ENDINGS = GAME_CONTENT.endings || { base: {}, tone: {}, tier: {}, enabledSpecials: [] };
+const CARVALHO_DIALOGS = GAME_CONTENT.carvalhoDialogs || [];
+const eventPool = GAME_CONTENT.events || [];
 const LEGEND_TEXT = "🤯 explodiu | 🔥 matou | 🙂 segurou | 😶 risinhos | 💧 deu água";
 const MAX_SCHEDULED_SHOWS = 3;
+
+function loadLegacyArchive() {
+  try {
+    const archive = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "[]");
+    return Array.isArray(archive)
+      ? archive.filter(entry => entry && typeof entry === "object" && (entry.runId || entry.endingId || entry.classId))
+      : [];
+  } catch (error) {
+    console.warn("Falha ao carregar arquivo de legado.", error);
+    return [];
+  }
+}
+
+function computeLegacyBonuses() {
+  const archive = loadLegacyArchive();
+  const dominantTones = new Set(archive.map(run => run.dominantTone).filter(Boolean));
+  const completedClasses = new Set(archive.map(run => run.classId).filter(Boolean));
+  return {
+    oneliner: archive.length >= 1,
+    humorNegro: dominantTones.has("humor negro"),
+    storytelling: completedClasses.has("roteirista"),
+    prop: completedClasses.has("atorComico"),
+    hack: archive.length >= 2 || dominantTones.has("hack"),
+    politico: dominantTones.has("político"),
+    expandedClasses: archive.length >= 2
+  };
+}
+
+function saveRunToLegacyArchive(runSummary) {
+  try {
+    const archive = loadLegacyArchive();
+    archive.push(runSummary);
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(archive));
+    return true;
+  } catch (error) {
+    console.warn("Falha ao salvar corrida no arquivo de legado.", error);
+    return false;
+  }
+}
 
 // ─── Time ───
 const DAYS_OF_WEEK = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 function getMaxActivityPoints() {
-  if (state && state.madeIt) return 3;
   if (state && state.hasEmployment) return 2;
   return 1;
 }
@@ -69,18 +113,21 @@ const createInitialTimeState = () => ({
 });
 
 // ─── Tones & Structures ───
-const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack"];
+const allowedTones = ["besteirol", "vulgar", "limpo", "humor negro", "hack", "político"];
 
 function getUnlockedTones() {
-  const base = ["besteirol", "limpo", "vulgar", "humor negro"];
-  if (state && state.levelNumber >= 5) base.push("hack");
+  const base = ["besteirol", "limpo", "vulgar"];
+  if (state && state.humorNegroUnlocked) base.push("humor negro");
+  if (state && (state.hackUnlocked || state.levelNumber >= 5)) base.push("hack");
+  if (state && (state.politicoUnlocked || state.levelNumber >= (V2_PROGRESSION.politico?.levelUnlock || 8))) base.push("político");
   return base;
 }
 
 function getUnlockedStructures() {
-  const base = ["oneliner", "bit"];
+  const base = ["bit"];
+  if (state && state.onelinerUnlocked) base.push("oneliner");
   if (state && (state.storytellingUnlocked || state.levelNumber >= 6)) base.push("storytelling");
-  if (state && state.levelNumber >= 10) base.push("prop");
+  if (state && (state.propUnlocked || state.levelNumber >= 10)) base.push("prop");
   return base;
 }
 
@@ -89,7 +136,8 @@ const toneDescriptions = {
   vulgar: "piadas pesadas sem filtro",
   limpo: "humor família e bobinho",
   "humor negro": "piadas azedas que dividem a sala",
-  hack: "observações batidas porém eficientes"
+  hack: "observações batidas porém eficientes",
+  "político": "poder, sociedade e contradição"
 };
 
 const toneDescriptionsLong = {
@@ -97,7 +145,8 @@ const toneDescriptionsLong = {
   vulgar: "Piadas pesadas, linguagem explícita. Pode dividir a sala, mas conecta com quem curte.",
   limpo: "Humor família, sem palavrões. Ideal para corporativos e eventos diversos.",
   "humor negro": "Piadas sobre temas tabu. Pode ser brilhante ou desastroso dependendo da plateia.",
-  hack: "Observações batidas mas eficientes. Todo mundo já ouviu, mas ainda funciona."
+  hack: "Observações batidas mas eficientes. Todo mundo já ouviu, mas ainda funciona.",
+  "político": "Humor sobre poder, vida pública e contradições sociais. Depende muito da sala."
 };
 
 const structures = ["oneliner", "storytelling", "bit", "prop"];
@@ -166,337 +215,37 @@ const writingModes = {
 };
 
 // ─── Scenes (image lookup by key) ───
-const scenes = {
-  home: { title: "Apartamentinho", image: null },       // dynamic based on day
-  writing: { title: "Bloco de notas", image: null },     // dynamic
-  club: { title: "Clube", image: "copo-sujo-comedy.png" },
-  bomb: { title: "Deu Água", image: "awful-show-1-out-5.png" },
-  risinhos: { title: "Risinhos", image: "bad-show-2-out-5.png" },
-  ok: { title: "Segurou", image: "good-show-3-out-5.png" },
-  kill: { title: "Matou no Palco", image: "great-show-4-out-5.png" },
-  explode: { title: "Explodiu!", image: "excellent-show-5-out-5.png" },
-  content: { title: "Conteúdo em casa", image: null },   // dynamic
-  study: { title: "Estudos e referências", image: null }, // dynamic
-  event: { title: "", image: null },
-  intro: { title: "Professor Carvalho", image: "carvalho.png" }
-};
+const scenes = GAME_CONTENT.world?.scenes || {} ;
 
-const avatarImages = {
-  avatar1: "avatar.png",
-  avatar2: "avatar2.png",
-  avatar3: "avatar3.png",
-  avatar4: "avatar4.png"
-};
+const avatarImages = GAME_CONTENT.world?.avatarImages || {} ;
 
 const confettiColors = ['#d4a84b', '#ffd966', '#f5e6c8', '#a65d4e', '#5a8f5a'];
 
 // ─── Narrative strings ───
-const homeText =
-  "Você está em casa, à toa. Você tem certeza que será descoberto pelo mercado de comédia, já que se considera naturalmente muito mais engraçado que todo mundo que faz stand up. Apesar disso, talvez fosse uma boa ideia escrever piadas ou buscar show para se apresentar - só enquanto a fama não vem do nada...";
+const homeText = GAME_CONTENT.world?.homeText || "" ;
 
-const mentorIntroLines = [
-  "Olá! Meu nome é Illan Carvalho, mas no circuito me chamam de Professor Carvalho.",
-  "Você vai ouvir muito conselho por aí. Na maior parte do tempo, é só outro comediante explicando como ele funciona.",
-  "Estudar não é copiar especial. É entender como o comediante pensa, corta, acelera, constrói e reescreve.",
-  "Seu trabalho é escrever, testar, ajustar e repetir até transformar palco em laboratório.",
-  "Antes de te mandar pro ringue, me diz: quem é você nessa busca pela próxima risada?"
-];
+const mentorIntroLines = GAME_CONTENT.world?.mentorIntroLines || [] ;
 
 
 // ─── Perk Trees ───
-const PERK_TREES = {
-  texto: [
-    { id: "premissaSolida", name: "Premissa Sólida", desc: "+10% potencial de piadas", level: 2, requires: null, effect: { jokePotentialBonus: 0.05 } },
-    { id: "economiaDePalavras", name: "Economia de Palavras", desc: "+15% eficiência", level: 3, requires: "premissaSolida", effect: { jokeEfficiency: 0.15 } },
-    { id: "tagMachine", name: "Tag Machine", desc: "Melhores rewrites", level: 5, requires: "economiaDePalavras", effect: { rewriteBonus: 0.1 } },
-    { id: "callbackMaster", name: "Callback Master", desc: "+10% em sets longos (hacky)", level: 7, requires: null, effect: { longSetBonus: 0.1 }, warning: "hacky" },
-    { id: "setupKiller", name: "Setup Killer", desc: "Setups mais fortes", level: 9, requires: "tagMachine", effect: { setupBonus: 0.08 } }
-  ],
-  entrega: [
-    { id: "timingBasico", name: "Timing Básico", desc: "+10% delivery", level: 2, requires: null, effect: { deliveryBonus: 0.05 } },
-    { id: "timingAvancado", name: "Timing Avançado", desc: "+20% delivery", level: 5, requires: "timingBasico", effect: { deliveryBonus: 0.1 } },
-    { id: "presencaDePalco", name: "Presença de Palco", desc: "+15% em grandes plateias", level: 4, requires: null, effect: { bigCrowdBonus: 0.15 } },
-    { id: "crowdWorkIniciante", name: "Crowd Work Iniciante", desc: "Bônus em interação", level: 3, requires: null, effect: { crowdWorkBonus: 0.05 } },
-    { id: "crowdWorkPro", name: "Crowd Work Pro", desc: "Bônus forte em interação", level: 8, requires: "crowdWorkIniciante", effect: { crowdWorkBonus: 0.12 } },
-    { id: "lidarComHeckler", name: "Lidar com Heckler", desc: "Defesa contra bombar", level: 6, requires: null, effect: { hecklerDefense: 0.1 } },
-    { id: "energiaAlta", name: "Energia Alta", desc: "Mantém qualidade em sets longos", level: 10, requires: "timingAvancado", effect: { staminaBonus: 0.08 } }
-  ]
-};
+const PERK_TREES = V2_PROGRESSION.perkTrees || {};
 
 // ─── Classes ───
-const CLASSES = {
-  comicoClassico: {
-    name: "Cômico Clássico",
-    desc: "Palco, texto autoral e consistência de show.",
-    bonus: { texto: 6, entrega: 6 },
-    passive: "stageConsistency",
-    empReq: { texto: 42, entrega: 42 },
-    opportunityTitle: "convite para lineups mais fortes do circuito",
-    endingFlavor: "Você vira um nome confiável: alguém que pode entrar numa noite difícil e entregar 15 minutos de verdade."
-  },
-  roteirista: {
-    name: "Roteirista",
-    desc: "Escrita forte, lapidação e material para outros formatos.",
-    bonus: { texto: 10 },
-    passive: "betterRewrite",
-    empReq: { texto: 50 },
-    opportunityTitle: "primeiro trabalho escrevendo material profissional",
-    endingFlavor: "Seu texto começa a circular fora da sua própria boca: quadros, vídeos, projetos e ideias que precisam de escrita cômica."
-  },
-  produtor: {
-    name: "Produtor",
-    desc: "Bastidor, agenda, networking e curadoria.",
-    bonus: { network: 12 },
-    passive: "betterShowOffers",
-    empReq: { network: 42 },
-    opportunityTitle: "convite para ajudar a produzir uma noite de comédia",
-    endingFlavor: "Você entende que carreira não é só palco: é escala, bastidor, curadoria, horário, público e responsabilidade."
-  },
-  atorComico: {
-    name: "Ator Cômico",
-    desc: "Presença, personagem, corpo e performance.",
-    bonus: { entrega: 10 },
-    passive: "bigRoomDelivery",
-    empReq: { entrega: 50 },
-    opportunityTitle: "convite para um projeto de atuação cômica",
-    endingFlavor: "Sua presença começa a abrir portas além do microfone: personagem, cena, corpo e timing visual."
-  },
-  influencer: {
-    name: "Influencer",
-    desc: "Conteúdo, clipes, público e presença digital.",
-    bonus: { fans: 25 },
-    passive: "contentBoost",
-    empReq: { fans: 140 },
-    opportunityTitle: "primeira collab/campanha de conteúdo cômico",
-    endingFlavor: "Você percebe que público também é construção: clipe, recorrência, linguagem e gente esperando o próximo post."
-  },
-  professor: {
-    name: "Professor",
-    desc: "Técnica, estudo, método e formação.",
-    bonus: { texto: 5, entrega: 5 },
-    passive: "studyBoost",
-    empReq: { texto: 45, entrega: 35 },
-    opportunityTitle: "convite para auxiliar em uma oficina de comédia",
-    endingFlavor: "Você transforma processo em método: aquilo que você sofreu para aprender começa a virar caminho para outros."
-  }
-};
+const CLASSES = V2_PROGRESSION.classes || {};
 
 function hasClassPassive(passiveId) {
   const cls = CLASSES[state.chosenClass];
   return cls?.passive === passiveId;
 }
 
-const CARVALHO_DIALOGS = [
-  {
-    id: "carvalho-first-show",
-    trigger: "firstShow",
-    stage: "open",
-    priority: 110,
-    once: true,
-    text: "Professor Carvalho te segura por um minuto: 'É isso aqui. Você escolhe as piadas, testa no palco, presta atenção no que realmente aconteceu e volta pro caderno. As fortes ficam. As fracas você reescreve ou mata. Depois escreve material novo e repete. Set bom é repetição, não revelação.'",
-    choices: [
-      { label: "OK", effects: { motivation: 3, texto: 1 } }
-    ]
-  },
-  {
-    id: "carvalho-first-study",
-    trigger: "firstStudy",
-    stage: "open",
-    priority: 105,
-    once: true,
-    text: "Carvalho aponta para a tela: 'Estudar não é sair falando igual ao comediante que você admira. É observar como ele pensa. Onde entra a premissa, onde corta gordura, como sustenta a tensão e onde vira a chave da piada. Rouba processo, não personalidade.'",
-    choices: [
-      { label: "OK", effects: { texto: 3, motivation: 2 } }
-    ]
-  },
-  {
-    id: "carvalho-first-rewrite",
-    trigger: "firstRewrite",
-    stage: "open",
-    priority: 102,
-    once: true,
-    text: "Carvalho bate no caderno: 'Agora começou a parte séria. Escrever qualquer um escreve uma vez. Evoluir é voltar, cortar, trocar ordem, mexer no setup e insistir até a piada ficar mais honesta e mais forte.'",
-    choices: [
-      { label: "OK", effects: { texto: 4 } }
-    ]
-  },
-  {
-    id: "carvalho-first-bomb",
-    trigger: "firstBomb",
-    stage: "open",
-    priority: 100,
-    once: true,
-    text: "Professor Carvalho aparece no camarim: 'Todo mundo toma água no começo. O erro agora é achar que o problema foi só coragem. Volta no set e transforma o constrangimento em informação: onde perdeu a sala, onde alongou demais, onde a ideia não se sustentou.'",
-    choices: [
-      { label: "OK", effects: { texto: 4, motivation: 4 } }
-    ]
-  },
-  {
-    id: "carvalho-first-kill",
-    trigger: "firstKill",
-    stage: "open",
-    priority: 95,
-    once: true,
-    text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público.'",
-    choices: [
-      { label: "OK", effects: { texto: 3, motivation: 2, network: 1 } }
-    ]
-  },
-  {
-    id: "carvalho-jokes10",
-    trigger: "jokes10",
-    stage: "open",
-    priority: 93,
-    once: true,
-    text: "Carvalho folheia seu caderno: 'Agora para de colecionar fragmento como se quantidade fosse set. Dez piadas já te deixam ver padrão, voz e repetição de vício. Começa a pensar em bloco, contraste, ordem e no que realmente merece continuar vivo.'",
-    choices: [
-      { label: "OK", effects: { texto: 4, motivation: 2 } }
-    ]
-  },
-  {
-    id: "carvalho-consistency-streak",
-    trigger: "consistencyStreak",
-    stage: "open",
-    priority: 92,
-    once: true,
-    text: "Carvalho cruza os braços: 'Uma noite boa anima. Três noites boas começam a dizer alguma coisa. Carreira não é pico, é consistência. O jogo agora é repetir nível, não caçar sensação.'",
-    choices: [
-      { label: "OK", effects: { motivation: 4, texto: 2 } }
-    ]
-  },
-  {
-    id: "carvalho-enter-elenco",
-    trigger: "enterElenco",
-    stage: "elenco",
-    priority: 110,
-    once: true,
-    text: "Professor Carvalho: 'Bem-vindo ao Elenco.\n\nAté agora você escrevia piadas soltas.\nAgora você trabalha texto.\n\nA piada ainda é a unidade: premissa, virada, punchline, tag.\nMas o jogo mudou. Você precisa juntar várias piadas em blocos, testar ordem, ritmo, transição e consistência.\n\nCinco minutos bons chamam atenção.\nQuinze minutos sólidos começam uma carreira.'",
-    choices: [
-      { label: "OK", effects: { texto: 5, entrega: 3, network: 2 } }
-    ]
-  },
-  {
-    id: "carvalho-first-texto15",
-    trigger: "firstTexto15",
-    stage: "elenco",
-    priority: 108,
-    once: true,
-    text: "Carvalho olha o texto montado: 'Quinze minutos não é juntar qualquer coisa até fechar a conta. É ritmo, ordem, respiro, entrada, saída. Agora você começa a sentir a diferença entre ter material e ter um texto de verdade.'",
-    choices: [
-      { label: "OK", effects: { texto: 4, entrega: 2, motivation: 3 } }
-    ]
-  },
-  {
-    id: "carvalho-enter-headliner",
-    trigger: "enterHeadliner",
-    stage: "headliner",
-    priority: 120,
-    once: true,
-    text: "Carvalho ajeita o microfone e diz: 'Headliner não é status, é responsabilidade. Você sustenta uma noite inteira com assinatura autoral.'",
-    choices: [
-      { label: "OK", effects: { texto: 6, entrega: 3, fans: 8, motivation: 2 } }
-    ]
-  },
-  {
-    id: "carvalho-low-motivation",
-    trigger: "lowMotivation",
-    stage: "open",
-    priority: 80,
-    cooldown: 4,
-    text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. Descansar também faz parte da carreira. Recupera o eixo antes de começar a repetir gesto vazio.'",
-    choices: [
-      { label: "OK", effects: { texto: 1, motivation: 8 } }
-    ]
-  }
-];
 
-const LEGACY_PATHS = [
-  {
-    id: "touring-purist",
-    label: "Estrada e palco",
-    description: "Priorizar consistência de palco e evolução de texto na rotina de turnês.",
-    weights: { craft: 0.45, audience: 0.25, consistency: 0.3 }
-  },
-  {
-    id: "studio-author",
-    label: "Autor de referência",
-    description: "Construir legado de escrita e formação de novos comediantes.",
-    weights: { craft: 0.5, audience: 0.15, consistency: 0.35 }
-  },
-  {
-    id: "media-hybrid",
-    label: "Palco + mídia",
-    description: "Equilibrar presença digital com credibilidade no circuito de comédia.",
-    weights: { craft: 0.3, audience: 0.4, consistency: 0.3 }
-  }
-];
 
 
 // ═══════════════════════════════════════════════════════════════════
 // §2  DATA: IDEA POOL
 // ═══════════════════════════════════════════════════════════════════
 
-const ideaPool = [
-  // ─── BESTEIROL (12) ───
-  { seed: "fila de mercado às 23h", tone: "besteirol", baseMinutes: 1, place: "anotar no bloco enquanto espera o caixa", mood: "cotidiano" },
-  { seed: "micro-ondas que apita alto", tone: "besteirol", baseMinutes: 1, place: "esquentar comida de madrugada escondido", mood: "insônia" },
-  { seed: "coach de paquera em metrô lotado", tone: "besteirol", baseMinutes: 1, place: "voltar pra casa espremido no rush", mood: "transporte público" },
-  { seed: "gente que leva marmita pro rolê", tone: "besteirol", baseMinutes: 1, place: "observar a galera nos botecos baratos", mood: "economia criativa" },
-  { seed: "amigo que faz trilha sonora da própria vida", tone: "besteirol", baseMinutes: 1, place: "sair com amigos no fim de semana", mood: "comportamento" },
-  { seed: "porteiro que sabe tudo da sua vida", tone: "besteirol", baseMinutes: 1, place: "conversa rápida no prédio", mood: "condomínio" },
-  { seed: "pessoa que conta o sonho inteiro", tone: "besteirol", baseMinutes: 1, place: "café da manhã com colegas", mood: "social" },
-  { seed: "cardápio de restaurante em inglês errado", tone: "besteirol", baseMinutes: 1, place: "almoçar fora no bairro", mood: "cotidiano" },
-  { seed: "casal que faz tudo combinando roupa", tone: "besteirol", baseMinutes: 1, place: "passeio no shopping", mood: "relacionamentos" },
-  { seed: "tio que manda bom dia no grupo às 5h", tone: "besteirol", baseMinutes: 1, place: "olhar celular ao acordar", mood: "família" },
-  { seed: "áudio de WhatsApp de 7 minutos", tone: "besteirol", baseMinutes: 2, place: "receber mensagem do amigo prolixo", mood: "tecnologia" },
-  { seed: "pessoa que fala 'com certeza absoluta'", tone: "besteirol", baseMinutes: 1, place: "reunião de trabalho", mood: "corporativo" },
-
-  // ─── VULGAR (8) ───
-  { seed: "banheiro químico em festival", tone: "vulgar", baseMinutes: 1, place: "aceitar fazer show em evento ao ar livre", mood: "perrengue" },
-  { seed: "microfone compartilhado gripado", tone: "vulgar", baseMinutes: 1, place: "abrir o show depois de dez comediantes suados", mood: "higiene zero" },
-  { seed: "academia às 6h da manhã", tone: "vulgar", baseMinutes: 1, place: "tentar entrar em forma", mood: "saúde" },
-  { seed: "match que some após o encontro", tone: "vulgar", baseMinutes: 1, place: "usar app de relacionamento", mood: "dating" },
-  { seed: "vizinho barulhento de madrugada", tone: "vulgar", baseMinutes: 2, place: "tentar dormir numa sexta", mood: "condomínio" },
-  { seed: "motel com tema de castelo", tone: "vulgar", baseMinutes: 1, place: "passeio com a pessoa", mood: "relacionamentos" },
-  { seed: "praia lotada no verão", tone: "vulgar", baseMinutes: 1, place: "férias no litoral", mood: "perrengue" },
-  { seed: "depilação pela primeira vez", tone: "vulgar", baseMinutes: 1, place: "se preparar pra ocasião", mood: "autocuidado" },
-
-  // ─── LIMPO (10) ───
-  { seed: "sobrinho gamer no almoço", tone: "limpo", baseMinutes: 1, place: "visitar a família no domingo", mood: "família" },
-  { seed: "grupo da família com fake news", tone: "limpo", baseMinutes: 2, place: "dar uma espiada no WhatsApp coletivo", mood: "treta doméstica" },
-  { seed: "vizinho que toca sax às 6h", tone: "limpo", baseMinutes: 1, place: "tentar dormir mais um pouco no sábado", mood: "condomínio" },
-  { seed: "avó que não entende celular", tone: "limpo", baseMinutes: 1, place: "visitar os avós", mood: "família" },
-  { seed: "criança perguntando 'por quê' infinitamente", tone: "limpo", baseMinutes: 1, place: "cuidar do filho do amigo", mood: "crianças" },
-  { seed: "cachorro que late pra própria sombra", tone: "limpo", baseMinutes: 1, place: "passear com o pet", mood: "animais" },
-  { seed: "pai que não pede informação", tone: "limpo", baseMinutes: 1, place: "viagem de carro em família", mood: "família" },
-  { seed: "mãe no supermercado encontrando conhecida", tone: "limpo", baseMinutes: 2, place: "fazer compras com a mãe", mood: "família" },
-  { seed: "dentista tentando conversar durante procedimento", tone: "limpo", baseMinutes: 1, place: "ir ao dentista", mood: "cotidiano" },
-  { seed: "professor de autoescola nervoso", tone: "limpo", baseMinutes: 1, place: "tentar tirar carteira", mood: "aprendizado" },
-
-  // ─── HUMOR NEGRO (10) ───
-  { seed: "aplicativo de meditação que grita", tone: "humor negro", baseMinutes: 1, place: "instalar app suspeito pra controlar ansiedade", mood: "autoajuda quebrada" },
-  { seed: "médico que receita férias", tone: "humor negro", baseMinutes: 2, place: "marcar consulta só pra ter atestado", mood: "corporativo" },
-  { seed: "empresa que faz festa sem bebida", tone: "humor negro", baseMinutes: 2, place: "aceitar corporativo às pressas", mood: "falta de noção" },
-  { seed: "terapeuta que precisa de terapia", tone: "humor negro", baseMinutes: 1, place: "sessão semanal", mood: "saúde mental" },
-  { seed: "consulta de 5 minutos após 2h de espera", tone: "humor negro", baseMinutes: 1, place: "ir ao posto de saúde", mood: "sistema público" },
-  { seed: "férias que cansam mais que trabalho", tone: "humor negro", baseMinutes: 1, place: "voltar de viagem", mood: "cansaço" },
-  { seed: "amigo MLM que some e reaparece vendendo", tone: "humor negro", baseMinutes: 1, place: "receber mensagem suspeita", mood: "social" },
-  { seed: "velório com wifi", tone: "humor negro", baseMinutes: 1, place: "situação delicada", mood: "morte" },
-  { seed: "ansiedade de domingo às 18h", tone: "humor negro", baseMinutes: 1, place: "fim de semana acabando", mood: "trabalho" },
-  { seed: "remédio com lista de efeitos colaterais", tone: "humor negro", baseMinutes: 1, place: "ler bula na farmácia", mood: "saúde" },
-
-  // ─── HACK (10) ───
-  { seed: "motorista de app coach", tone: "hack", baseMinutes: 1, place: "topar uma corrida aleatória no subúrbio", mood: "sobrevivência urbana" },
-  { seed: "manual de geladeira com Bluetooth", tone: "hack", baseMinutes: 1, place: "fuçar tralhas tecnológicas do primo", mood: "futuro inútil" },
-  { seed: "curso online de charuto artesão", tone: "hack", baseMinutes: 2, place: "cair em anúncios estranhos às 3h", mood: "internet" },
-  { seed: "influencer fazendo publi de imposto", tone: "hack", baseMinutes: 1, place: "rolar o feed até perder a noção do tempo", mood: "mídia" },
-  { seed: "comida de avião", tone: "hack", baseMinutes: 1, place: "voo longo", mood: "viagem" },
-  { seed: "diferença de supermercado caro e barato", tone: "hack", baseMinutes: 1, place: "fazer compras do mês", mood: "economia" },
-  { seed: "wifi de hotel que não funciona", tone: "hack", baseMinutes: 1, place: "viagem a trabalho", mood: "tecnologia" },
-  { seed: "atendimento robotizado que não entende", tone: "hack", baseMinutes: 1, place: "ligar pro banco", mood: "burocracia" },
-  { seed: "reunião que podia ser email", tone: "hack", baseMinutes: 1, place: "rotina de escritório", mood: "corporativo" },
-  { seed: "GPS que manda por caminho absurdo", tone: "hack", baseMinutes: 1, place: "dirigir na cidade", mood: "tecnologia" }
-];
+const ideaPool = [...(GAME_CONTENT.world?.ideaPool || []), ...(GAME_CONTENT.v2World?.politicoIdeas || [])];
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -562,10 +311,16 @@ function inferShowRewardProfile(show, stage) {
 
 function enrichShowWithCareerMetadata(show) {
   const stage = inferShowCareerStage(show);
+  const audienceType = show.audienceType || inferShowAudienceType(show);
+  const politicoConfig = V2_PROGRESSION.politico || {};
+  const politicoAffinity = politicoConfig.venueOverrides?.[show.id]
+    ?? politicoConfig.categoryAffinity?.[audienceType]
+    ?? 0;
   return {
     ...show,
+    typeAffinity: { ...(show.typeAffinity || {}), "político": politicoAffinity },
     careerStage: stage,
-    audienceType: show.audienceType || inferShowAudienceType(show),
+    audienceType,
     setLengthTarget: show.setLengthTarget || show.minMinutes,
     riskProfile: show.riskProfile || inferShowRiskProfile(show),
     rewardProfile: show.rewardProfile || inferShowRewardProfile(show, stage),
@@ -573,382 +328,47 @@ function enrichShowWithCareerMetadata(show) {
   };
 }
 
-const showPool = [
-  // ─── Regular venues ───
-  {
-    id: "bar-do-tony", name: "Bar do Tony - Quarta do Riso", minMinutes: 5, difficulty: 0.25,
-    crowd: "Clientes distraídos, olhando pra TV, só param pra ouvir causos pessoais que parecem verdade.",
-    intro: "Tony te chamou pra completar a noite. Plateia espalhada, TV ligada no jogo. Só sobe quem confia no próprio texto.",
-    image: "bar-do-tony.png", vibeHint: "Narrativas sinceras e paranoias do dia a dia seguram a atenção.",
-    typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.2, "humor negro": -0.2, limpo: 0.6, hack: 0.4 }
-  },
-  {
-    id: "corporativo", name: "Coffee Break Corporativo", minMinutes: 6, difficulty: 0.4,
-    crowd: "Executivos que riem só pra aliviar a tensão antes de falar de metas e planilhas.",
-    intro: "Um RH desesperado quer 'algo leve' antes da palestra sobre metas. Não fale palavrão e tente parecer profissional.",
-    image: "corporativo.png", vibeHint: "Comentários sobre trabalho e situações absurdas salvam sua pele.",
-    typeAffinity: { default: -0.2, besteirol: -0.1, vulgar: -0.8, "humor negro": -0.5, limpo: 0.7, hack: 0.6 }
-  },
-  {
-    id: "boteco-esquina", name: "Boteco da Esquina", minMinutes: 4, difficulty: 0.2,
-    crowd: "Galera barulhenta que grita com o jogo e só escuta confidentes que parecem amigos.",
-    intro: "O dono do boteco libera o microfone durante o intervalo do futebol. Você tem poucos minutos antes da próxima rodada de chope.",
-    image: "barzinho.png", vibeHint: "Piadas toscas e confissões pessoais se destacam.",
-    typeAffinity: { default: -0.05, besteirol: 0.6, vulgar: 0.2, "humor negro": 0.1, limpo: -0.3, hack: 0 }
-  },
-  {
-    id: "festival-praia", name: "Festival de Praia", minMinutes: 6, difficulty: 0.35,
-    crowd: "Turistas queimados de sol, crianças correndo e ninguém muito sóbrio.",
-    intro: "Uma tenda cultural te chama para preencher a programação. O vento leva metade das palavras, então precisa ser direto.",
-    image: "outdoor-gig.png", vibeHint: "Storytelling curto com finais absurdos prende a atenção.",
-    typeAffinity: { default: -0.15, besteirol: 0.3, vulgar: 0.4, "humor negro": -0.2, limpo: 0.2, hack: 0.1 }
-  },
-  {
-    id: "shopping-familia", name: "Noite Família no Shopping", minMinutes: 5, difficulty: 0.22,
-    crowd: "Casais com crianças e seguranças atentos.",
-    intro: "O shopping resolveu apostar em stand-up 'para toda a família'. Microfone impecável, tolerância a palavrões próxima de zero.",
-    image: "mall.png", vibeHint: "Material limpo com observações sobre cotidiano ganha pontos.",
-    typeAffinity: { default: 0, besteirol: 0.2, vulgar: -0.6, "humor negro": -0.5, limpo: 0.7, hack: 0.3 }
-  },
-  {
-    id: "after-hours", name: "After Hours Subúrbio", minMinutes: 5, difficulty: 0.4,
-    crowd: "Comediantes cansados e insônia coletiva às 2h da manhã.",
-    intro: "Você caiu na lista do show secreto após a meia-noite. Só funciona se você ousar testar as coisas mais estranhas.",
-    image: "motorcycle-club.png", vibeHint: "Humor negro e bits experimentais são esperados.",
-    typeAffinity: { default: -0.1, besteirol: 0, vulgar: 0.2, "humor negro": 0.7, limpo: -0.4, hack: -0.2 }
-  },
-  {
-    id: "casa-de-swing", name: "Casa de Swing", minMinutes: 5, difficulty: 0.42,
-    crowd: "Adultos em mesas baixas, clima de flerte e risadas desconfortáveis esperando alguém quebrar o gelo.",
-    intro: "Uma casa noturna adulta quer stand-up antes da pista esquentar. O ambiente é estranho, íntimo e zero família.",
-    image: "casa-de-swing.png", vibeHint: "Ousadia, vulgaridade controlada e leitura de sala fazem a diferença.",
-    typeAffinity: { default: -0.05, besteirol: 0.2, vulgar: 0.7, "humor negro": 0.3, limpo: -0.7, hack: 0.1 }
-  },
-  {
-    id: "bem-bolado", name: "Bem Bolado", minMinutes: 5, difficulty: 0.3,
-    crowd: "Plateia relaxada demais, rindo atrasado e perdendo o fio se a piada demora muito.",
-    intro: "Um lounge temático de cannabis abriu espaço para comédia. O clima é lento, verde e cheio de gente filosofando no sofá.",
-    image: "bem-bolado.png", vibeHint: "Besteirol, observações absurdas e ritmo simples funcionam melhor.",
-    typeAffinity: { default: 0.05, besteirol: 0.7, vulgar: 0.2, "humor negro": 0.1, limpo: 0, hack: 0.3 }
-  },
-  {
-    id: "teatro-limpo", name: "Teatro Municipal - Noite Limpa", minMinutes: 7, difficulty: 0.5,
-    crowd: "Plateia educada, paga e extremamente crítica.",
-    intro: "A prefeitura convidou novos talentos para um mini-festival. Som perfeito, mas você precisa merecer cada aplauso.",
-    image: "teatro-municipal.png", vibeHint: "Estruturas sólidas e bits inteligentes brilham.",
-    typeAffinity: { default: -0.05, besteirol: -0.2, vulgar: -0.5, "humor negro": 0.2, limpo: 0.6, hack: 0.3 }
-  },
-  {
-    id: "podcast-live", name: "Podcast Ao Vivo", minMinutes: 4, difficulty: 0.3,
-    crowd: "Fãs de comédia que conhecem cada referência.",
-    intro: "Um podcast famoso abre espaço para sets curtos entre entrevistas. Tudo vira clipe em segundos.",
-    image: "podcast.png", vibeHint: "Piadas autorreferenciais e material sobre bastidores funcionam.",
-    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.1, "humor negro": 0.2, limpo: 0.1, hack: 0.5 }
-  },
-  {
-    id: "barbearia", name: "Barbearia Comedy Night", minMinutes: 4, difficulty: 0.25,
-    crowd: "Clientes esperando corte e barbeiros que comentam o set.",
-    intro: "Uma barbearia hipster decidiu fazer stand-up entre cortes de cabelo. Espaço apertado, vibe íntima.",
-    image: "barber-shop.png", vibeHint: "Observações hack e bits sobre aparência conectam.",
-    typeAffinity: { default: 0, besteirol: 0.2, vulgar: -0.2, "humor negro": -0.1, limpo: 0.3, hack: 0.4 }
-  },
-  {
-    id: "sarau-poesia", name: "Sarau de Poesia e Riso", minMinutes: 3, difficulty: 0.18,
-    crowd: "Artistas indie que apreciam textos autorais.",
-    intro: "Você foi convidado para quebrar a seriedade de um sarau. Precisa ser inteligente sem desrespeitar ninguém.",
-    image: "art-gallery.png", vibeHint: "Storytelling poético e humor reflexivo ganham destaque.",
-    typeAffinity: { default: 0.05, besteirol: -0.2, vulgar: -0.4, "humor negro": 0.2, limpo: 0.4, hack: 0.1 }
-  },
-  {
-    id: "rooftop-tech", name: "Rooftop Tech Meetup", minMinutes: 5, difficulty: 0.32,
-    crowd: "Startupeiros ansiosos que só falam de app e rodadas de investimento.",
-    intro: "Uma startup contratou comediantes para descontrair o happy hour. Cuidado para não ofender futuros contratantes.",
-    image: "rooftop-tech-meetup.png", vibeHint: "Piadas sobre tecnologia e trabalho remoto pontuam bem.",
-    typeAffinity: { default: 0, besteirol: -0.1, vulgar: -0.5, "humor negro": 0.2, limpo: 0.3, hack: 0.6 }
-  },
-  {
-    id: "metro-linha-azul", name: "Linha Azul After-Work", minMinutes: 3, difficulty: 0.27,
-    crowd: "Passageiros cansados que só querem chegar em casa.",
-    intro: "Uma ação cultural leva stand-up para o vagão especial. Você tem pouco tempo entre as estações.",
-    image: "metro-comedy.png", vibeHint: "One-liners rápidos e humor sobre transporte são essenciais.",
-    typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.3, "humor negro": 0, limpo: 0.2, hack: 0.5 }
-  },
-  {
-    id: "noite-feminina", name: "Noite Feminina no Comedy", minMinutes: 5, difficulty: 0.28,
-    crowd: "Plateia engajada que valoriza autenticidade.",
-    intro: "Você foi convidado para uma noite temática com curadoria cuidadosa. Respeito e vulnerabilidade são chave.",
-    image: "bar-do-tony.png", vibeHint: "Storytelling sincero e observações afiadas funcionam bem.",
-    typeAffinity: { default: 0.1, besteirol: -0.1, vulgar: -0.4, "humor negro": 0.2, limpo: 0.4, hack: 0.2 }
-  },
-  {
-    id: "veterano-turne", name: "Turnê do Veterano", minMinutes: 7, difficulty: 0.45,
-    crowd: "Fãs fiéis do headliner, exigentes com quem abre o show.",
-    intro: "Um veterano te entrega 7 minutos antes do set principal. Não desperdice o palco lotado.",
-    image: "comedy-turne-veterano.png", vibeHint: "Bits bem estruturados e humor profissional impressionam.",
-    typeAffinity: { default: -0.1, besteirol: 0, vulgar: -0.3, "humor negro": 0.3, limpo: 0.4, hack: 0.5 }
-  },
-  {
-    id: "corporativo-surpresa", name: "Coffee Break Emergencial", minMinutes: 6, difficulty: 0.55,
-    crowd: "Equipe exausta de vendas que precisa sorrir para continuar.",
-    intro: "O RH te liga de última hora: o palestrante principal atrasou e você precisa segurar o clima.",
-    image: "coffee-break.png", vibeHint: "Piadas limpas sobre trabalho e improvisos corporativos salvam.",
-    typeAffinity: { default: -0.2, besteirol: -0.1, vulgar: -0.7, "humor negro": -0.3, limpo: 0.6, hack: 0.7 }
-  },
-  {
-    id: "bar-universitario", name: "Open Mic Universitário", minMinutes: 4, difficulty: 0.18,
-    crowd: "Estudantes bêbados que riem de qualquer coisa depois das 23h.",
-    intro: "Um bar perto da faculdade abre espaço para novatos. Público jovem e barulhento.",
-    image: "open-universitario.png", vibeHint: "Besteirol e vulgaridade funcionam bem com essa galera.",
-    typeAffinity: { default: 0, besteirol: 0.7, vulgar: 0.5, "humor negro": 0.2, limpo: -0.2, hack: 0.2 }
-  },
-  {
-    id: "livraria-cultural", name: "Livraria & Riso", minMinutes: 5, difficulty: 0.3,
-    crowd: "Intelectuais com café na mão, buscando humor sofisticado.",
-    intro: "Uma livraria cult quer animar as noites de sábado com stand-up entre as estantes.",
-    image: "biblioteca.png", vibeHint: "Referências culturais e humor inteligente impressionam.",
-    typeAffinity: { default: 0, besteirol: -0.2, vulgar: -0.5, "humor negro": 0.4, limpo: 0.5, hack: 0.3 }
-  },
-  {
-    id: "pub-irlandes", name: "Pub O'Laughs", minMinutes: 5, difficulty: 0.28,
-    crowd: "Gringos expatriados e brasileiros que fingem entender inglês.",
-    intro: "Um pub irlandês faz noite de comédia bilíngue. Sotaque não é problema.",
-    image: "pub.png", vibeHint: "Piadas universais sobre comportamento funcionam em qualquer língua.",
-    typeAffinity: { default: 0.1, besteirol: 0.4, vulgar: 0.1, "humor negro": 0.2, limpo: 0.3, hack: 0.4 }
-  },
-  {
-    id: "churrascaria", name: "Comedy & Carne", minMinutes: 4, difficulty: 0.22,
-    crowd: "Famílias em rodízio que não vieram pra prestar atenção.",
-    intro: "Uma churrascaria resolveu colocar entretenimento. Concorra com a picanha.",
-    image: "churrascaria-comedy.png", vibeHint: "Material limpo e observações sobre comida ganham a mesa.",
-    typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.4, "humor negro": -0.3, limpo: 0.6, hack: 0.4 }
-  },
-  {
-    id: "teatro-alternativo", name: "Teatro do Porão", minMinutes: 6, difficulty: 0.38,
-    crowd: "Plateia cult que curte o underground e detesta o mainstream.",
-    intro: "Um teatro de porão te convida para a noite experimental. Vale tudo.",
-    image: "basement-theater.png", vibeHint: "Ousadia e originalidade são mais importantes que punchlines perfeitas.",
-    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: 0.3, "humor negro": 0.6, limpo: -0.3, hack: -0.2 }
-  },
-  {
-    id: "stand-up-sertanejo", name: "Riso & Viola", minMinutes: 5, difficulty: 0.25,
-    crowd: "Fãs de sertanejo entre uma música e outra do show principal.",
-    intro: "Uma casa de shows sertaneja quer esquentar a plateia antes da banda.",
-    image: "sertanejo-house.png", vibeHint: "Piadas sobre interior, família e relacionamento agradam.",
-    typeAffinity: { default: 0, besteirol: 0.4, vulgar: 0.2, "humor negro": -0.2, limpo: 0.5, hack: 0.3 }
-  },
-  {
-    id: "hostel-mochileiro", name: "Backpacker Comedy", minMinutes: 4, difficulty: 0.2,
-    crowd: "Mochileiros de todas as idades compartilhando histórias de viagem.",
-    intro: "Um hostel faz noite de talentos. Qualquer um pode subir.",
-    image: "copo-sujo-comedy.png", vibeHint: "Histórias de perrengue e observações culturais conectam.",
-    typeAffinity: { default: 0.1, besteirol: 0.5, vulgar: 0.2, "humor negro": 0.1, limpo: 0.3, hack: 0.3 }
-  },
-  {
-    id: "casamento", name: "Festa de Casamento", minMinutes: 6, difficulty: 0.45,
-    crowd: "Parentes que não se veem há anos e amigos bêbados dos noivos.",
-    intro: "Os noivos te contrataram para o brinde. Não estrague o dia mais importante deles.",
-    image: "wedding.png", vibeHint: "Piadas sobre relacionamento e família, mas sem ser ofensivo.",
-    typeAffinity: { default: -0.1, besteirol: 0.2, vulgar: -0.6, "humor negro": -0.4, limpo: 0.7, hack: 0.4 }
-  },
-  {
-    id: "show-beneficente", name: "Stand-Up Solidário", minMinutes: 5, difficulty: 0.3,
-    crowd: "Pessoas generosas que pagaram ingresso caro por uma boa causa.",
-    intro: "Um evento beneficente te convida. A causa é nobre, a pressão também.",
-    image: "bar-do-tony.png", vibeHint: "Humor leve e positivo. Nada que estrague o clima de caridade.",
-    typeAffinity: { default: 0.1, besteirol: 0.2, vulgar: -0.5, "humor negro": -0.2, limpo: 0.6, hack: 0.3 }
-  },
-  {
-    id: "cervejaria-artesanal", name: "Cervejaria & Comédia", minMinutes: 5, difficulty: 0.24,
-    crowd: "Hipsters com barba provando IPAs e falando de lúpulo.",
-    intro: "Uma cervejaria artesanal faz noite de stand-up entre as torneiras.",
-    image: "cervejaria.png", vibeHint: "Observações sobre comportamento urbano e tendências funcionam.",
-    typeAffinity: { default: 0.1, besteirol: 0.3, vulgar: 0.1, "humor negro": 0.3, limpo: 0.2, hack: 0.5 }
-  },
-  {
-    id: "sindicato", name: "Show do Sindicato", minMinutes: 6, difficulty: 0.35,
-    crowd: "Trabalhadores em assembleia que querem descontrair.",
-    intro: "O sindicato te chamou para a confraternização anual. Público exigente.",
-    image: "sindicato-hall.png", vibeHint: "Piadas sobre trabalho e patrão funcionam. Evite política direta.",
-    typeAffinity: { default: 0, besteirol: 0.2, vulgar: 0.1, "humor negro": 0.3, limpo: 0.3, hack: 0.5 }
-  },
-  {
-    id: "festa-junina", name: "Arraiá do Riso", minMinutes: 4, difficulty: 0.2,
-    crowd: "Famílias em festa com quentão na mão e chapéu de palha.",
-    intro: "Uma festa junina de bairro te convida para animar entre as quadrilhas.",
-    image: "arraia.png", vibeHint: "Humor família e piadas sobre tradições caem bem.",
-    typeAffinity: { default: 0.1, besteirol: 0.5, vulgar: -0.3, "humor negro": -0.2, limpo: 0.6, hack: 0.3 }
-  },
-  {
-    id: "show-lgbtq", name: "Rainbow Comedy", minMinutes: 5, difficulty: 0.28,
-    crowd: "Comunidade LGBTQ+ que valoriza autenticidade e ousadia.",
-    intro: "Uma casa noturna LGBTQ+ faz noite de stand-up. Seja você mesmo.",
-    image: "rainbow-nightclub.png", vibeHint: "Autenticidade e humor sobre experiências pessoais conectam.",
-    typeAffinity: { default: 0.15, besteirol: 0.3, vulgar: 0.4, "humor negro": 0.3, limpo: 0.1, hack: 0.2 }
-  },
-  {
-    id: "republica", name: "Comedy na República", minMinutes: 4, difficulty: 0.15,
-    crowd: "Universitários em festa que só querem rir e beber.",
-    intro: "Uma república estudantil abriu as portas para um show informal.",
-    image: "republica.png", vibeHint: "Qualquer coisa que seja escandalosa ou boba funciona.",
-    typeAffinity: { default: 0.1, besteirol: 0.6, vulgar: 0.6, "humor negro": 0.3, limpo: -0.2, hack: 0.2 }
-  },
-  {
-    id: "restaurante-japones", name: "Sushi & Stand-Up", minMinutes: 5, difficulty: 0.32,
-    crowd: "Clientes de restaurante japonês sofisticado.",
-    intro: "Um restaurante japonês chique quer inovar com entretenimento.",
-    image: "sushi-restaurant.png", vibeHint: "Humor sutil e observações refinadas agradam.",
-    typeAffinity: { default: 0, besteirol: -0.1, vulgar: -0.5, "humor negro": 0.2, limpo: 0.5, hack: 0.4 }
-  },
-  {
-    id: "stand-up-feminino", name: "Ladies' Night Comedy", minMinutes: 5, difficulty: 0.26,
-    crowd: "Mulheres em noite só delas, celebrando juntas.",
-    intro: "Uma noite de comédia só para mulheres. Ambiente acolhedor e empoderado.",
-    image: "bar-do-tony.png", requiresAvatar: ["avatar3", "avatar4"],
-    vibeHint: "Experiências genuínas e observações sobre o dia a dia conectam.",
-    typeAffinity: { default: 0.1, besteirol: 0.3, vulgar: 0.2, "humor negro": 0.2, limpo: 0.4, hack: 0.3 }
-  },
-  {
-    id: "parque-ao-ar-livre", name: "Comedy no Parque", minMinutes: 5, difficulty: 0.35,
-    crowd: "Famílias passeando no domingo, crianças correndo.",
-    intro: "Um evento cultural no parque te chama. Som ao ar livre, público disperso.",
-    image: "park-comedy.png", vibeHint: "Material limpo e energia alta para segurar atenção.",
-    typeAffinity: { default: -0.1, besteirol: 0.3, vulgar: -0.6, "humor negro": -0.4, limpo: 0.6, hack: 0.3 }
-  },
-  {
-    id: "microfone-aberto-padaria", name: "Microfone Aberto da Padaria", minMinutes: 3, difficulty: 0.12,
-    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
-    crowd: "Clientes do bairro esperando pão na chapa e café.",
-    intro: "A padaria liberou um cantinho para talentos locais. Público simpático, mas impaciente.",
-    image: "padaria-open-mic.png", vibeHint: "Observações cotidianas simples e diretas funcionam melhor.",
-    typeAffinity: { default: 0.1, besteirol: 0.5, vulgar: -0.2, "humor negro": 0, limpo: 0.6, hack: 0.2 }
-  },
-  {
-    id: "quinta-do-calouro", name: "Quinta do Calouro", minMinutes: 3, difficulty: 0.16,
-    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
-    crowd: "Comediantes iniciantes torcendo uns pelos outros.",
-    intro: "Noite de estreia para quem está começando. Ambiente acolhedor, porém caótico.",
-    image: "open-universitario.png", vibeHint: "Texto curto com punchline clara e energia alta ajuda muito.",
-    typeAffinity: { default: 0.1, besteirol: 0.6, vulgar: 0.2, "humor negro": 0.1, limpo: 0.2, hack: 0.2 }
-  },
-  {
-    id: "rodada-trabalho", name: "Rodada do Pós-Trampo", minMinutes: 4, difficulty: 0.2,
-    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 5,
-    crowd: "Gente cansada do trabalho querendo rir sem pensar muito.",
-    intro: "Você pegou o último slot do pós-trampo. Plateia cansada, mas aberta a bons causos.",
-    image: "coffee-break.png", vibeHint: "Piadas sobre rotina e trabalho conectam rápido.",
-    typeAffinity: { default: 0.05, besteirol: 0.3, vulgar: -0.3, "humor negro": 0.1, limpo: 0.5, hack: 0.4 }
-  },
-  {
-    id: "sarjeta-comedy", name: "Sarjeta Comedy 23h", minMinutes: 3, difficulty: 0.24,
-    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 4,
-    crowd: "Mesa pequena, barulhenta e sem filtro no fim da noite.",
-    intro: "Último bloco da noite. Se você não ganhar a sala em 30 segundos, já era.",
-    image: "motorcycle-club.png", vibeHint: "Entrada forte e ritmo acelerado salvam o set.",
-    typeAffinity: { default: -0.05, besteirol: 0.4, vulgar: 0.4, "humor negro": 0.4, limpo: -0.4, hack: 0.2 }
-  },
-  {
-    id: "teste-domingo-praca", name: "Teste de Domingo na Praça", minMinutes: 4, difficulty: 0.18,
-    requiresCareerStage: "open", isOpenStarter: true, setLengthTarget: 5,
-    crowd: "Público variado, de família a curiosos de passagem.",
-    intro: "Evento comunitário de domingo. Ótimo para testar material sem tanta pressão.",
-    image: "park-comedy.png", vibeHint: "Material limpo e observações universais vão melhor aqui.",
-    typeAffinity: { default: 0.1, besteirol: 0.4, vulgar: -0.4, "humor negro": -0.1, limpo: 0.6, hack: 0.3 }
-  },
-  {
-    id: "navio-cruzeiro", name: "Comedy no Cruzeiro", minMinutes: 7, difficulty: 0.4, requiresLevel: "elenco",
-    crowd: "Passageiros de cruzeiro de todas as idades e origens.",
-    intro: "Um cruzeiro te contrata para a temporada. Público cativo e variado.",
-    image: "cruise-lounge-comedy.png", vibeHint: "Humor universal, nada muito local ou nichado.",
-    typeAffinity: { default: 0.05, besteirol: 0.3, vulgar: -0.3, "humor negro": -0.1, limpo: 0.5, hack: 0.5 }
-  },
-  {
-    id: "programa-tv", name: "Participação em TV", minMinutes: 4, difficulty: 0.5, requiresLevel: "elenco",
-    crowd: "Plateia de programa de TV, câmeras ligadas.",
-    intro: "Você foi chamado para um quadro de comédia na TV. É sua chance de aparecer.",
-    image: "tv-studio-comedy.png", vibeHint: "Material polido e timing perfeito. Cada segundo conta.",
-    typeAffinity: { default: 0, besteirol: 0.2, vulgar: -0.6, "humor negro": -0.3, limpo: 0.6, hack: 0.5 }
-  },
-  {
-    id: "elenco-porao-segunda", name: "Circuito Elenco - Porão da Segunda", minMinutes: 8, difficulty: 0.42,
-    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
-    crowd: "Público que acompanha comédia de perto e cobra material consistente.",
-    intro: "Noite de elenco no porão. Você tem 15 minutos para segurar a sala sem muleta.",
-    image: "basement-theater.png", vibeHint: "Consistência e ritmo importam mais que explosões isoladas.",
-    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.3, limpo: 0.4, hack: 0.4 }
-  },
-  {
-    id: "elenco-comedy-quarta", name: "Circuito Elenco - Quarta de Casa Cheia", minMinutes: 8, difficulty: 0.45,
-    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
-    crowd: "Plateia pagante acostumada com lineups fortes e comparações cruéis.",
-    intro: "A produção te deu 15 minutos no meio da grade. Sem ritmo, o público te engole.",
-    image: "bar-do-tony.png", vibeHint: "Transições sólidas e fechamento forte definem a noite.",
-    typeAffinity: { default: 0.05, besteirol: 0.2, vulgar: -0.3, "humor negro": 0.3, limpo: 0.4, hack: 0.4 }
-  },
-  {
-    id: "elenco-coletivo-domingo", name: "Circuito Elenco - Coletivo de Domingo", minMinutes: 7, difficulty: 0.38,
-    requiresCareerStage: "elenco", isElencoCircuit: true, setLengthTarget: 15,
-    crowd: "Comediantes e fãs fiéis analisando cada escolha de set.",
-    intro: "Domingo de coletivo: 15 minutos para provar que seu material aguenta repetição semanal.",
-    image: "copo-sujo-comedy.png", vibeHint: "Material autoral e controle de energia fazem diferença.",
-    typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
-  },
-  {
-    id: "solo-lab-preview", name: "Solo Lab - Preview de 25", minMinutes: 12, difficulty: 0.5,
-    requiresCareerStage: "headliner", isHeadlinerSoloPipeline: true, headlinerSoloTier: "preview", setLengthTarget: 25,
-    crowd: "Público fiel e crítico que repara em cada transição.",
-    intro: "Você ganhou 25 minutos para testar o solo. Aqui, set ruim vira rumor na cidade inteira.",
-    image: "teatro-municipal.png", vibeHint: "Ritmo, narrativa e consistência valem mais que punchline isolada.",
-    typeAffinity: { default: 0.15, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
-  },
-  {
-    id: "solo-noite-principal", name: "Noite Principal - Solo Completo", minMinutes: 15, difficulty: 0.58,
-    requiresCareerStage: "headliner", isHeadlinerSoloPipeline: true, headlinerSoloTier: "main", setLengthTarget: 30,
-    requiredNetwork: 90, requiredFans: 2500,
-    crowd: "Casa cheia para te ver como atração principal. Expectativa máxima.",
-    intro: "A noite é sua. Você carrega a casa inteira com seu texto e presença.",
-    image: "pedestal.png", vibeHint: "Fechar forte e manter narrativa contínua são obrigatórios.",
-    typeAffinity: { default: 0.2, besteirol: 0.2, vulgar: 0, "humor negro": 0.3, limpo: 0.3, hack: 0.3 }
-  },
-  {
-    id: "taping-especial", name: "Gravação de Especial", minMinutes: 20, difficulty: 0.62,
-    requiresCareerStage: "headliner", requiresSpecialTapeBooked: true,
-    isHeadlinerSoloPipeline: true, isSpecialTapeShow: true, headlinerSoloTier: "special", setLengthTarget: 35,
-    crowd: "Público lotado, câmeras rodando e pressão máxima para entregar seu melhor texto.",
-    intro: "Hoje é a gravação do seu especial. Cada minuto vai virar registro da sua carreira.",
-    image: "teatro-municipal.png", vibeHint: "Consistência, ritmo e fechamento forte definem o legado do especial.",
-    typeAffinity: { default: 0.25, besteirol: 0.2, vulgar: 0.1, "humor negro": 0.3, limpo: 0.3, hack: 0.2 }
-  },
-  {
-    id: "show-solo", name: "Seu Próprio Show", minMinutes: 10, difficulty: 0.45, requiresLevel: "headliner",
-    isHeadlinerSoloPipeline: true, headlinerSoloTier: "club",
-    crowd: "Seus fãs que pagaram ingresso para te ver.",
-    intro: "O teatro é seu. A plateia veio por você. Não decepcione.",
-    image: "pedestal.png", vibeHint: "É hora de mostrar quem você é. Autenticidade máxima.",
-    typeAffinity: { default: 0.15, besteirol: 0.3, vulgar: 0.2, "humor negro": 0.3, limpo: 0.3, hack: 0.2 }
-  },
-
-  // ─── Special recurring shows (unlocked via events) ───
-  {
-    id: "5a5", name: "5 a 5 - Copo Sujo", minMinutes: 3, difficulty: 0.15, isSpecialShow: true,
-    crowd: "Plateia escassa, parte dela de opens como você. Ambiente de teste.",
-    intro: "Domingo à tarde no Copo Sujo. Um palco tranquilo para testar material novo.",
-    image: "copo-sujo-comedy.png", vibeHint: "Material conciso e punchlines claras. Ótimo para testar piadas novas.",
-    typeAffinity: { default: 0, besteirol: 0.5, vulgar: 0.1, "humor negro": 0.2, limpo: 0.3, hack: 0.2 }
-  },
-  {
-    id: "pague15", name: "Pague 15 Leve 10 - Copo Sujo", minMinutes: 5, difficulty: 0.35, isSpecialShow: true,
-    crowd: "Plateia pagante que espera profissionalismo. O produtor cronometra.",
-    intro: "Quinta-feira no Copo Sujo. Show de iniciantes com plateia pagante. O produtor é rígido com tempo.",
-    image: "copo-sujo-comedy.png", vibeHint: "Tempo é sagrado aqui. Não estoure os 5 minutos ou vai ser cortado.",
-    typeAffinity: { default: 0.1, besteirol: 0.3, vulgar: 0, "humor negro": 0.2, limpo: 0.4, hack: 0.3 }
-  }
-];
-showPool.forEach((show, index) => {
-  showPool[index] = enrichShowWithCareerMetadata(show);
-});
+const showPool = (GAME_CONTENT.world?.showPool || []).map(show => enrichShowWithCareerMetadata(show));
 
 function findShowById(showId) {
   return showPool.find((show) => show.id === showId);
+}
+
+function validateGameContent() {
+  const errors = [];
+  const classIds = V2_PROGRESSION.classOrder || [];
+  const allowedMetrics = new Set([
+    "texto", "entrega", "network", "fans", "studyCount", "writeCount", "rewriteCount",
+    "contentCount", "showsScheduledCount", "showsPerformedCount", "goodShowsCount",
+    "consecutiveGoodShows", "bigRoomShowsCount", "elencoGoodShowsCount", "averageNota"
+  ]);
+  const seen = new Set();
+  classIds.forEach(classId => {
+    if (seen.has(classId)) errors.push(`Classe duplicada: ${classId}`);
+    seen.add(classId);
+    const path = V2_PROGRESSION.classPaths?.[classId];
+    if (!path) errors.push(`Caminho ausente: ${classId}`);
+    [1, 2].forEach(phase => {
+      const event = V2_EVENTS.classEvents?.[`${classId}:event${phase}`];
+      if (!event) errors.push(`Conteúdo de evento ausente: ${classId}:event${phase}`);
+      Object.keys(path?.[`event${phase}`]?.requirements || {}).forEach(metric => {
+        if (!allowedMetrics.has(metric)) errors.push(`Métrica inválida: ${metric}`);
+      });
+    });
+  });
+  ["base", "tone", "tier"].forEach(key => {
+    if (!V2_ENDINGS[key] || typeof V2_ENDINGS[key] !== "object") errors.push(`Catálogo de finais ausente: ${key}`);
+  });
+  if (!V2_ENDINGS.cliffhanger) errors.push("Cliffhanger final ausente");
+  if (errors.length) throw new Error(`Conteúdo V2 inválido:\n- ${errors.join("\n- ")}`);
+  deepFreezeContent(GAME_CONTENT);
+  return true;
+}
+
+function deepFreezeContent(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(deepFreezeContent);
+  return Object.freeze(value);
 }
 
 
@@ -956,251 +376,6 @@ function findShowById(showId) {
 // §4  DATA: EVENT POOL
 // ═══════════════════════════════════════════════════════════════════
 
-const eventPool = [
-  {
-    id: "veterano", trigger: "showKill", once: true,
-    requiresGoodPerformance: true, isGoodEvent: true, isCharacterEvent: true,
-    text: "Depois do show, Stevan Gaipo te aborda: 'Pô, curti teu set! Cê tem timing bom. To saindo em turnê pelo interior e preciso de alguém pra abrir. Topa vir comigo? São 7 minutos num palco lotado.'",
-    image: "stevan-gaipo.png",
-    choices: [
-      { label: "Aceitar o convite", startShowId: "veterano-turne", narration: "Você aceita o convite do Stevan! É a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada." },
-      { label: "Agradecer mas recusar", effects: { fans: -5, motivation: 6 }, narration: "Você agradece o convite mas prefere se preparar mais. Stevan entende e diz que a porta tá aberta." }
-    ]
-  },
-  {
-    id: "corporativoConvite", trigger: "random",
-    text: "Seu telefone toca: é uma pessoa do RH de uma empresa. 'O palestrante sumiu e precisamos de alguém pra animar o coffee break! Paga bem, mas é pra agora!'",
-    image: "corporativo.png",
-    choices: [
-      { label: "Aceitar o desafio", startShowId: "corporativo-surpresa", narration: "Você aceita e já começa a pensar em piadas sobre trabalho. O cachê vai ajudar nas contas!" },
-      { label: "Indicar outro comediante", effects: { texto: 6, motivation: 4, network: 5 }, narration: "Você passa o contato de um amigo. Ele agradece muito e te deve uma. Você usa o tempo livre pra estudar." }
-    ]
-  },
-  {
-    id: "podcast", trigger: "fans20", once: true,
-    text: "Um podcast de comédia quer te entrevistar. Você pode focar em piadas prontas ou falar sério sobre o processo.",
-    image: "podcast.png",
-    choices: [
-      { label: "Mandar punchline atrás de punchline", effects: { fans: 20, motivation: -4, network: 3 }, narration: "Você viraliza uns cortes, mas sai sem energia para escrever." },
-      { label: "Falar sobre processo", effects: { texto: 10, motivation: 4, network: 5 }, narration: "Você inspira novos comediantes e reflete sobre seu método." }
-    ]
-  },
-  {
-    id: "clipDaNoite", trigger: "random", requiresCareerStage: "open", cooldown: 5,
-    text: "Um trecho curto do seu set começou a circular nos stories. Dá pra tentar transformar isso em alcance rápido ou usar a atenção para fortalecer seu material no palco.",
-    image: "podcast.png",
-    choices: [
-      { label: "Aproveitar o hype em cortes", effects: { fans: 18, motivation: -4 }, narration: "Os números sobem, mas sua energia criativa cai no curto prazo." },
-      { label: "Chamar a galera para night de teste", effects: { texto: 8, network: 6, fans: 6 }, narration: "Você usa a atenção para encher uma noite de teste e lapidar melhor o set." }
-    ]
-  },
-  {
-    id: "algoritmoPressao", trigger: "random", requiresCareerStage: "elenco", cooldown: 6,
-    text: "Seu agente insiste: 'O algoritmo quer frases de impacto, não blocos longos'. Você segue a pressão ou mantém foco em construção de set?",
-    image: "rooftop-tech-meetup.png",
-    choices: [
-      { label: "Seguir a pressão do algoritmo", effects: { fans: 30, motivation: -6, texto: -3 }, narration: "Você cresce rápido, mas sente o repertório menos profundo." },
-      { label: "Priorizar construção de set", effects: { texto: 10, entrega: 3, fans: 8 }, narration: "Você cresce mais devagar, mas sobe o nível real de palco." }
-    ]
-  },
-  {
-    id: "parceriaMarca", trigger: "random", requiresCareerStage: "headliner", requiredFans: 900, cooldown: 8,
-    text: "Uma marca quer te pagar para encaixar publi no set. O cachê é alto, mas pode soar artificial para quem te acompanha há anos.",
-    image: "corporativo.png",
-    choices: [
-      { label: "Aceitar a parceria", effects: { fans: 20, motivation: -5, network: 8 }, narration: "Você fecha contrato e ganha exposição, mas parte do público sente estranheza." },
-      { label: "Recusar e fortalecer o solo", effects: { texto: 9, entrega: 4, motivation: 5 }, narration: "Você mantém autonomia criativa e converte o momento em material forte." }
-    ]
-  },
-  {
-    id: "comentarioForaContexto", trigger: "random", requiresCareerStage: "elenco", requiredFans: 120, cooldown: 7,
-    text: "Um corte fora de contexto gerou discussão online. Você pode responder rápido para controlar narrativa ou focar em um set de resposta no palco.",
-    image: "podcast.png",
-    choices: [
-      { label: "Responder em vídeo agora", effects: { fans: 14, motivation: -8, network: 3 }, narration: "Você reduz o incêndio, mas termina o dia drenado." },
-      { label: "Transformar em bit no palco", effects: { texto: 12, entrega: 2, fans: 5 }, narration: "Você converte ruído em material e ganha respeito no circuito." }
-    ]
-  },
-  {
-    id: "bombMentor", trigger: "showBomb", cooldown: 5, requiresCopoSujo: true,
-    isCharacterEvent: true,
-    text: "Depois de uma água absurda no Copo Sujo, Professor Carvalho te liga: 'Quando um set afunda, não adianta sair dizendo que a plateia era ruim. Primeiro revisa o que você fez: abertura, ritmo, excesso de palavra, premissa frouxa, punch previsível. Técnica antes de ego.'",
-    image: "carvalho.png",
-    choices: [
-      { label: "OK", effects: { texto: 10, motivation: 4 } }
-    ]
-  },
-  {
-    id: "cincoPiadas", trigger: "jokes5", once: true, isCharacterEvent: true,
-    text: "Você já tem 5 piadas no caderno! Paulo Araújo, um comediante que você conheceu num bar, te manda mensagem: 'E aí, vi que tu tá escrevendo! Tenho um slot sobrando no 5 a 5 desse domingo, quer testar esse material?'",
-    image: "paulo-araujo.png",
-    choices: [
-      { label: "Aceitar o convite", effects: { motivation: 8, texto: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
-      { label: "Quero mais material primeiro", effects: { motivation: -2 }, narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar.", delayRouteInviteDays: 3 }
-    ]
-  },
-  {
-    id: "pauloAraujoPague15", trigger: "pague15Invite", once: true, isCharacterEvent: true,
-    text: "Paulo Araújo te manda mensagem: 'E aí, vi que você tá mandando bem no 5 a 5! Que tal fazer parte do elenco fixo do Pague 15? É um show mais sério, com plateia pagante. Você topa?'",
-    image: "paulo-araujo.png",
-    choices: [
-      { label: "Aceitar fazer parte do elenco fixo", effects: { motivation: 10, network: 8, texto: 5 }, unlockPague15: true, narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!" },
-      { label: "Ainda não me sinto pronto", effects: { motivation: -3 }, narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta.", delayRouteInviteDays: 4 }
-    ]
-  },
-  {
-    id: "stevanEstrada", trigger: "random", requiresGoodPerformance: true,
-    isGoodEvent: true, isCharacterEvent: true,
-    text: "Stevan Gaipo te manda mensagem: 'E aí, vi teus shows, curti. To indo fazer uns shows no interior semana que vem, quer vir junto?' A viagem é longa. Como você aproveita o tempo?",
-    image: "stevan-gaipo.png",
-    choices: [
-      { label: "Revisar material no trajeto", effects: { texto: 8, motivation: -3 }, narration: "Você passa a viagem revisando piadas e estruturando o set. Chega mais preparado, mas meio cansado." },
-      { label: "Fazer amizade com a galera", effects: { motivation: 5, network: 12 }, narration: "Você troca ideia com todo mundo, conta histórias, ouve outras. Sai com vários contatos novos e animado." }
-    ]
-  },
-  {
-    id: "gabrielAndradeDicas", trigger: "random", isGoodEvent: true, isCharacterEvent: true,
-    text: "Gabriel Andrade, conhecido pelo humor de oneliners afiados e prop comedy maluca, te manda uma DM: 'Ei, vi seu material. Teus oneliners têm potencial mas falta punch! E já pensou em usar objetos no palco? Te ensino uns truques se quiser.'",
-    image: "gabriel-andrade.png",
-    choices: [
-      { label: "Aprender técnica de oneliners", effects: { texto: 12, motivation: 5 }, narration: "Gabriel te explica a estrutura perfeita do oneliner: setup curto, punch inesperado. 'A graça tá na economia de palavras', ele diz. Você anota tudo." },
-      { label: "Aprender prop comedy", effects: { texto: 8, motivation: 8, fans: 3 }, narration: "Gabriel te mostra como um objeto simples pode virar 5 minutos de material. 'O prop não é muleta, é amplificador!' Você já começa a ter ideias." },
-      { label: "Só trocar ideia mesmo", effects: { motivation: 6, network: 8 }, narration: "Vocês ficam trocando ideia sobre comédia por horas. Gabriel é gente boa demais e promete te indicar pra alguns shows." }
-    ]
-  },
-  {
-    id: "criseCriativa", trigger: "random",
-    text: "Você olha pro caderno em branco há horas. Nada vem. Tenta escrever, apaga, tenta de novo. Bloqueio criativo bateu forte.",
-    image: "quarto1.png",
-    choices: [
-      { label: "Forçar até sair algo", effects: { motivation: -10, texto: 5 }, narration: "Você se obriga a escrever, mesmo que seja lixo. Depois de muito sofrimento, algumas ideias começam a aparecer." },
-      { label: "Sair e fazer outra coisa", effects: { motivation: 12, fans: 3 }, narration: "Você fecha o caderno e vai viver. Encontra um amigo, passeia, observa as pessoas. Amanhã você volta com a cabeça fresca." }
-    ]
-  },
-  {
-    id: "conviteTV", trigger: "fans50", once: true,
-    text: "Um produtor de TV te viu num show e quer te chamar para um quadro. É uma oportunidade única, mas exige compromisso.",
-    choices: [
-      { label: "Aceitar imediatamente", effects: { fans: 30, motivation: -8, network: 10 }, narration: "Você entra na TV! Fãs novos aparecem, mas a pressão é intensa." },
-      { label: "Pedir tempo para pensar", effects: { motivation: 5, network: -3 }, narration: "Você quer ter certeza. O produtor respeita, mas fica um pouco frustrado." }
-    ]
-  },
-  {
-    id: "amigoCopiaSet", trigger: "random",
-    text: "Você descobre que um 'amigo' comediante está usando piadas muito parecidas com as suas no set dele. Confronta?",
-    image: "comic-stealing-jokes.png",
-    choices: [
-      { label: "Confrontar diretamente", effects: { motivation: -5, network: -8, texto: 3 }, narration: "A treta é inevitável. Você perde um contato, mas defende seu trabalho." },
-      { label: "Ignorar e escrever material melhor", effects: { motivation: 8, texto: 10 }, narration: "A melhor vingança é sucesso. Você canaliza a raiva em criatividade." }
-    ]
-  },
-  {
-    id: "viralNegativo", trigger: "random",
-    text: "Um vídeo seu bombou na internet... por motivos ruins. Uma piada foi tirada de contexto e você está sendo cancelado.",
-    choices: [
-      { label: "Se explicar publicamente", effects: { fans: -15, motivation: -10, network: 5 }, narration: "Você tenta se defender. Alguns entendem, outros não. A poeira vai baixar." },
-      { label: "Ficar em silêncio e esperar passar", effects: { fans: -8, motivation: -5 }, narration: "O tempo cura tudo. Em algumas semanas, ninguém mais lembra." }
-    ]
-  },
-  {
-    id: "ofertaDinheiro", trigger: "random",
-    text: "Uma empresa te oferece um bom dinheiro para fazer uma publi no palco. O produto é... questionável.",
-    choices: [
-      { label: "Aceitar o dinheiro", effects: { fans: -10, motivation: 5, network: -5 }, narration: "Você faz a publi. O dinheiro ajuda, mas alguns fãs ficam decepcionados." },
-      { label: "Recusar com educação", effects: { fans: 8, motivation: 3 }, narration: "Você mantém sua integridade. Os fãs verdadeiros respeitam isso." }
-    ]
-  },
-  {
-    id: "festaPosShow", trigger: "showKill", once: true,
-    text: "Depois do show incrível, a galera te convida para uma festa. Você pode ir e fazer network ou ir pra casa escrever enquanto a inspiração está fresca.",
-    choices: [
-      { label: "Ir para a festa", effects: { motivation: 8, network: 10, texto: -3 }, narration: "Você faz amigos e conexões importantes. A noite foi épica." },
-      { label: "Ir pra casa escrever", effects: { texto: 12, motivation: -2 }, narration: "Sozinho em casa, você anota tudo que funcionou. Material precioso." }
-    ]
-  },
-  {
-    id: "doencaDiaShow", trigger: "random",
-    text: "Você acorda se sentindo péssimo. Garganta arranhando, corpo mole, febre baixa. Tem um show marcado pra hoje...",
-    image: "quarto2.png",
-    choices: [
-      { label: "Ir mesmo assim", effects: { motivation: -8, network: 5 }, narration: "Você toma um remédio, vai e faz o set no automático. Não foi seu melhor dia, mas o produtor respeita quem cumpre compromisso." },
-      { label: "Avisar que não vai", effects: { motivation: 5, network: -8 }, narration: "Você avisa o produtor que não tem condição. Ele não fica feliz, mas pelo menos você não piorou a doença." }
-    ]
-  },
-  {
-    id: "mentorOferece", trigger: "random", isCharacterEvent: true,
-    text: "Um comediante mais experiente te oferece mentoria. Mas ele é conhecido por ser duro e exigente.",
-    image: "carvalho.png",
-    choices: [
-      { label: "Aceitar a mentoria", effects: { texto: 20, motivation: -10 }, narration: "A jornada é brutal, mas você evolui muito como artista." },
-      { label: "Recusar educadamente", effects: { motivation: 5, network: 3 }, narration: "Você agradece, mas prefere seguir seu próprio caminho." }
-    ]
-  },
-  {
-    id: "competicaoComica", trigger: "random", once: true,
-    text: "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
-    choices: [
-      { label: "Se inscrever", effects: { motivation: -5, fans: 15, network: 8 }, narration: "Você participa e, independente do resultado, ganha visibilidade." },
-      { label: "Esperar a próxima edição", effects: { motivation: 3 }, narration: "Você decide se preparar melhor para a próxima. Sem pressa." }
-    ]
-  },
-  {
-    id: "piratearamSeuShow", trigger: "fans30", once: true,
-    text: "Alguém gravou seu set inteiro e postou na internet sem permissão. Suas piadas estão expostas.",
-    choices: [
-      { label: "Pedir para remover", effects: { motivation: -5, fans: -5 }, narration: "Você consegue tirar, mas o estrago já foi feito. Hora de escrever material novo." },
-      { label: "Deixar e usar como divulgação", effects: { fans: 20, motivation: 5 }, narration: "Você transforma o limão em limonada. O vídeo vira seu cartão de visitas." }
-    ]
-  },
-  // ─── New NPCs ───
-  {
-    id: "rossiniLuzWorkshop", trigger: "levelUp3", once: true, isCharacterEvent: true,
-    text: "Rossini Luz, mestre da escrita de comédia, te manda mensagem: 'Ei, vi que você tá evoluindo! Quero te convidar pro meu workshop de texto. Vou te ensinar storytelling — a arte de contar uma história que prende, diverte e explode no final.'",
-    image: "rossini-luz.png",
-    choices: [
-      { label: "Aceitar o workshop de storytelling", effects: { texto: 15, motivation: 5, entrega: 3, storytellingUnlocked: true }, narration: "Rossini te ensina a construir narrativas com setup, desenvolvimento e payoff. Você desbloqueia STORYTELLING como estrutura! Um mundo novo de possibilidades se abre." },
-      { label: "Focar em oneliners por enquanto", effects: { texto: 5, motivation: 3 }, narration: "Você agradece mas prefere dominar o que já sabe. Rossini entende e diz: 'Quando estiver pronto, me procura.'" }
-    ]
-  },
-  {
-    id: "douglasFerreiraReading", trigger: "random", isCharacterEvent: true,
-    text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
-    image: "douglas-ferreira.png",
-    choices: [
-      { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, muda o tom. Se a galera tá rindo antes de você falar, acelera.' Você absorve cada palavra." },
-      { label: "Pedir dicas de presença de palco", effects: { entrega: 6, texto: 4 }, narration: "Douglas te mostra como usar o espaço do palco. 'Não fica parado no mic. Anda, ocupa, faz a plateia te seguir com os olhos.' Simples mas poderoso." },
-      { label: "Agradecer e ir embora", effects: { motivation: 5, network: 3 }, narration: "Você agradece a dica rápida. Douglas sorri e volta pro portão. 'Qualquer coisa, tô ali.'" }
-    ]
-  },
-  {
-    id: "brunoBergProducao", trigger: "random", isCharacterEvent: true,
-    requiresLevel: "elenco",
-    text: "Bruno Berg, produtor veterano de shows de comédia, te procura no bar: 'Ei, eu vejo potencial em você. Já pensou em produzir seus próprios shows? Te ensino o básico: como montar lineup, negociar com casas, divulgar. É outro jogo, mas abre portas enormes.'",
-    image: "bruno-berg.png",
-    choices: [
-      { label: "Aprender sobre produção", effects: { network: 12, texto: 5, motivation: -3 }, narration: "Bruno te mostra os bastidores: contrato com casa, divisão de bilheteria, curadoria de elenco. É cansativo mas revelador. Você entende como o negócio funciona." },
-      { label: "Perguntar sobre gestão de carreira", effects: { network: 8, motivation: 5, fans: 5 }, narration: "Bruno te dá conselhos sobre posicionamento: 'Não aceita qualquer show. Escolha onde aparece. Sua marca é o que as pessoas falam quando você sai.' Você sai pensando diferente." },
-      { label: "Só bater um papo", effects: { motivation: 6, network: 5 }, narration: "Vocês ficam trocando histórias do circuito. Bruno é uma enciclopédia viva da comédia brasileira." }
-    ]
-  },
-  {
-    id: "diegoFerreiraColetivo", trigger: "random", once: true, isCharacterEvent: true,
-    text: "Diego Ferreira te manda mensagem num grupo de WhatsApp: 'Opa! Tô montando um coletivo de comédia. A ideia é juntar gente nova, dividir palco, trocar material, fazer shows juntos. Topa entrar?'",
-    image: "diego-ferreira.png",
-    choices: [
-      { label: "Entrar no coletivo", effects: { network: 15, motivation: 10, entrega: 5 }, narration: "Você entra no coletivo! Shows em grupo, ensaios semanais, troca de material. É como ter uma família de comédia. Seu network explode." },
-      { label: "Preferir seguir solo", effects: { motivation: 5, texto: 3 }, narration: "Você agradece mas prefere seguir seu próprio caminho. Diego entende: 'Respeito. Se mudar de ideia, a porta tá aberta.'" }
-    ]
-  },
-  {
-    id: "hackWarning", trigger: "random", once: true, isCharacterEvent: true,
-    text: "Professor Carvalho te liga: 'Parabéns pelas 5 piadas! Agora, um aviso importante sobre CALLBACKS. Callback fraco só menciona algo antigo e repete referência. Callback forte usa o elemento anterior para criar uma piada nova: nova premissa, nova virada ou novo punchline. Se você só repete, vira truque previsível. Use com moderação e intenção.'",
-    image: "carvalho.png",
-    choices: [
-      { label: "✅ Entendido", effects: { texto: 5, motivation: 6, entrega: 2 }, narration: "Você anota no caderno: 'Callback bom cria piada nova; callback fraco só repete.' Carvalho sorri e te manda voltar pro texto original." }
-    ]
-  }
-];
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1368,8 +543,6 @@ let _customJokeTitle = null;
 let _rewritingJoke = null;
 let _newTone = null;
 let _newStructure = null;
-let _focusedMaterialSetId = null;
-let _materialJokeScope = "set";
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1380,12 +553,11 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const formatSigned = (value) => (value > 0 ? `+${value}` : `${value}`);
 const formatIdeaTitle = (idea) => idea.customTitle || `Piada sobre ${idea.seed}`;
 const generatePotential = () => parseFloat((0.35 + Math.random() * 0.5).toFixed(2));
-const CAREER_STAGES = ["open", "elenco", "headliner"];
+const CAREER_STAGES = ["open", "elenco"];
 const VENUE_REPUTATION_MIN = -20;
 const VENUE_REPUTATION_MAX = 40;
 
 function resolveCareerStage(level = state?.level, levelNumber = state?.levelNumber) {
-  if (level === "headliner" || (typeof levelNumber === "number" && levelNumber >= 11)) return "headliner";
   if (level === "elenco" || (typeof levelNumber === "number" && levelNumber >= 6)) return "elenco";
   return "open";
 }
@@ -1397,10 +569,8 @@ function getCareerStage() {
 function getProfileTitle() {
   if (!state) return "Comediante em formação";
   if (state.chosenClass && CLASSES[state.chosenClass]) return CLASSES[state.chosenClass].name;
-  if (state.madeIt) return "Headliner";
   const stage = getCareerStage();
   if (stage === "elenco") return "Em circuito";
-  if (stage === "headliner") return "Headliner";
   if ((state.levelNumber || 1) >= 3) return "Em ascensão";
   return "Comediante em formação";
 }
@@ -1413,7 +583,7 @@ function getProfileBadges() {
   } else {
     const stage = getCareerStage();
     badges.push({
-      label: stage === "headliner" ? "🎤 Headliner" : stage === "elenco" ? "🎬 Elenco" : "🌱 Open Mic",
+      label: stage === "elenco" ? "🎬 Elenco" : "🌱 Open Mic",
       kind: "career"
     });
   }
@@ -1447,6 +617,7 @@ function renderProfileBadges() {
 }
 
 function getCareerStageIndex(stage) {
+  if (stage === "headliner") return 2;
   const index = CAREER_STAGES.indexOf(stage);
   return index === -1 ? 0 : index;
 }
@@ -1479,6 +650,68 @@ function createDefaultRouteCounters() {
     contentCount: 0,
     showsScheduledCount: 0
   };
+}
+
+function createDefaultRunState(existing = {}) {
+  return {
+    runId: typeof existing.runId === "string" && existing.runId ? existing.runId : createId(),
+    status: existing.status === "ended" ? "ended" : "active",
+    ruleset: "v2",
+    endingId: existing.endingId || null,
+    endingTier: existing.endingTier || null,
+    endingScore: Number.isFinite(existing.endingScore) ? existing.endingScore : null,
+    endedDay: Number.isFinite(existing.endedDay) ? existing.endedDay : null,
+    archived: !!existing.archived
+  };
+}
+
+function createDefaultCareerPathState(existing = {}) {
+  const normalizePhaseMap = (source = {}) => Object.fromEntries(
+    (V2_PROGRESSION.classOrder || []).map(classId => {
+      const value = source[classId] || {};
+      const validStatus = ["unseen", "pending", "accepted", "declined", "completed"].includes(value.status) ? value.status : "unseen";
+      return [classId, {
+        status: validStatus,
+        completedDay: Number.isFinite(value.completedDay) ? value.completedDay : null
+      }];
+    })
+  );
+  return {
+    event1ByClass: normalizePhaseMap(existing.event1ByClass),
+    event2ByClass: normalizePhaseMap(existing.event2ByClass),
+    lockedPathId: V2_PROGRESSION.classPaths?.[existing.lockedPathId] ? existing.lockedPathId : null,
+    detectedClassId: V2_PROGRESSION.classPaths?.[existing.detectedClassId] ? existing.detectedClassId : null,
+    classAssignedDay: Number.isFinite(existing.classAssignedDay) ? existing.classAssignedDay : null,
+    goodShowsCount: Math.max(0, Math.round(existing.goodShowsCount || 0)),
+    bigRoomShowsCount: Math.max(0, Math.round(existing.bigRoomShowsCount || 0)),
+    elencoGoodShowsCount: Math.max(0, Math.round(existing.elencoGoodShowsCount || 0)),
+    employmentDeclinedUntil: Math.max(0, Math.round(existing.employmentDeclinedUntil || 0)),
+    employmentOfferPending: !!existing.employmentOfferPending
+  };
+}
+
+function createDefaultEventRuntime(existing = {}) {
+  return {
+    seenIds: Array.isArray(existing.seenIds) ? [...new Set(existing.seenIds.filter(Boolean))] : [],
+    cooldownUntilById: existing.cooldownUntilById && typeof existing.cooldownUntilById === "object" ? { ...existing.cooldownUntilById } : {},
+    pendingIds: Array.isArray(existing.pendingIds) ? existing.pendingIds.filter(Boolean) : [],
+    activeEventId: typeof existing.activeEventId === "string" ? existing.activeEventId : null
+  };
+}
+
+function seedCareerPathCountersFromHistory(pathState, history = []) {
+  if (!Array.isArray(history)) return pathState;
+  if (!pathState.goodShowsCount) pathState.goodShowsCount = history.filter(entry => entry.nota >= 4).length;
+  if (!pathState.bigRoomShowsCount) {
+    pathState.bigRoomShowsCount = history.filter(entry => {
+      const show = findShowById(entry.showId);
+      return (show?.minMinutes || 0) >= 7 || !!show?.isElencoCircuit;
+    }).length;
+  }
+  if (!pathState.elencoGoodShowsCount) {
+    pathState.elencoGoodShowsCount = history.filter(entry => findShowById(entry.showId)?.isElencoCircuit && entry.nota >= 4).length;
+  }
+  return pathState;
 }
 
 function createDefaultRouteInviteState() {
@@ -1515,10 +748,35 @@ function incrementRouteCounter(counterKey, amount = 1) {
   state.routeCounters[counterKey] += Math.max(0, Math.round(amount || 0));
 }
 
+function createDefaultToneTally() {
+  return { besteirol: 0, vulgar: 0, limpo: 0, "humor negro": 0, hack: 0, "político": 0 };
+}
+
+function normalizeToneTally(tally = {}) {
+  return Object.fromEntries(
+    Object.entries(createDefaultToneTally()).map(([tone, defaultValue]) => {
+      const value = Number(tally?.[tone] ?? defaultValue);
+      return [tone, Number.isFinite(value) ? Math.max(0, Math.round(value)) : defaultValue];
+    })
+  );
+}
+
+function tallyPerformedTones(setList = []) {
+  state.toneTally = normalizeToneTally(state.toneTally);
+  setList.forEach(joke => {
+    if (joke?.tone in state.toneTally) state.toneTally[joke.tone] += 1;
+  });
+}
+
 function ensureCareerProgressState() {
   if (!state) return;
+  if (state.chosenClass === "professor") state.chosenClass = "comicoClassico";
   state.careerMilestones = { ...createDefaultCareerMilestones(), ...(state.careerMilestones || {}) };
   state.routeCounters = normalizeRouteCounters(state.routeCounters);
+  state.runState = createDefaultRunState(state.runState);
+  state.careerPathState = seedCareerPathCountersFromHistory(createDefaultCareerPathState(state.careerPathState), state.showHistory);
+  state.eventRuntime = createDefaultEventRuntime(state.eventRuntime);
+  state.eventRuntime.seenIds = [...new Set([...(state.eventRuntime.seenIds || []), ...(state.eventsSeen || [])])];
   state.routeInviteState = normalizeRouteInviteState(state.routeInviteState);
   state.careerChoices = state.careerChoices || [];
   state.carvalhoDialogState = {
@@ -1532,39 +790,20 @@ function ensureCareerProgressState() {
     weeklySuccessStreak: Math.max(0, state.elencoCircuitState?.weeklySuccessStreak || 0),
     bestWeeklyStreak: Math.max(0, state.elencoCircuitState?.bestWeeklyStreak || 0)
   };
-  state.headlinerSoloState = {
-    prepPoints: Math.max(0, state.headlinerSoloState?.prepPoints || 0),
-    solosCompleted: Math.max(0, state.headlinerSoloState?.solosCompleted || 0),
-    prestige: Math.max(0, state.headlinerSoloState?.prestige || 0),
-    bestSoloNota: Math.max(0, state.headlinerSoloState?.bestSoloNota || 0)
-  };
-  state.headlinerSets = Array.isArray(state.headlinerSets) ? state.headlinerSets : [];
-  state.headlinerSets = state.headlinerSets.map((setEntry) => sanitizeHeadlinerSet(setEntry));
-  state.activeSetId = state.activeSetId || null;
-  state.specialTapeState = {
-    eligible: !!state.specialTapeState?.eligible,
-    offered: !!state.specialTapeState?.offered,
-    booked: !!state.specialTapeState?.booked,
-    completed: !!state.specialTapeState?.completed,
-    qualityScore: Math.max(0, Math.round(state.specialTapeState?.qualityScore || 0))
-  };
-  if (state.activeSetId && !state.headlinerSets.some((setEntry) => setEntry.id === state.activeSetId)) {
-    state.activeSetId = state.headlinerSets[0]?.id || null;
-  }
-  let specialMarked = false;
-  state.headlinerSets.forEach((setEntry) => {
-    if (setEntry.isSpecialDraft && !specialMarked) specialMarked = true;
-    else if (setEntry.isSpecialDraft && specialMarked) setEntry.isSpecialDraft = false;
-  });
   state.openStageState = {
     consistencyStreak: Math.max(0, state.openStageState?.consistencyStreak || 0),
     breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0)
   };
+  state.onelinerUnlocked = !!state.onelinerUnlocked;
+  state.humorNegroUnlocked = !!state.humorNegroUnlocked;
+  state.hackUnlocked = !!state.hackUnlocked;
+  state.propUnlocked = !!state.propUnlocked;
+  state.politicoUnlocked = !!state.politicoUnlocked;
+  state.toneTally = normalizeToneTally(state.toneTally);
+  if (!state.humorNegroUnlocked && (state.levelNumber || 1) >= 5 && (state.showHistory || []).some(show => show.nota === 1)) {
+    state.humorNegroUnlocked = true;
+  }
   state.venueReputation = normalizeVenueReputationMap(state.venueReputation);
-  state.legacyArchive = Array.isArray(state.legacyArchive) ? state.legacyArchive : [];
-  state.legacyEnding = state.legacyEnding || null;
-  state.postLegacyMode = !!state.postLegacyMode;
-  state.legacyChoicePrompted = !!state.legacyChoicePrompted;
 }
 
 function isRouteInviteEvent(eventOrId) {
@@ -1641,10 +880,10 @@ const contentGates = {
 
 function isShowUnlockedForCareer(show) {
   if (!show || !state) return false;
+  if (show.isHeadlinerSoloPipeline || show.isSpecialTapeShow || show.requiresCareerStage === "headliner") return false;
   if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
   if (show.requiresEmployment && !state.hasEmployment) return false;
-  if (show.requiresMadeIt && !state.madeIt) return false;
-  if (show.requiresSpecialTapeBooked && !state.specialTapeState?.booked) return false;
+  if (show.requiresMadeIt || show.requiresSpecialTapeBooked) return false;
   if (show.requiredFans && (state.fans || 0) < show.requiredFans) return false;
   if (show.requiredNetwork && (state.network || 0) < show.requiredNetwork) return false;
   return true;
@@ -1732,48 +971,6 @@ function processElencoCircuitOutcome(showType, nota) {
   }
 }
 
-function getHeadlinerPipelineShows() {
-  return showPool.filter((show) => show.isHeadlinerSoloPipeline && !show.isSpecialTapeShow);
-}
-
-function maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay) {
-  const pipeline = getHeadlinerPipelineShows().filter((show) => !alreadyScheduledIds.includes(show.id) && isShowUnlockedForCareer(show));
-  if (!pipeline.length) return;
-  const preferredId = weekDay === 5 ? "solo-noite-principal" : weekDay === 2 ? "solo-lab-preview" : "show-solo";
-  const preferred = pipeline.find((show) => show.id === preferredId);
-  const selected = preferred || pipeline[Math.floor(Math.random() * pipeline.length)];
-  const daysAhead = preferred ? 0 : (Math.random() < 0.5 ? 1 : 2);
-  shows.unshift({ show: selected, daysAhead, showType: "headlinerSolo" });
-}
-
-function getHeadlinerSoloPrepBonus(showType) {
-  if (showType !== "headlinerSolo") return 0;
-  ensureCareerProgressState();
-  return Math.min((state.headlinerSoloState.prepPoints || 0) * 0.01, 0.08);
-}
-
-function processHeadlinerSoloOutcome(show, showType, nota) {
-  if (showType !== "headlinerSolo") return;
-  ensureCareerProgressState();
-  const solo = state.headlinerSoloState;
-  solo.solosCompleted += 1;
-  solo.bestSoloNota = Math.max(solo.bestSoloNota || 0, nota);
-  const prestigeGain = nota >= 5 ? 20 : nota === 4 ? 12 : nota === 3 ? 6 : 2;
-  solo.prestige = Math.max(0, (solo.prestige || 0) + prestigeGain);
-  solo.prepPoints = Math.max(0, (solo.prepPoints || 0) - 3);
-  queueCriticalDialog(
-    `🎟️ Balanço do solo\n\n${show.name}\nPrestígio +${prestigeGain} (total ${solo.prestige}).`,
-    [{ label: "Seguir", handler: () => {} }]
-  );
-}
-
-function addHeadlinerPrep(points) {
-  if (getCareerStage() !== "headliner") return;
-  ensureCareerProgressState();
-  const gained = Math.max(0, Math.round(points || 0));
-  if (gained <= 0) return;
-  state.headlinerSoloState.prepPoints = Math.min(12, (state.headlinerSoloState.prepPoints || 0) + gained);
-}
 
 function normalizeVenueReputationMap(mapLike) {
   const normalized = {};
@@ -1827,183 +1024,6 @@ function applyVenueReputationOutcome(showId, nota, showType) {
   return adjustVenueReputation(showId, delta);
 }
 
-function getHeadlinerSetById(setId) {
-  ensureCareerProgressState();
-  if (!setId) return null;
-  return (state.headlinerSets || []).find((set) => set.id === setId) || null;
-}
-
-function getSetRuntimeByIds(jokeIds = []) {
-  if (!Array.isArray(jokeIds) || !jokeIds.length) return 0;
-  return jokeIds.reduce((sum, jokeId) => {
-    const joke = (state.jokes || []).find((entry) => entry.id === jokeId);
-    return sum + (joke?.minutes || 0);
-  }, 0);
-}
-
-function getHeadlinerSetRuntime(setEntry) {
-  if (!setEntry) return 0;
-  return getSetRuntimeByIds(setEntry.jokeIds || []);
-}
-
-function getHeadlinerSetJokes(setEntry) {
-  if (!setEntry || !Array.isArray(setEntry.jokeIds)) return [];
-  return setEntry.jokeIds
-    .map((jokeId) => (state.jokes || []).find((entry) => entry.id === jokeId))
-    .filter(Boolean);
-}
-
-function sanitizeHeadlinerSet(setEntry) {
-  const jokeIds = Array.isArray(setEntry?.jokeIds) ? [...new Set(setEntry.jokeIds)] : [];
-  return {
-    id: setEntry?.id || createId(),
-    title: (setEntry?.title || "Texto sem título").trim(),
-    jokeIds,
-    targetMinutes: Math.max(10, Math.round(setEntry?.targetMinutes || 20)),
-    isSpecialDraft: !!setEntry?.isSpecialDraft,
-    history: Array.isArray(setEntry?.history) ? setEntry.history : []
-  };
-}
-
-function createHeadlinerSet(title, jokeIds, options = {}) {
-  ensureCareerProgressState();
-  const safeTitle = (title || "").trim() || `Texto ${state.headlinerSets.length + 1}`;
-  const newSet = sanitizeHeadlinerSet({
-    title: safeTitle,
-    jokeIds,
-    targetMinutes: options.targetMinutes || 20,
-    isSpecialDraft: !!options.isSpecialDraft
-  });
-  if (newSet.isSpecialDraft) {
-    state.headlinerSets.forEach((setEntry) => { setEntry.isSpecialDraft = false; });
-  }
-  state.headlinerSets.push(newSet);
-  if (!state.activeSetId) state.activeSetId = newSet.id;
-  if (getCareerStage() === "elenco" && getHeadlinerSetRuntime(newSet) >= 15 && markCareerMilestone("firstTexto15")) {
-    maybeTriggerCarvalhoDialog("firstTexto15", { setId: newSet.id, runtime: getHeadlinerSetRuntime(newSet) });
-  }
-  saveGameState();
-  return newSet;
-}
-
-function updateHeadlinerSet(setId, updates = {}) {
-  ensureCareerProgressState();
-  const setEntry = getHeadlinerSetById(setId);
-  if (!setEntry) return null;
-  if (typeof updates.title === "string") setEntry.title = updates.title.trim() || setEntry.title;
-  if (Array.isArray(updates.jokeIds)) setEntry.jokeIds = [...new Set(updates.jokeIds)];
-  if (typeof updates.targetMinutes === "number") setEntry.targetMinutes = Math.max(10, Math.round(updates.targetMinutes));
-  if (typeof updates.isSpecialDraft === "boolean") {
-    if (updates.isSpecialDraft) state.headlinerSets.forEach((entry) => { entry.isSpecialDraft = false; });
-    setEntry.isSpecialDraft = updates.isSpecialDraft;
-  }
-  if (getCareerStage() === "elenco" && getHeadlinerSetRuntime(setEntry) >= 15 && markCareerMilestone("firstTexto15")) {
-    maybeTriggerCarvalhoDialog("firstTexto15", { setId: setEntry.id, runtime: getHeadlinerSetRuntime(setEntry) });
-  }
-  saveGameState();
-  return setEntry;
-}
-
-function deleteHeadlinerSet(setId) {
-  ensureCareerProgressState();
-  const idx = state.headlinerSets.findIndex((entry) => entry.id === setId);
-  if (idx === -1) return false;
-  const [removed] = state.headlinerSets.splice(idx, 1);
-  if (state.activeSetId === removed.id) {
-    state.activeSetId = state.headlinerSets[0]?.id || null;
-  }
-  saveGameState();
-  return true;
-}
-
-function getActiveHeadlinerSet() {
-  ensureCareerProgressState();
-  return getHeadlinerSetById(state.activeSetId) || null;
-}
-
-function setActiveHeadlinerSet(setId) {
-  if (!getHeadlinerSetById(setId)) return false;
-  state.activeSetId = setId;
-  saveGameState();
-  return true;
-}
-
-function validateSetForShow(setEntry, show) {
-  if (!setEntry) return { ok: false, reason: "Você precisa selecionar um texto para este show." };
-  const runtime = getHeadlinerSetRuntime(setEntry);
-  if (runtime <= 0) return { ok: false, reason: "O texto selecionado não possui piadas válidas." };
-  const minMinutes = Math.max(show?.minMinutes || 0, 8);
-  if (runtime < minMinutes) return { ok: false, reason: `Seu texto está curto demais (${runtime}min). Mínimo recomendado: ${minMinutes}min.` };
-  return { ok: true, runtime };
-}
-
-function getSpecialDraftSet() {
-  ensureCareerProgressState();
-  return (state.headlinerSets || []).find((setEntry) => setEntry.isSpecialDraft) || null;
-}
-
-function getHeadlinerSetForShow(showType) {
-  if (showType === "specialTape") return getSpecialDraftSet() || getActiveHeadlinerSet();
-  return getActiveHeadlinerSet();
-}
-
-function updateSpecialTapeEligibility() {
-  ensureCareerProgressState();
-  const tape = state.specialTapeState;
-  const stageOk = getCareerStage() === "headliner";
-  const levelOk = (state.levelNumber || 1) >= 19;
-  const audienceOk = (state.fans || 0) >= 3500;
-  const networkOk = (state.network || 0) >= 110;
-  const solosOk = (state.headlinerSoloState?.solosCompleted || 0) >= 3;
-  const hasDraft = !!getSpecialDraftSet();
-  tape.eligible = stageOk && levelOk && audienceOk && networkOk && solosOk && hasDraft && !tape.completed;
-  return tape.eligible;
-}
-
-function maybeOfferSpecialTaping() {
-  ensureCareerProgressState();
-  if (!state.v1Completed) return;
-  const tape = state.specialTapeState;
-  if (!updateSpecialTapeEligibility()) return;
-  if (tape.offered || tape.booked || tape.completed) return;
-  tape.offered = true;
-  queueCriticalDialog(
-    "🎬 Convite de gravação!\n\nVocê está pronto para gravar seu especial. Quer agendar a gravação?",
-    [
-      {
-        label: "Agendar gravação",
-        handler: () => {
-          const show = findShowById("taping-especial");
-          if (!show) return;
-          const daysAhead = 3;
-          const scheduled = addScheduledShow(show.id, (state.currentDay || 1) + daysAhead, "specialTape");
-          if (scheduled) {
-            tape.booked = true;
-            tape.offered = true;
-            displayNarration(`🎥 Especial agendado para ${getDayName(state.currentDay + daysAhead)}. Prepare seu texto especial.`);
-            updateStats();
-          }
-        }
-      },
-      { label: "Ainda não", handler: () => { tape.offered = false; } }
-    ]
-  );
-}
-
-function processSpecialTapeOutcome(nota, adjustedScore) {
-  ensureCareerProgressState();
-  const tape = state.specialTapeState;
-  const prep = state.headlinerSoloState?.prepPoints || 0;
-  const quality = clamp(Math.round((nota * 15) + (adjustedScore * 25) + prep * 2), 0, 100);
-  tape.qualityScore = quality;
-  tape.completed = true;
-  tape.booked = false;
-  tape.offered = true;
-  queueCriticalDialog(
-    `🎞️ Especial gravado!\n\nQualidade final: ${quality}/100.`,
-    [{ label: "Continuar", handler: () => {} }]
-  );
-}
 
 function pickOpenWeightedShows(eligibleShows, maxCount) {
   if (!eligibleShows.length || maxCount <= 0) return [];
@@ -2065,135 +1085,154 @@ function registerCareerChoice(choiceId, details = {}) {
   state.careerChoices = state.careerChoices.slice(-40);
 }
 
-function getLegacyConsistencyScore() {
-  const history = state.showHistory || [];
-  if (!history.length) return 0;
-  const recent = history.slice(-12);
-  const average = recent.reduce((sum, item) => sum + (item.nota || 0), 0) / recent.length;
-  const consistency = recent.filter((item) => (item.nota || 0) >= 4).length / recent.length;
-  return clamp(Math.round((average / 5) * 60 + consistency * 40), 0, 100);
-}
 
-function getLegacyCraftScore() {
-  const soloPrestige = state.headlinerSoloState?.prestige || 0;
-  const textoPart = (state.texto || 0) * 0.3;
-  const entregaPart = (state.entrega || 0) * 0.25;
-  const prestigePart = Math.min(40, soloPrestige * 0.6);
-  const tapeBonus = Math.min(15, (state.specialTapeState?.qualityScore || 0) * 0.15);
-  return clamp(Math.round(textoPart + entregaPart + prestigePart + tapeBonus), 0, 100);
-}
-
-function getLegacyAudienceScore() {
-  const fansPart = Math.min(70, Math.log10((state.fans || 0) + 10) * 20);
-  const networkPart = Math.min(30, (state.network || 0) * 0.3);
-  return clamp(Math.round(fansPart + networkPart), 0, 100);
-}
-
-function getLegacyTier(totalScore) {
-  if (totalScore >= 85) return "LENDÁRIO";
-  if (totalScore >= 70) return "CONSAGRADO";
-  if (totalScore >= 55) return "RESPEITADO";
-  return "PROMISSOR";
-}
-
-function getClassLegacyFlavor() {
-  const classId = state.chosenClass || "comicoClassico";
-  const flavors = {
-    comicoClassico: "Você se torna referência de palco para a nova geração.",
-    roteirista: "Seu material vira referência para escritores e elencos do circuito.",
-    produtor: "Você consolida um ecossistema de shows e revela novos nomes.",
-    atorComico: "Sua presença atravessa palco e audiovisual sem perder identidade.",
-    influencer: "Você prova que alcance e credibilidade podem coexistir.",
-    professor: "Seu método forma comediantes que continuam sua escola."
+function getToneProfile() {
+  const tally = normalizeToneTally(state.toneTally);
+  const entries = Object.entries(tally).filter(([, count]) => count > 0);
+  const totalUses = entries.reduce((sum, [, count]) => sum + count, 0);
+  if (!totalUses) return { totalUses: 0, sharesByTone: {}, dominantTone: null, tiedDominantTones: [], isCamaleaoCandidate: false, hybridPair: null };
+  const sharesByTone = Object.fromEntries(entries.map(([tone, count]) => [tone, count / totalUses]));
+  const maxShare = Math.max(...Object.values(sharesByTone));
+  const tiedDominantTones = Object.keys(sharesByTone).filter(tone => Math.abs(sharesByTone[tone] - maxShare) < 0.000001);
+  const dominantTone = tiedDominantTones.length === 1 ? tiedDominantTones[0] : null;
+  const hybridCandidates = Object.entries(sharesByTone).filter(([, share]) => share >= 0.4 && share <= 0.6).map(([tone]) => tone);
+  const otherSharesLow = Object.entries(sharesByTone).filter(([tone]) => !hybridCandidates.includes(tone)).every(([, share]) => share < 0.15);
+  return {
+    totalUses,
+    sharesByTone,
+    dominantTone,
+    tiedDominantTones,
+    isCamaleaoCandidate: maxShare <= 0.3,
+    hybridPair: hybridCandidates.length === 2 && otherSharesLow ? hybridCandidates : null
   };
-  return flavors[classId] || flavors.comicoClassico;
 }
 
-function finalizeLegacyEnding(pathId) {
-  const path = LEGACY_PATHS.find((item) => item.id === pathId) || LEGACY_PATHS[0];
-  const craft = getLegacyCraftScore();
-  const audience = getLegacyAudienceScore();
-  const consistency = getLegacyConsistencyScore();
-  const score = Math.round(
-    craft * (path.weights.craft || 0.33) +
-    audience * (path.weights.audience || 0.33) +
-    consistency * (path.weights.consistency || 0.34)
-  );
-  const tier = getLegacyTier(score);
-  const summary = {
-    pathId: path.id,
-    pathLabel: path.label,
-    tier,
-    score,
-    craft,
-    audience,
-    consistency,
-    day: state.currentDay || 1
-  };
-  state.legacyEnding = summary;
-  state.postLegacyMode = true;
-  state.legacyArchive.push(summary);
-  registerCareerChoice("legacy-choice", { pathId: path.id, score, tier });
-  queueCriticalDialog(
-    `🏁 LEGADO DEFINIDO\n\nCaminho: ${path.label}\nResultado: ${tier} (${score}/100)\n` +
-      `Craft ${craft} | Público ${audience} | Consistência ${consistency}\n\n${getClassLegacyFlavor()}`,
-    [{ label: "Continuar no pós-carreira", handler: () => {} }]
-  );
-  saveGameState();
-}
-
-function maybeTriggerLegacyChoice() {
-  ensureCareerProgressState();
-  if (!state.v1Completed) return;
-  if (state.legacyEnding) return;
-  if (state.legacyChoicePrompted) return;
-  if (getCareerStage() !== "headliner") return;
-  if ((state.levelNumber || 1) < 18) return;
-  if (!state.specialTapeState?.completed) return;
-  state.legacyChoicePrompted = true;
-  const options = LEGACY_PATHS.map((path) => ({
-    label: `${path.label} — ${path.description}`,
-    handler: () => finalizeLegacyEnding(path.id)
+function getStrongestClassReadiness(metrics = getCareerMetrics()) {
+  return Math.max(0, ...(V2_PROGRESSION.classOrder || []).map(classId => {
+    const requirements = V2_PROGRESSION.classPaths?.[classId]?.event2?.requirements || {};
+    const entries = Object.entries(requirements);
+    if (!entries.length) return 0;
+    return entries.reduce((sum, [metric, required]) => sum + Math.min(1, (metrics[metric] || 0) / Math.max(1, required)), 0) / entries.length;
   }));
-  queueCriticalDialog(
-    "📚 Você chegou ao arco final da carreira.\n\nEscolha como quer consolidar seu legado:",
-    options
-  );
 }
 
-function maybeShowHeadlinerFutureNotice() {
-  ensureCareerProgressState();
-  const noticeId = "v1-headliner-future";
-  if ((state.carvalhoDialogState?.shownIds || []).includes(noticeId)) return;
-  state.carvalhoDialogState.shownIds.push(noticeId);
-  queueCriticalDialog(
-    "🚧 Conteúdo Headliner será expandido na v2/v3. A v1.0 termina no começo do Elenco.",
-    [{ label: "Continuar jogando", handler: () => {} }]
-  );
+function calculateRunEndingScore(metrics = getCareerMetrics()) {
+  const notaScore = clamp(metrics.averageNota / 5, 0, 1) * 50;
+  const goodRatioScore = (metrics.showsPerformedCount ? metrics.goodShowsCount / metrics.showsPerformedCount : 0) * 20;
+  const readinessScore = getStrongestClassReadiness(metrics) * 15;
+  const speedScore = clamp((101 - (state.currentDay || 100)) / 36, 0, 1) * 15;
+  return Math.round(notaScore + goodRatioScore + readinessScore + speedScore);
 }
 
-function maybeTriggerV1Ending(nota, showType, showPlayed) {
-  ensureCareerProgressState();
-  if (state.v1Completed) return;
-  const isElencoStage = getCareerStage() === "elenco";
-  const hasClass = !!state.chosenClass;
-  const hasOpportunityAccepted = !!state.hasEmployment;
-  const isElencoShowcase = showType === "elenco15" || !!showPlayed?.isElencoCircuit;
-  const goodShow = nota >= 4;
-  if (!(isElencoStage && hasClass && hasOpportunityAccepted && isElencoShowcase && goodShow)) return;
+function getRunEndingTier(score) {
+  const thresholds = V2_PROGRESSION.endingRules?.tierThresholds || { glorioso: 75, honesto: 50 };
+  if (score >= thresholds.glorioso) return "glorioso";
+  if (score >= thresholds.honesto) return "honesto";
+  return "queimado";
+}
 
-  state.v1Completed = true;
-  const cls = CLASSES[state.chosenClass];
-  const classFlavor = cls?.endingFlavor ? `\n\n${cls.endingFlavor}` : "";
-  queueCriticalDialog(
-    "🏁 FIM DA V1.0 — VOCÊ ENTROU PRO ELENCO\n\nVocê chegou achando que seria descoberto.\n\nNão foi.\n\nVocê escreveu, bombou, reescreveu, testou, insistiu, fez 5 minutos virarem 15 e agora tem uma cadeira no circuito.\n\nA fama não veio.\nVeio coisa pior: responsabilidade semanal.\n\nSua carreira começou." + classFlavor,
-    [
-      { label: "Continuar jogando", handler: () => {} },
-      { label: "Ver histórico", handler: () => handleViewHistory() },
-      { label: "Créditos", handler: () => handleShowCredits() }
-    ]
-  );
+function resolveRunEndingCandidate() {
+  if (state.runState?.status !== "active") return null;
+  const rules = V2_PROGRESSION.endingRules || {};
+  const metrics = getCareerMetrics();
+  const day = state.currentDay || 1;
+  const classId = state.careerPathState?.detectedClassId || state.chosenClass;
+  const classRequirements = V2_PROGRESSION.classPaths?.[classId]?.endingRequirements;
+  if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
+    return { id: `class:${classId}`, category: "class", classId };
+  }
+  if (day >= (rules.default?.minDay || 90) && meetsHiddenRequirements(rules.default?.requirements, metrics)) {
+    return { id: "default", category: "default", classId: null };
+  }
+  const completedEvent1 = Object.values(state.careerPathState?.event1ByClass || {}).some(entry => entry.status === "completed");
+  if (day >= (rules.almost?.minDay || 95)
+    && metrics.showsPerformedCount >= (rules.almost?.showsPerformedCount || 5)
+    && (metrics.averageNota >= (rules.almost?.averageNota || 2.4) || completedEvent1)) {
+    return { id: "almost", category: "almost", classId: classId || null };
+  }
+  if (day >= (rules.failureDay || 100)) return { id: "failure", category: "failure", classId: null };
+  return null;
+}
+
+function archiveFinalizedRun(summary) {
+  const archive = loadLegacyArchive();
+  if (archive.some(entry => entry.runId === summary.runId)) return true;
+  archive.push(summary);
+  try {
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(archive));
+    return true;
+  } catch (error) {
+    console.warn("Falha ao arquivar corrida concluída.", error);
+    return false;
+  }
+}
+
+function buildEndingMessage(candidate, tier, toneProfile) {
+  const baseKey = candidate.category === "class" ? candidate.classId : candidate.category;
+  const base = V2_ENDINGS.base?.[baseKey] || V2_ENDINGS.base?.default || "";
+  const toneKey = toneProfile.isCamaleaoCandidate ? "camaleao" : toneProfile.hybridPair ? "hybrid" : toneProfile.dominantTone || "none";
+  const tone = V2_ENDINGS.tone?.[toneKey] || "";
+  const tierText = V2_ENDINGS.tier?.[tier] || "";
+  return `🏁 FIM DA CORRIDA\n\n${base}\n\n${tone}\n\n${tierText}\n\n${V2_ENDINGS.cliffhanger || ""}`;
+}
+
+function setGameplayLocked(locked) {
+  Object.values(elements.buttons || {}).forEach(button => { if (button) button.disabled = !!locked; });
+  [elements.btnEndDay, elements.btnGoToShow, elements.btnContinuar].forEach(button => { if (button) button.disabled = !!locked; });
+}
+
+function renderFinalizedRun() {
+  if (state.runState?.status !== "ended") return;
+  setGameplayLocked(true);
+  const toneProfile = getToneProfile();
+  const candidate = {
+    id: state.runState.endingId,
+    category: state.runState.endingId?.startsWith("class:") ? "class" : state.runState.endingId,
+    classId: state.runState.endingId?.startsWith("class:") ? state.runState.endingId.split(":")[1] : null
+  };
+  queueCriticalDialog(buildEndingMessage(candidate, state.runState.endingTier, toneProfile), [
+    { label: "🎤 Nova corrida", handler: startNewRunAfterEnding },
+    { label: "📊 Ver histórico", handler: handleViewHistory }
+  ]);
+}
+
+function finalizeRun(candidate) {
+  if (!candidate || state.runState?.status !== "active") return false;
+  const toneProfile = getToneProfile();
+  const score = calculateRunEndingScore();
+  const tier = getRunEndingTier(score);
+  state.runState.status = "ended";
+  state.runState.endingId = candidate.id;
+  state.runState.endingTier = tier;
+  state.runState.endingScore = score;
+  state.runState.endedDay = state.currentDay;
   saveGameState();
+  const archive = loadLegacyArchive();
+  const archived = archiveFinalizedRun({
+    runId: state.runState.runId,
+    runNumber: archive.length + 1,
+    endingId: candidate.id,
+    classId: candidate.classId || null,
+    dominantTone: toneProfile.dominantTone,
+    endTier: tier,
+    score,
+    day: state.currentDay
+  });
+  state.runState.archived = archived;
+  saveGameState();
+  renderFinalizedRun();
+  return true;
+}
+
+function maybeResolveRunEnding() {
+  const candidate = resolveRunEndingCandidate();
+  return candidate ? finalizeRun(candidate) : false;
+}
+
+function startNewRunAfterEnding() {
+  if (state.runState?.status !== "ended" || !state.runState.archived) return;
+  localStorage.removeItem(STORAGE_KEY);
+  window.location.reload();
 }
 
 function getScheduledShowsForToday() {
@@ -2213,6 +1252,7 @@ function addScheduledShow(showId, dayScheduled, showType = "normal") {
   if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS) return false;
   state.scheduledShows.push({ showId, dayScheduled, showType });
   incrementRouteCounter("showsScheduledCount");
+  if (state.runState?.status === "active") setTimeout(() => maybeOfferCareerEvent(), 0);
   return true;
 }
 
@@ -2392,34 +1432,149 @@ function showPerkSelectionDialog() {
 
 
 // ─── Class & Employment Helpers ───
-function showClassSelectionDialog() {
-  if (state.chosenClass) return;
+let careerEventDialogPending = false;
 
-  const classOptions = Object.entries(CLASSES).map(([key, cls]) => ({
-    label: `${cls.name} — ${cls.desc}`,
-    handler: () => {
-      state.chosenClass = key;
-      registerCareerChoice("class-selected", { classId: key });
-      if (cls.bonus) {
-        if (cls.bonus.texto) state.texto = clamp((state.texto || 0) + cls.bonus.texto, 0, 200);
-        if (cls.bonus.entrega) state.entrega = clamp((state.entrega || 0) + cls.bonus.entrega, 0, 200);
-        if (cls.bonus.network) state.network = (state.network || 10) + cls.bonus.network;
-      }
-      playSound('victory');
-      spawnConfetti(50);
-      flashScreen('rgba(212, 168, 75, 0.4)');
-      const bonusText = cls.bonus ? Object.entries(cls.bonus).map(([k, v]) => `${k} +${v}`).join(', ') : '';
-      queueCriticalDialog(`🎭 Você escolheu: ${cls.name}!\n\n${cls.desc}\n\n${bonusText ? `Bônus aplicados: ${bonusText}` : ''}`);
-      updateStats();
-      saveGameState();
-    }
-  }));
-
-  queueCriticalDialog("🎓 Parabéns! Você deixou de ser Open. Agora é hora de pensar em carreira.\n\nQual caminho você escolhe?", classOptions);
+function getCareerMetrics() {
+  const history = state.showHistory || [];
+  const counters = normalizeRouteCounters(state.routeCounters);
+  const totalNota = history.reduce((sum, entry) => sum + (Number(entry.nota) || 0), 0);
+  return {
+    texto: state.texto || 0,
+    entrega: state.entrega || 0,
+    network: state.network || 0,
+    fans: state.fans || 0,
+    studyCount: counters.studyCount,
+    writeCount: counters.writeCount,
+    rewriteCount: counters.rewriteCount,
+    contentCount: counters.contentCount,
+    showsScheduledCount: counters.showsScheduledCount,
+    showsPerformedCount: history.length,
+    goodShowsCount: state.careerPathState?.goodShowsCount || 0,
+    consecutiveGoodShows: state.consecutiveGoodShows || 0,
+    bigRoomShowsCount: state.careerPathState?.bigRoomShowsCount || 0,
+    elencoGoodShowsCount: state.careerPathState?.elencoGoodShowsCount || 0,
+    averageNota: history.length ? totalNota / history.length : 0
+  };
 }
+
+function meetsHiddenRequirements(requirements = {}, metrics = getCareerMetrics()) {
+  return Object.entries(requirements).every(([metric, required]) => (metrics[metric] || 0) >= required);
+}
+
+function getRequirementReadiness(requirements = {}, metrics = getCareerMetrics()) {
+  const entries = Object.entries(requirements);
+  if (!entries.length) return 0;
+  return entries.reduce((sum, [metric, required]) => sum + ((metrics[metric] || 0) / Math.max(1, required)), 0) / entries.length;
+}
+
+function isClassPathAvailable(classId) {
+  const path = V2_PROGRESSION.classPaths?.[classId];
+  return !!path && loadLegacyArchive().length >= (path.availableAfterRuns || 0);
+}
+
+function getEligibleCareerEvents() {
+  ensureCareerProgressState();
+  if (state.runState.status !== "active" || state.careerPathState.lockedPathId) return [];
+  const day = state.currentDay || 1;
+  const metrics = getCareerMetrics();
+  const candidates = [];
+  (V2_PROGRESSION.classOrder || []).forEach((classId, order) => {
+    if (!isClassPathAvailable(classId)) return;
+    const path = V2_PROGRESSION.classPaths[classId];
+    const first = state.careerPathState.event1ByClass[classId];
+    const second = state.careerPathState.event2ByClass[classId];
+    if (first?.status === "completed" && ["unseen", "pending"].includes(second?.status)) {
+      const config = path.event2;
+      if (second.status === "pending" || (day >= config.minDay && day <= config.maxDay && meetsHiddenRequirements(config.requirements, metrics))) {
+        candidates.push({ classId, phase: 2, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
+      }
+      return;
+    }
+    if (["unseen", "pending"].includes(first?.status)) {
+      const config = path.event1;
+      if (first.status === "pending" || (day >= config.minDay && day <= config.maxDay && meetsHiddenRequirements(config.requirements, metrics))) {
+        candidates.push({ classId, phase: 1, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
+      }
+    }
+  });
+  return candidates.sort((a, b) => b.phase - a.phase || b.readiness - a.readiness || a.order - b.order);
+}
+
+function maybeOfferCareerEvent() {
+  if (careerEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
+  const candidate = getEligibleCareerEvents()[0];
+  if (!candidate) return false;
+  const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
+  phaseMap[candidate.classId].status = "pending";
+  const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event${candidate.phase}`];
+  if (!content) return false;
+  careerEventDialogPending = true;
+  saveGameState();
+  queueCriticalDialog(`${content.title}\n\n${content.text}\n\nEssa oportunidade ocupa ${candidate.config.durationDays} dia(s).`, [
+    {
+      label: content.acceptLabel,
+      handler: () => {
+        careerEventDialogPending = false;
+        acceptCareerEvent(candidate);
+      }
+    },
+    {
+      label: content.declineLabel,
+      handler: () => {
+        careerEventDialogPending = false;
+        phaseMap[candidate.classId].status = "declined";
+        saveGameState();
+        maybeOfferCareerEvent();
+      }
+    }
+  ], { imageSrc: content.image || "", imageAlt: content.title, imageIsCharacter: candidate.phase === 2 });
+  return true;
+}
+
+function acceptCareerEvent(candidate) {
+  const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
+  phaseMap[candidate.classId].status = "accepted";
+  if (candidate.phase === 2) state.careerPathState.lockedPathId = candidate.classId;
+  saveGameState();
+  advanceDays(candidate.config.durationDays, {
+    source: `class-event-${candidate.phase}`,
+    recoverMotivation: 0,
+    allowEvents: false,
+    allowCareerEvents: false,
+    narration: false
+  });
+  if (state.runState?.status === "ended") return;
+  phaseMap[candidate.classId].status = "completed";
+  phaseMap[candidate.classId].completedDay = state.currentDay;
+  if (candidate.phase === 2) assignDetectedClass(candidate.classId);
+  displayNarration(`⏩ ${candidate.config.durationDays} dias passaram nessa oportunidade.`);
+  saveGameState();
+  maybeOfferCareerEvent();
+}
+
+function assignDetectedClass(classId) {
+  if (state.careerPathState.detectedClassId || !CLASSES[classId]) return false;
+  state.careerPathState.detectedClassId = classId;
+  state.careerPathState.classAssignedDay = state.currentDay;
+  state.chosenClass = classId;
+  const cls = CLASSES[classId];
+  Object.entries(cls.bonus || {}).forEach(([stat, amount]) => {
+    if (stat === "texto" || stat === "entrega") state[stat] = clamp((state[stat] || 0) + amount, 0, 200);
+    else state[stat] = Math.max(0, (state[stat] || 0) + amount);
+  });
+  registerCareerChoice("class-auto-detected", { classId });
+  queueCriticalDialog(`🎭 Seu caminho ficou claro: ${cls.name}.\n\n${cls.desc}`);
+  checkEmploymentOffer();
+  updateStats();
+  return true;
+}
+
 
 function checkEmploymentOffer() {
   if (!state.chosenClass || state.hasEmployment) return;
+  ensureCareerProgressState();
+  if (state.careerPathState.employmentOfferPending) return;
+  if ((state.currentDay || 1) < (state.careerPathState.employmentDeclinedUntil || 0)) return;
   const cls = CLASSES[state.chosenClass];
   if (!cls || !cls.empReq) return;
 
@@ -2430,50 +1585,28 @@ function checkEmploymentOffer() {
   }
 
   if (meetsRequirements) {
-    queueCriticalDialog(`💼 Primeiro Convite Profissional!\n\nSeu caminho como ${cls.name} começou a ficar claro.\n\nConvite: ${cls.opportunityTitle}\n\nNão é fama.\nNão é contrato milionário.\nÉ o primeiro sinal de que alguém no circuito consegue imaginar você fazendo isso de verdade.\n\nAceitar conclui seu arco inicial da v1.0.`, [
+    state.careerPathState.employmentOfferPending = true;
+    saveGameState();
+    queueCriticalDialog(`💼 Primeiro Convite Profissional!\n\nSeu caminho como ${cls.name} começou a ficar claro.\n\nConvite: ${cls.opportunityTitle}\n\nNão é fama.\nNão é contrato milionário.\nÉ o primeiro sinal de que alguém no circuito consegue imaginar você fazendo isso de verdade.`, [
       { label: "✅ Aceitar convite", handler: () => {
+        state.careerPathState.employmentOfferPending = false;
         state.hasEmployment = true;
         registerCareerChoice("opportunity-accepted", { classId: state.chosenClass });
         playSound('victory');
         spawnConfetti(40);
         flashScreen('rgba(90, 143, 90, 0.3)');
-        queueCriticalDialog(`🎉 Convite aceito!\n\n${cls.endingFlavor}`);
+        queueCriticalDialog(`🎉 Convite aceito!\n\n${V2_ENDINGS.base?.[state.chosenClass] || "Seu caminho profissional começou."}`);
         saveGameState();
       }},
-      { label: "Ainda não", handler: () => {} }
+      { label: "Ainda não", handler: () => {
+        state.careerPathState.employmentOfferPending = false;
+        state.careerPathState.employmentDeclinedUntil = (state.currentDay || 1) + 7;
+        saveGameState();
+      } }
     ]);
   }
 }
 
-function checkMadeIt() {
-  if (!state.chosenClass || state.madeIt || state.levelNumber < 16) return;
-  const cls = CLASSES[state.chosenClass];
-  if (!cls) return;
-
-  let qualifies = false;
-  switch (state.chosenClass) {
-    case 'roteirista': qualifies = state.texto >= 80; break;
-    case 'produtor': qualifies = state.network >= 80; break;
-    case 'atorComico': qualifies = state.entrega >= 80; break;
-    case 'influencer': qualifies = state.fans >= 10000; break;
-    case 'professor': qualifies = state.texto >= 60 && state.entrega >= 60; break;
-    case 'comicoClassico': qualifies = state.texto >= 60 && state.entrega >= 60; break;
-    default: qualifies = false;
-  }
-
-  if (qualifies) {
-    state.madeIt = true;
-    registerCareerChoice("made-it", { classId: state.chosenClass });
-    playSound('victory');
-    spawnConfetti(80);
-    flashScreen('rgba(212, 168, 75, 0.5)');
-    queueCriticalDialog(`🏆 MADE IT!\n\n${cls.madeIt}\n\nVocê chegou ao topo como ${cls.name}. 3 pontos de atividade por dia. A lenda continua...`);
-    saveGameState();
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
 // §9  XP & LEVEL SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 
@@ -2531,11 +1664,11 @@ function getTotalXpForLevel(level) {
 
 function getLevelFromXp(xp) {
   const safeXp = Math.max(0, Math.round(xp || 0));
-  const lastTableLevel = XP_TOTAL_BY_LEVEL.length - 1;
+  const lastTableLevel = Math.min(V2_PROGRESSION.maxLevel || 10, XP_TOTAL_BY_LEVEL.length - 1);
   for (let level = lastTableLevel; level >= 1; level -= 1) {
     if (safeXp >= XP_TOTAL_BY_LEVEL[level]) {
       let computedLevel = level;
-      while (safeXp >= getTotalXpForLevel(computedLevel + 1)) computedLevel += 1;
+      while (computedLevel < lastTableLevel && safeXp >= getTotalXpForLevel(computedLevel + 1)) computedLevel += 1;
       return computedLevel;
     }
   }
@@ -2543,12 +1676,12 @@ function getLevelFromXp(xp) {
 }
 
 function getLevelTier(levelNumber) {
-  if (levelNumber >= 11) return "headliner";
   if (levelNumber >= 6) return "elenco";
   return "open";
 }
 
 function getXpForNextLevel(levelNumber) {
+  if (levelNumber >= (V2_PROGRESSION.maxLevel || 10)) return null;
   return getTotalXpForLevel(levelNumber + 1);
 }
 
@@ -2558,7 +1691,36 @@ function applyXp(amount) {
   state.xp = Math.max(0, Math.round((state.xp || 0) + gain));
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
+  maybeUnlockHumorNegro();
+  maybeUnlockPolitico();
   return gain;
+}
+
+function maybeUnlockHumorNegro() {
+  if (state.humorNegroUnlocked || (state.levelNumber || 1) < 5) return false;
+  if (!(state.showHistory || []).some(show => show.nota === 1)) return false;
+  state.humorNegroUnlocked = true;
+  queueCriticalDialog("💀 Você já provou o pior que o palco pode oferecer. O fracasso ensina onde a linha está.\n\n🔓 HUMOR NEGRO DESBLOQUEADO!\n\nPiadas sobre temas tabu. Brilhante ou desastroso — você decide.");
+  return true;
+}
+
+function maybeUnlockPolitico(show = null, nota = 0) {
+  if (state.politicoUnlocked) return false;
+  const config = V2_PROGRESSION.politico || {};
+  const byLevel = (state.levelNumber || 1) >= (config.levelUnlock || 8);
+  const byVenue = (state.currentDay || 1) >= (config.carvalhoMinDay || 25)
+    && nota >= 4
+    && show
+    && getTypeAffinity(show, "político") >= 0.5;
+  if (!byLevel && !byVenue) return false;
+  state.politicoUnlocked = true;
+  const dialog = byVenue ? V2_EVENTS.politicoUnlock : null;
+  queueCriticalDialog(
+    dialog ? `${dialog.title}\n\n${dialog.text}\n\n🔓 TOM POLÍTICO DESBLOQUEADO!` : "🗳️ Seu repertório ganhou ponto de vista.\n\n🔓 TOM POLÍTICO DESBLOQUEADO!",
+    [],
+    dialog ? { imageSrc: dialog.image, imageAlt: dialog.title, imageIsCharacter: true } : {}
+  );
+  return true;
 }
 
 function getLevelLabel(level, levelNumber) {
@@ -2610,7 +1772,24 @@ function evaluateShow(setList, show, flowBonus = 0) {
     totalScore += jokeScore;
     breakdown.push({ title: joke.title, score: jokeScore });
   });
-  return { averageScore: totalScore / setList.length, breakdown };
+  return { averageScore: totalScore / setList.length, breakdown, chaosRoll, deliveryBonus };
+}
+
+function applyCrowdWorkToEvaluation(jokeEvaluation, baseEvaluation, crowdMinutes = 0) {
+  const minutes = clamp(Math.round(crowdMinutes || 0), 0, 3);
+  if (!minutes) return jokeEvaluation;
+  const crowdScore = 0.18
+    + (baseEvaluation.deliveryBonus || 0)
+    + (baseEvaluation.chaosRoll || 0)
+    + getPerkEffect("crowdWorkBonus");
+  const jokeTotal = jokeEvaluation.breakdown.reduce((sum, entry) => sum + entry.score, 0);
+  return {
+    averageScore: (jokeTotal + crowdScore * minutes) / (jokeEvaluation.breakdown.length + minutes),
+    breakdown: [
+      ...jokeEvaluation.breakdown,
+      { title: `Crowd work (${minutes} min)`, score: crowdScore, isCrowdWork: true, minutes }
+    ]
+  };
 }
 
 function getTypeAffinity(show, tone) {
@@ -2809,27 +1988,14 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
     state.availablePerkPoints = (state.availablePerkPoints || 0) + levelsGained;
     showPerkSelectionDialog();
 
-    if (state.level !== "open" && !state.chosenClass) {
-      showClassSelectionDialog();
-    }
-
     if (state.levelNumber >= 3) maybeTriggerEvent("levelUp3", { source: "levelUp" });
 
     if (previousCareerStage === "open" && currentCareerStage === "elenco") {
       maybeTriggerCarvalhoDialog("enterElenco", { previousCareerStage, currentCareerStage });
-    } else if (state.v1Completed && previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
-      maybeTriggerCarvalhoDialog("enterHeadliner", { previousCareerStage, currentCareerStage });
-    } else if (!state.v1Completed && previousCareerStage !== "headliner" && currentCareerStage === "headliner") {
-      maybeShowHeadlinerFutureNotice();
     }
 
     checkEmploymentOffer();
-    checkMadeIt();
-    if (state.v1Completed) {
-      updateSpecialTapeEligibility();
-      maybeOfferSpecialTaping();
-      maybeTriggerLegacyChoice();
-    }
+    maybeOfferCareerEvent();
   }
 }
 
@@ -2884,10 +2050,6 @@ function handleEndDay() {
         hideDialog();
         displayNarration("❌ Show cancelado. Sua reputação pode sofrer...");
         state.network = Math.max(0, (state.network || 10) - 5);
-        if (entry.showType === "specialTape" && state.specialTapeState) {
-          state.specialTapeState.booked = false;
-          state.specialTapeState.offered = false;
-        }
         updateStats();
         saveGameState();
       }},
@@ -2901,62 +2063,52 @@ function handleEndDay() {
 
 
 function advanceDay() {
-  state.currentDay += 1;
-  state.performedShowToday = false;
+  advanceDays(1, { source: "manual", recoverMotivation: 5, allowEvents: true, narration: true });
+}
 
-  state.currentWeekDay = (state.currentWeekDay + 1) % 7;
-  state.activityPoints = getMaxActivityPoints();
-
-  // Clean up expired scheduled shows
-  state.scheduledShows = (state.scheduledShows || []).filter(s => s.dayScheduled >= state.currentDay);
-
-  // New week? Reset weekly counters
-  if (state.currentWeekDay === 1) {
-    state.currentWeek = (state.currentWeek || 1) + 1;
-    state.eventsThisWeek = 0;
-    ensureCareerProgressState();
-    if (state.elencoCircuitState.completedWeek !== state.currentWeek - 1) {
-      state.elencoCircuitState.weeklySuccessStreak = 0;
+function advanceDays(count, options = {}) {
+  const total = Math.max(0, Math.round(count || 0));
+  const recoverMotivation = Number.isFinite(options.recoverMotivation) ? options.recoverMotivation : 5;
+  let advanced = 0;
+  for (let index = 0; index < total; index += 1) {
+    if (state.runState?.status === "ended") break;
+    state.currentDay += 1;
+    advanced += 1;
+    state.performedShowToday = false;
+    state.currentWeekDay = (state.currentWeekDay + 1) % 7;
+    state.activityPoints = getMaxActivityPoints();
+    state.scheduledShows = (state.scheduledShows || []).filter(entry => entry.dayScheduled >= state.currentDay);
+    if (state.currentWeekDay === 1) {
+      state.currentWeek = (state.currentWeek || 1) + 1;
+      state.eventsThisWeek = 0;
+      ensureCareerProgressState();
+      state.elencoCircuitState.weeklyGoalProgress = 0;
+      state.elencoCircuitState.completedWeek = null;
     }
-    state.elencoCircuitState.weeklyGoalProgress = 0;
-    state.elencoCircuitState.completedWeek = null;
+    if (recoverMotivation) state.motivation = clamp(state.motivation + recoverMotivation, 0, 120);
+    processFlowState();
+    if (typeof maybeResolveRunEnding === "function" && maybeResolveRunEnding()) break;
   }
 
-  state.motivation = clamp(state.motivation + 5, 0, 120);
-  processFlowState();
   updateStats();
   setScene("home");
-  playSound('click');
-
-  const weekDayName = DAYS_OF_WEEK[state.currentWeekDay];
-  displayNarration(`🌅 Novo dia: ${weekDayName}, Dia ${state.currentDay}. Você tem ${getMaxActivityPoints()} pontos de atividade.`);
-
-  // Random event chance (max 2 per week, 10% per day, only after first show)
-  const hasHadFirstShow = state.showHistory && state.showHistory.length > 0;
-  if (hasHadFirstShow && (state.eventsThisWeek || 0) < 2 && Math.random() < 0.1) {
-    maybeTriggerEvent("random", { source: "newDay" });
+  if (options.narration !== false && advanced > 0 && state.runState?.status !== "ended") {
+    const prefix = advanced > 1 ? `⏩ ${advanced} dias passaram.` : `🌅 Novo dia: ${DAYS_OF_WEEK[state.currentWeekDay]}, Dia ${state.currentDay}.`;
+    displayNarration(`${prefix} Você tem ${getMaxActivityPoints()} ponto(s) de atividade.`);
   }
-  refreshRouteInviteAvailability("newDay");
-
-  if (state.motivation <= 25) {
-    maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
-  }
-  updateSpecialTapeEligibility();
-  maybeOfferSpecialTaping();
-
-  const nearestShow = getNearestScheduledShow();
-  if (nearestShow && nearestShow.showType === "headlinerSolo") {
-    ensureCareerProgressState();
-    const daysUntilSolo = nearestShow.dayScheduled - state.currentDay;
-    if (daysUntilSolo >= 0 && daysUntilSolo <= 2 && (state.headlinerSoloState.prepPoints || 0) < 3) {
-      queueCriticalDialog(
-        "🎤 Seu solo está chegando e sua preparação está baixa.\n\nConsidere estudar ou reescrever antes do show para aumentar consistência.",
-        [{ label: "Entendido", handler: () => {} }]
-      );
+  if (state.runState?.status !== "ended") {
+    refreshRouteInviteAvailability("newDay");
+    if (options.allowEvents && advanced === 1) {
+      const hasHadFirstShow = (state.showHistory || []).length > 0;
+      if (hasHadFirstShow && (state.eventsThisWeek || 0) < 2 && Math.random() < 0.1) {
+        maybeTriggerEvent("random", { source: "newDay" });
+      }
+      if (state.motivation <= 25) maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
     }
+    if (options.allowCareerEvents !== false && typeof maybeOfferCareerEvent === "function") maybeOfferCareerEvent();
   }
-
   saveGameState();
+  return advanced;
 }
 
 
@@ -2992,10 +2144,10 @@ function maybeTriggerEvent(trigger, context = {}) {
 
 function eventMatchesTrigger(event, trigger, context = {}) {
   if (!event || !event.trigger || !trigger) return false;
-  if (event.once && Array.isArray(state.eventsSeen) && state.eventsSeen.includes(event.id)) return false;
-  if (event.cooldown && event.lastTriggered) {
-    if (state.currentDay - event.lastTriggered < event.cooldown) return false;
-  }
+  ensureCareerProgressState();
+  if (event.once && state.eventRuntime.seenIds.includes(event.id)) return false;
+  const cooldownUntil = state.eventRuntime.cooldownUntilById[event.id] || 0;
+  if ((state.currentDay || 1) < cooldownUntil) return false;
   if (event.trigger !== trigger) return false;
   if (!contentGates.eventEligible(event)) return false;
 
@@ -3078,7 +2230,11 @@ function handleEventChoiceIndex(index) {
   if (!choice) { hideDialog(); activeEvent = null; uiMode = "idle"; return; }
   const isRouteInvite = isRouteInviteEvent(eventRef);
   const routeInviteAccepted = isRouteInvite ? (choice.unlock5a5 || choice.unlockPague15 || choice.startShowId || choice.scheduleShow) : false;
-  if (eventRef.once && !isRouteInvite && !state.eventsSeen.includes(eventRef.id)) state.eventsSeen.push(eventRef.id);
+  ensureCareerProgressState();
+  if (eventRef.once && !isRouteInvite && !state.eventsSeen.includes(eventRef.id)) {
+    state.eventsSeen.push(eventRef.id);
+    state.eventRuntime.seenIds.push(eventRef.id);
+  }
   if (isRouteInvite) {
     ensureCareerProgressState();
     const inviteState = state.routeInviteState[eventRef.id];
@@ -3088,9 +2244,12 @@ function handleEventChoiceIndex(index) {
         inviteState.nextOfferDay = (state.currentDay || 1) + Math.max(1, Math.round(choice.delayRouteInviteDays));
       }
     }
-    if (routeInviteAccepted && !state.eventsSeen.includes(eventRef.id)) state.eventsSeen.push(eventRef.id);
+    if (routeInviteAccepted && !state.eventsSeen.includes(eventRef.id)) {
+      state.eventsSeen.push(eventRef.id);
+      state.eventRuntime.seenIds.push(eventRef.id);
+    }
   }
-  if (eventRef.cooldown) eventRef.lastTriggered = state.currentDay;
+  if (eventRef.cooldown) state.eventRuntime.cooldownUntilById[eventRef.id] = (state.currentDay || 1) + eventRef.cooldown;
 
   const hasStartShow = !!choice.startShowId;
   const hasScheduleShow = !!choice.scheduleShow;
@@ -3189,6 +2348,7 @@ function applyEventEffects(effects) {
 
 function loadGameState() {
   const baseState = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
     name: "Red", stageTime: 0, jokes: [], language: "pt",
     theme: "classic",
     avatar: null, hasStarted: false, fans: 0, motivation: 60, texto: 10, entrega: 5,
@@ -3197,25 +2357,39 @@ function loadGameState() {
     level: "open", showsAtLevel4: 0, shows5a5AtLevel4: 0,
     fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
     storytellingUnlocked: false,
-    chosenClass: null, hasEmployment: false, madeIt: false,
-    v1Completed: false,
+    onelinerUnlocked: false,
+    humorNegroUnlocked: false,
+    hackUnlocked: false,
+    propUnlocked: false,
+    politicoUnlocked: false,
+    toneTally: createDefaultToneTally(),
+    chosenClass: null, hasEmployment: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
     routeCounters: createDefaultRouteCounters(),
     routeInviteState: createDefaultRouteInviteState(),
+    runState: createDefaultRunState(),
+    careerPathState: createDefaultCareerPathState(),
+    eventRuntime: createDefaultEventRuntime(),
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
-    headlinerSoloState: { prepPoints: 0, solosCompleted: 0, prestige: 0, bestSoloNota: 0 },
-    headlinerSets: [], activeSetId: null,
-    specialTapeState: { eligible: false, offered: false, booked: false, completed: false, qualityScore: 0 },
     openStageState: { consistencyStreak: 0, breakthroughs: 0 },
-    venueReputation: {},
-    legacyEnding: null, legacyArchive: [], postLegacyMode: false, legacyChoicePrompted: false
+    venueReputation: {}
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return baseState;
+    if (!raw) {
+      const bonuses = computeLegacyBonuses();
+      if (bonuses.oneliner) baseState.onelinerUnlocked = true;
+      if (bonuses.humorNegro) baseState.humorNegroUnlocked = true;
+      if (bonuses.storytelling) baseState.storytellingUnlocked = true;
+      if (bonuses.hack) baseState.hackUnlocked = true;
+      if (bonuses.prop) baseState.propUnlocked = true;
+      if (bonuses.politico) baseState.politicoUnlocked = true;
+      return baseState;
+    }
+    const bonuses = computeLegacyBonuses();
     const parsed = JSON.parse(raw);
     const legacyLevelNumber = parsed.level === "headliner" ? 11 : parsed.level === "elenco" ? 6 : 1;
     const resolvedLevelNumber = (typeof parsed.levelNumber === "number" && parsed.levelNumber > 0) ? parsed.levelNumber : legacyLevelNumber;
@@ -3247,22 +2421,29 @@ function loadGameState() {
       consecutiveGoodShows: parsed.consecutiveGoodShows ?? 0,
       flowState: parsed.flowState || null,
       eventsThisWeek: parsed.eventsThisWeek ?? 0,
-      storytellingUnlocked: parsed.storytellingUnlocked ?? false,
+      storytellingUnlocked: !!parsed.storytellingUnlocked || bonuses.storytelling,
+      onelinerUnlocked: !!parsed.onelinerUnlocked || bonuses.oneliner,
+      humorNegroUnlocked: !!parsed.humorNegroUnlocked || bonuses.humorNegro,
+      hackUnlocked: !!parsed.hackUnlocked || bonuses.hack,
+      propUnlocked: !!parsed.propUnlocked || bonuses.prop,
+      politicoUnlocked: !!parsed.politicoUnlocked || bonuses.politico,
+      toneTally: normalizeToneTally(parsed.toneTally),
       level: getLevelTier(resolvedLevelNumber),
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
       fiveA5Unlocked: parsed.fiveA5Unlocked ?? false,
       pague15Unlocked: parsed.pague15Unlocked ?? false,
       network: parsed.network ?? baseState.network,
-      chosenClass: parsed.chosenClass || null,
+      chosenClass: parsed.chosenClass === "professor" ? "comicoClassico" : (parsed.chosenClass || null),
       hasEmployment: parsed.hasEmployment ?? false,
-      madeIt: parsed.madeIt ?? false,
-      v1Completed: parsed.v1Completed ?? false,
       unlockedPerks: Array.isArray(parsed.unlockedPerks) ? parsed.unlockedPerks : [],
       availablePerkPoints: parsed.availablePerkPoints ?? 0,
       careerMilestones: { ...createDefaultCareerMilestones(), ...(parsed.careerMilestones || {}) },
       routeCounters: normalizeRouteCounters(parsed.routeCounters),
       routeInviteState: normalizeRouteInviteState(parsed.routeInviteState),
+      runState: createDefaultRunState(parsed.runState),
+      careerPathState: seedCareerPathCountersFromHistory(createDefaultCareerPathState(parsed.careerPathState), parsed.showHistory),
+      eventRuntime: createDefaultEventRuntime(parsed.eventRuntime),
       careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : [],
       carvalhoDialogState: {
         shownIds: Array.isArray(parsed.carvalhoDialogState?.shownIds) ? parsed.carvalhoDialogState.shownIds : [],
@@ -3275,30 +2456,11 @@ function loadGameState() {
         weeklySuccessStreak: Math.max(0, parsed.elencoCircuitState?.weeklySuccessStreak || 0),
         bestWeeklyStreak: Math.max(0, parsed.elencoCircuitState?.bestWeeklyStreak || 0)
       },
-      headlinerSoloState: {
-        prepPoints: Math.max(0, parsed.headlinerSoloState?.prepPoints || 0),
-        solosCompleted: Math.max(0, parsed.headlinerSoloState?.solosCompleted || 0),
-        prestige: Math.max(0, parsed.headlinerSoloState?.prestige || 0),
-        bestSoloNota: Math.max(0, parsed.headlinerSoloState?.bestSoloNota || 0)
-      },
-      headlinerSets: Array.isArray(parsed.headlinerSets) ? parsed.headlinerSets.map((setEntry) => sanitizeHeadlinerSet(setEntry)) : [],
-      activeSetId: parsed.activeSetId || null,
-      specialTapeState: {
-        eligible: !!parsed.specialTapeState?.eligible,
-        offered: !!parsed.specialTapeState?.offered,
-        booked: !!parsed.specialTapeState?.booked,
-        completed: !!parsed.specialTapeState?.completed,
-        qualityScore: Math.max(0, Math.round(parsed.specialTapeState?.qualityScore || 0))
-      },
       openStageState: {
         consistencyStreak: Math.max(0, parsed.openStageState?.consistencyStreak || 0),
         breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0)
       },
-      venueReputation: normalizeVenueReputationMap(parsed.venueReputation),
-      legacyEnding: parsed.legacyEnding || null,
-      legacyArchive: Array.isArray(parsed.legacyArchive) ? parsed.legacyArchive : [],
-      postLegacyMode: !!parsed.postLegacyMode,
-      legacyChoicePrompted: !!parsed.legacyChoicePrompted
+      venueReputation: normalizeVenueReputationMap(parsed.venueReputation)
     };
   } catch (error) {
     console.warn("Falha ao carregar save, iniciando novo jogo.", error);
@@ -3309,6 +2471,7 @@ function loadGameState() {
 function saveGameState() {
   ensureCareerProgressState();
   const payload = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
     name: state.name, stageTime: state.stageTime, jokes: state.jokes,
     language: state.language, theme: state.theme || "classic", avatar: state.avatar, hasStarted: state.hasStarted,
     fans: state.fans, motivation: state.motivation, texto: state.texto, entrega: state.entrega,
@@ -3322,21 +2485,21 @@ function saveGameState() {
     level: state.level, showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
     pague15Unlocked: state.pague15Unlocked, network: state.network, storytellingUnlocked: state.storytellingUnlocked,
-    chosenClass: state.chosenClass, hasEmployment: state.hasEmployment, madeIt: state.madeIt,
-    v1Completed: !!state.v1Completed,
+    onelinerUnlocked: state.onelinerUnlocked, humorNegroUnlocked: state.humorNegroUnlocked,
+    hackUnlocked: state.hackUnlocked, propUnlocked: state.propUnlocked,
+    politicoUnlocked: state.politicoUnlocked,
+    toneTally: state.toneTally,
+    chosenClass: state.chosenClass, hasEmployment: state.hasEmployment,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, routeCounters: state.routeCounters,
     routeInviteState: state.routeInviteState,
+    runState: state.runState, careerPathState: state.careerPathState,
+    eventRuntime: state.eventRuntime,
     careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
     elencoCircuitState: state.elencoCircuitState,
-    headlinerSoloState: state.headlinerSoloState,
-    headlinerSets: state.headlinerSets, activeSetId: state.activeSetId,
-    specialTapeState: state.specialTapeState,
     openStageState: state.openStageState,
     venueReputation: state.venueReputation,
-    legacyEnding: state.legacyEnding, legacyArchive: state.legacyArchive,
-    postLegacyMode: state.postLegacyMode, legacyChoicePrompted: state.legacyChoicePrompted,
     lastSave: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -3696,7 +2859,7 @@ function updateStats(animate = true) {
   // XP
   const xpForNext = getXpForNextLevel(state.levelNumber);
   if (animate && state.xp !== old.xp) animateStatChange('material', state.xp > old.xp);
-  elements.stats.material.textContent = `${state.xp}/${xpForNext} XP`;
+  elements.stats.material.textContent = xpForNext ? `${state.xp}/${xpForNext} XP` : `${state.xp} XP · MAX`;
 
   // Level label + level-up popup
   const levelLabel = getLevelLabel(state.level, state.levelNumber);
@@ -3810,8 +2973,7 @@ function updateFlowUI() {
 // ═══════════════════════════════════════════════════════════════════
 
 function renderJokeList({ selectable }) {
-  const shouldDisplay = uiMode === "showSelection" || uiMode === "viewMaterial" || uiMode === "headlinerSetBuilder";
-  setMaterialLayoutOrder(uiMode === "headlinerSetBuilder");
+  const shouldDisplay = uiMode === "showSelection" || uiMode === "viewMaterial";
   elements.jokeList.dataset.selectable = selectable ? "true" : "false";
   elements.jokeList.innerHTML = "";
 
@@ -3825,9 +2987,6 @@ function renderJokeList({ selectable }) {
   if (uiMode === "showSelection") {
     elements.subTitle.textContent = "📝 Material";
     elements.subTitle.style.display = "block";
-  } else if (uiMode === "headlinerSetBuilder") {
-    elements.subTitle.textContent = "📚 Textos e Piadas Avulsas";
-    elements.subTitle.style.display = "block";
   }
 
   elements.legend.textContent = LEGEND_TEXT;
@@ -3835,17 +2994,10 @@ function renderJokeList({ selectable }) {
   elements.legend.style.opacity = '0';
   setTimeout(() => { elements.legend.style.transition = 'opacity 0.3s ease'; elements.legend.style.opacity = '1'; }, 100);
 
-  const listToRender = uiMode === "headlinerSetBuilder" ? getHeadlinerBuilderVisibleJokes() : state.jokes;
+  const listToRender = state.jokes;
 
   if (!listToRender.length) {
-    if (uiMode === "headlinerSetBuilder") {
-      const builderEmptyMessage = _materialJokeScope === "unassigned"
-        ? "📝 Sem piadas avulsas fora de texto no momento."
-        : "📝 Este texto ainda não tem piadas.";
-      elements.jokeList.innerHTML = `<li class="joke-item read-only"><strong>${builderEmptyMessage}</strong></li>`;
-    } else {
-      elements.jokeList.innerHTML = '<li class="joke-item read-only"><strong>📝 Sem piadas no bloco.</strong> Bora escrever algo.</li>';
-    }
+    elements.jokeList.innerHTML = '<li class="joke-item read-only"><strong>📝 Sem piadas no bloco.</strong> Bora escrever algo.</li>';
     elements.jokeList.style.display = "block";
     return;
   }
@@ -3876,41 +3028,6 @@ function renderJokeList({ selectable }) {
   elements.jokeList.style.display = "block";
 }
 
-function getAssignedJokeIdsInSets() {
-  const assignedIds = new Set();
-  (state.headlinerSets || []).forEach((setEntry) => {
-    (setEntry.jokeIds || []).forEach((jokeId) => assignedIds.add(jokeId));
-  });
-  return assignedIds;
-}
-
-function getUnassignedJokes() {
-  const assignedIds = getAssignedJokeIdsInSets();
-  return (state.jokes || []).filter((joke) => !assignedIds.has(joke.id));
-}
-
-function getHeadlinerBuilderVisibleJokes() {
-  const focusedSet = getHeadlinerSetById(_focusedMaterialSetId);
-  if (_materialJokeScope === "set" && focusedSet) {
-    const byId = new Map((state.jokes || []).map((joke) => [joke.id, joke]));
-    return (focusedSet.jokeIds || []).map((jokeId) => byId.get(jokeId)).filter(Boolean);
-  }
-  return getUnassignedJokes();
-}
-
-function setMaterialLayoutOrder(textosFirst = false) {
-  const container = elements.jokeList?.parentElement;
-  if (!container || !elements.btnDivLow || !elements.jokeList || !elements.btnContinuar) return;
-  if (textosFirst) {
-    if (elements.btnDivLow.nextElementSibling !== elements.jokeList) {
-      container.insertBefore(elements.btnDivLow, elements.jokeList);
-    }
-    return;
-  }
-  if (elements.btnDivLow.nextElementSibling !== elements.btnContinuar) {
-    container.insertBefore(elements.btnDivLow, elements.btnContinuar);
-  }
-}
 
 function handleJokeListClick(event) {
   const item = event.target.closest("li");
@@ -3925,17 +3042,19 @@ function handleJokeListClick(event) {
   if (selectedJokeIds.has(id)) selectedJokeIds.delete(id); else selectedJokeIds.add(id);
   renderJokeList({ selectable: true });
   if (uiMode === "showSelection") renderSetSummary();
-  if (uiMode === "headlinerSetBuilder") openHeadlinerSetBuilder();
 }
 
 function renderSetSummary() {
   if (uiMode !== "showSelection") { elements.btnDivLow.style.display = "none"; return; }
 
   const selectedJokes = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
-  const minutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
+  const jokeMinutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones = [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
-  const lockedSet = currentShow?.lockedSetId ? getHeadlinerSetById(currentShow.lockedSetId) : null;
+  const maxCrowdMinutes = selectedJokes.length ? Math.min(3, Math.max(0, offeredMinutes - jokeMinutes)) : 0;
+  currentShow.crowdWorkMinutes = clamp(currentShow.crowdWorkMinutes || 0, 0, maxCrowdMinutes);
+  const crowdMinutes = currentShow.crowdWorkMinutes;
+  const minutes = jokeMinutes + crowdMinutes;
 
   let minuteColor = 'var(--neon-cyan)';
   let timeWarning = '';
@@ -3946,13 +3065,19 @@ function renderSetSummary() {
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    ${lockedSet ? `<div>📚 Texto selecionado: <strong>${escapeHtml(lockedSet.title)}</strong> (${getHeadlinerSetRuntime(lockedSet)}min)</div>` : ""}
     <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
+    <div class="crowd-work-control">🗣️ Crowd work: ${[0, 1, 2, 3].map(value => `<button type="button" class="crowd-work-minute-btn${value === crowdMinutes ? " selected" : ""}" data-crowd-minutes="${value}" ${value > maxCrowdMinutes ? "disabled" : ""}>${value} min</button>`).join(" ")}</div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
     ${currentShow?.vibeHint ? `<div>💡 ${currentShow.vibeHint}</div>` : ""}
-    <div style="font-size: 0.95rem; color: var(--cream-dark);">${lockedSet ? "💬 No headliner, o texto organiza o set automaticamente." : "💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências."}</div>
+    <div style="font-size: 0.95rem; color: var(--cream-dark);">💬 Você pode escolher fazer menos ou mais tempo que o oferecido. Há consequências.</div>
   `;
+  elements.btnDivLow.querySelectorAll(".crowd-work-minute-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      currentShow.crowdWorkMinutes = clamp(Number(button.dataset.crowdMinutes) || 0, 0, maxCrowdMinutes);
+      renderSetSummary();
+    });
+  });
 }
 
 
@@ -4256,11 +3381,12 @@ function finalizeJokeCreation() {
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
   incrementRouteCounter("writeCount");
+  maybeOfferCareerEvent();
+  maybeResolveRunEnding();
   if ((state.jokes.length || 0) >= 10 && markCareerMilestone("jokes10")) {
     maybeTriggerCarvalhoDialog("jokes10", { jokeCount: state.jokes.length });
   }
   const xpGain = applyXp(XP_GAIN.jokeNew);
-  addHeadlinerPrep(1);
 
   clearPendingJokeCreation();
 
@@ -4327,10 +3453,6 @@ function generateAvailableShows() {
   if (careerStage === "elenco" && Math.random() < 0.85) {
     maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay);
   }
-  if (state.v1Completed && careerStage === "headliner" && Math.random() < 0.8) {
-    maybeAddHeadlinerSoloGig(shows, alreadyScheduledIds, weekDay);
-  }
-
   // 5 a 5 (Sundays, unlocked via Paulo Araújo)
   if (careerStage === "open" && state.fiveA5Unlocked && !alreadyScheduledIds.includes("5a5")) {
     const daysTo5a5 = findDaysToWeekday(0);
@@ -4385,7 +3507,6 @@ function presentShowOptions(availableShows) {
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
     if (showType === "openStarter") label = `🌱 ${show.name} (open iniciante)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
-    if (showType === "headlinerSolo") label = `🎤 ${show.name} (pipeline solo)`;
     if (showType === "specialTape") label = `🎥 ${show.name} (gravação final)`;
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
@@ -4445,19 +3566,10 @@ function skipToShowDay() {
   showDialog(`⏩ Pular ${daysUntil} dia(s) até ${showName}?\n\nVocê perderá a chance de escrever, estudar ou criar conteúdo nesses dias.`, [
     { label: `✅ Pular para ${showName}`, handler: () => {
       hideDialog();
-      for (let i = 0; i < daysUntil; i++) {
-        state.currentDay += 1;
-        state.currentWeekDay = (state.currentWeekDay + 1) % 7;
-        if (state.currentWeekDay === 1) { state.currentWeek = (state.currentWeek || 1) + 1; state.eventsThisWeek = 0; }
-        state.motivation = clamp(state.motivation + 3, 0, 120);
-        state.performedShowToday = false;
-        processFlowState();
-      }
-      state.activityPoints = getMaxActivityPoints();
-      updateStats();
+      advanceDays(daysUntil, { source: "show-skip", recoverMotivation: 3, allowEvents: false, narration: false });
+      if (state.runState?.status === "ended") return;
       playSound('comeWithMe');
       displayNarration(`⏩ ${daysUntil} dia(s) passaram... É hora do show!`);
-      saveGameState();
       setTimeout(() => handleGoToScheduledShow(), 1000);
     }},
     { label: "❌ Cancelar", handler: hideDialog }
@@ -4473,21 +3585,18 @@ function calculateOfferedTime(show, scheduledShow) {
   if (scheduledShow?.showType === "specialTape" || show?.isSpecialTapeShow) return Math.max(show.setLengthTarget || 35, 30);
   if (scheduledShow?.showType === "openStarter" || show?.isOpenStarter) return clamp(show.minMinutes + 1, 3, 4);
   if (scheduledShow?.showType === "elenco15" || show?.isElencoCircuit) return 15;
-  if (scheduledShow?.showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return Math.max(show.setLengthTarget || 20, show.minMinutes || 10);
   if (show.minMinutes >= 6) return show.minMinutes; // special-invite shows give their full time
 
   let maxTime = 3;
   if (showCount >= 10) maxTime = 10;
   else if (showCount >= 4) maxTime = 5;
   if (careerStage === "elenco") maxTime = Math.max(maxTime, 15);
-  else if (careerStage === "headliner") maxTime = Math.max(maxTime, 20);
 
   return Math.max(show.minMinutes, Math.min(maxTime, careerStage === "open" ? 5 : 15));
 }
 
 function getShowXpCategory(show, showType = "normal") {
   if (showType === "specialTape" || show?.isSpecialTapeShow) return "specialTape";
-  if (showType === "headlinerSolo" || show?.isHeadlinerSoloPipeline) return "headliner";
   if (showType === "elenco15" || show?.isElencoCircuit) return "elenco";
   if (showType === "pague15" || show?.id === "pague15") return "pague15";
   if (showType === "5a5" || show?.id === "5a5") return "fiveA5";
@@ -4509,44 +3618,13 @@ function resolveShowXpReward(show, showType, setList = []) {
 function beginShowPreparation(show, offeredMinutes, showType) {
   if (offeredMinutes === undefined) offeredMinutes = calculateOfferedTime(show, { showType: showType || "normal" });
   const activeShowType = showType || show.special || "normal";
-  currentShow = { ...show, offeredMinutes, activeShowType };
+  currentShow = { ...show, offeredMinutes, activeShowType, crowdWorkMinutes: 0 };
   uiMode = "showSelection";
   selectedJokeIds.clear();
-  let lockedSet = null;
-  if (activeShowType === "headlinerSolo" || activeShowType === "specialTape" || activeShowType === "elenco15") {
-    lockedSet = getHeadlinerSetForShow(activeShowType);
-    if (lockedSet) {
-      const setValidation = validateSetForShow(lockedSet, show);
-      if (!setValidation.ok) {
-        currentShow = null;
-        uiMode = "idle";
-        displayNarration(`⚠️ ${setValidation.reason}`);
-        handleViewMaterial();
-        return;
-      }
-      (lockedSet.jokeIds || []).forEach((jokeId) => selectedJokeIds.add(jokeId));
-      currentShow.lockedSetId = lockedSet.id;
-    } else if (activeShowType !== "elenco15") {
-      const setValidation = validateSetForShow(lockedSet, show);
-      if (!setValidation.ok) {
-        currentShow = null;
-        uiMode = "idle";
-        displayNarration(`⚠️ ${setValidation.reason}`);
-        handleViewMaterial();
-        return;
-      }
-    }
-  }
-
   let subTitle = `⏱️ Tempo oferecido: ${offeredMinutes} minutos`;
-  if ((showType || show.special) === "headlinerSolo") {
-    ensureCareerProgressState();
-    subTitle += ` | 🧱 Preparo: ${state.headlinerSoloState.prepPoints || 0}/12`;
-  }
   elements.subTitle.textContent = subTitle;
   elements.subTitle.style.display = "block";
-  const isSetLocked = !!currentShow.lockedSetId;
-  renderJokeList({ selectable: !isSetLocked });
+  renderJokeList({ selectable: true });
   renderSetSummary();
   setScene("club", show.name, show.image);
   displayNarration(`🎤 ${show.intro} ${show.crowd}`);
@@ -4563,9 +3641,10 @@ function performShow() {
   if (!currentShow) return;
   const showPlayed = currentShow;
   const showType = currentShow.activeShowType || currentShow.special || "normal";
-  const forcedSet = currentShow.lockedSetId ? getHeadlinerSetById(currentShow.lockedSetId) : null;
-  const setList = forcedSet ? getHeadlinerSetJokes(forcedSet) : state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
-  const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0);
+  const forcedSet = null;
+  const setList = state.jokes.filter((joke) => selectedJokeIds.has(joke.id));
+  const crowdWorkMinutes = clamp(Math.round(currentShow.crowdWorkMinutes || 0), 0, 3);
+  const totalMinutes = setList.reduce((sum, joke) => sum + joke.minutes, 0) + crowdWorkMinutes;
   if (!setList.length) { shakeScreen(); displayNarration("⚠️ Você precisa selecionar alguma piada antes de subir."); return; }
   if (forcedSet) {
     const validation = validateSetForShow(forcedSet, showPlayed);
@@ -4577,9 +3656,10 @@ function performShow() {
   suspendCriticalDialogs = true;
   try {
     const showXpReward = resolveShowXpReward(showPlayed, showType, setList);
-    const flowBonus = (state.flowState?.active ? 0.08 : 0) + getHeadlinerSoloPrepBonus(showType);
+    const flowBonus = state.flowState?.active ? 0.08 : 0;
     const baseEvaluation = evaluateShow(setList, showPlayed, flowBonus);
-    const evaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, showPlayed.hecklerOutcome);
+    const jokeEvaluation = applyHecklerOutcomeToEvaluation(baseEvaluation, showPlayed.hecklerOutcome);
+    const evaluation = applyCrowdWorkToEvaluation(jokeEvaluation, baseEvaluation, crowdWorkMinutes);
     const breakdownWithEmoji = evaluation.breakdown.map((entry) => {
       const mood = scoreToEmoji(entry.score);
       return { ...entry, emoji: mood.emoji, label: mood.label, nota: mood.nota };
@@ -4606,14 +3686,18 @@ function performShow() {
       maybeTriggerCarvalhoDialog("firstKill", { nota, show: showPlayed, showType });
     }
     if (careerStage === "elenco") markCareerMilestone("firstElencoGig");
-    if (careerStage === "headliner") markCareerMilestone("firstHeadlinerGig");
-    if (showType === "headlinerSolo" || showPlayed.id === "show-solo") markCareerMilestone("firstSoloGig");
 
     const stageTimeGain = state.flowState?.active ? 2 : 1;
     state.stageTime += stageTimeGain;
 
     state.showHistory = state.showHistory || [];
     state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
+    tallyPerformedTones(setList);
+    ensureCareerProgressState();
+    if (nota >= 4) state.careerPathState.goodShowsCount += 1;
+    if ((showPlayed.minMinutes || 0) >= 7 || showPlayed.isElencoCircuit) state.careerPathState.bigRoomShowsCount += 1;
+    if (showPlayed.isElencoCircuit && nota >= 4) state.careerPathState.elencoGoodShowsCount += 1;
+    maybeUnlockPolitico(showPlayed, nota);
     if (forcedSet) {
       forcedSet.history = [...(forcedSet.history || []), { day: state.currentDay, showId: showPlayed.id, nota }].slice(-20);
     }
@@ -4636,12 +3720,9 @@ function performShow() {
     }
     processOpenStageConsistencyOutcome(nota);
     processElencoCircuitOutcome(showType, nota);
-    processHeadlinerSoloOutcome(showPlayed, showType, nota);
-    if (state.v1Completed && showType === "specialTape") {
-      processSpecialTapeOutcome(nota, adjustedScore);
-      maybeTriggerLegacyChoice();
-    }
-    maybeTriggerV1Ending(nota, showType, showPlayed);
+    checkEmploymentOffer();
+    maybeOfferCareerEvent();
+    maybeResolveRunEnding();
 
     updateStats();
     renderJokeList({ selectable: false });
@@ -4776,6 +3857,8 @@ function createContent() {
   state.network = (state.network || 10) + 1;
   state.motivation = clamp(state.motivation - 4, 0, 120);
   incrementRouteCounter("contentCount");
+  maybeOfferCareerEvent();
+  maybeResolveRunEnding();
   const xpGain = applyXp(XP_GAIN.content);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.15)');
@@ -4795,13 +3878,16 @@ function handleStudy() {
   if (markCareerMilestone("firstStudy")) {
     maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
   }
+  if (!state.onelinerUnlocked) {
+    state.onelinerUnlocked = true;
+    queueCriticalDialog("📝 Você estudou grandes comediantes e percebeu: o poder está na economia de palavras. Corte a gordura, deixe só o punchline.\n\n🔓 ONELINER DESBLOQUEADO!\n\nUma piada curta e direta de 1 minuto. Agora você pode criar oneliners afiados.");
+  }
   state.texto = clamp((state.texto || 0) + 4, 0, 200);
-  if (hasClassPassive("studyBoost")) state.texto = clamp((state.texto || 0) + 1, 0, 200);
-  if (hasClassPassive("studyBoost")) state.entrega = clamp((state.entrega || 0) + 1, 0, 200);
   state.motivation = clamp(state.motivation + 2, 0, 120);
   incrementRouteCounter("studyCount");
+  maybeOfferCareerEvent();
+  maybeResolveRunEnding();
   const xpGain = applyXp(XP_GAIN.study);
-  addHeadlinerPrep(1);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.2)');
   displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
@@ -4882,205 +3968,6 @@ function handleViewHistory() {
 // §23  HANDLERS: MATERIAL & JOKE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
 
-function renderHeadlinerSetEditor(setId) {
-  const setEntry = getHeadlinerSetById(setId);
-  if (!setEntry) return;
-  _focusedMaterialSetId = setEntry.id;
-  uiMode = "headlinerSetEditor";
-  renderJokeList({ selectable: false });
-  const jokes = getHeadlinerSetJokes(setEntry);
-  const listHtml = jokes.length
-    ? jokes.map((joke, index) => `
-      <li class="joke-item read-only">
-        <div><strong>${escapeHtml(joke.title)}</strong> — ${joke.minutes} min</div>
-        <div class="actions">
-          <button class="set-joke-up" data-set-id="${setEntry.id}" data-index="${index}">⬆️</button>
-          <button class="set-joke-down" data-set-id="${setEntry.id}" data-index="${index}">⬇️</button>
-          <button class="set-joke-remove" data-set-id="${setEntry.id}" data-index="${index}">🗑️</button>
-        </div>
-      </li>
-    `).join("")
-    : '<li class="joke-item read-only"><strong>Sem piadas neste texto.</strong></li>';
-
-  elements.btnDivLow.style.display = "flex";
-  elements.btnDivLow.innerHTML = `
-    <div>
-      <h4>🧩 Editando texto: ${escapeHtml(setEntry.title)}</h4>
-      <div>⏱️ ${getHeadlinerSetRuntime(setEntry)} min | 🎯 alvo ${setEntry.targetMinutes} min</div>
-      <ul class="joke-list">${listHtml}</ul>
-      <button class="headliner-editor-back">⬅️ Voltar para organização</button>
-    </div>
-  `;
-
-  elements.btnDivLow.querySelector(".headliner-editor-back")?.addEventListener("click", () => openHeadlinerSetBuilder());
-  elements.btnDivLow.querySelectorAll(".set-joke-up").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.index);
-      if (idx <= 0) return;
-      const ids = [...setEntry.jokeIds];
-      [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
-      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
-      renderHeadlinerSetEditor(setEntry.id);
-    });
-  });
-  elements.btnDivLow.querySelectorAll(".set-joke-down").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.index);
-      if (idx >= setEntry.jokeIds.length - 1) return;
-      const ids = [...setEntry.jokeIds];
-      [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
-      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
-      renderHeadlinerSetEditor(setEntry.id);
-    });
-  });
-  elements.btnDivLow.querySelectorAll(".set-joke-remove").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.index);
-      const ids = [...setEntry.jokeIds];
-      ids.splice(idx, 1);
-      updateHeadlinerSet(setEntry.id, { jokeIds: ids });
-      renderHeadlinerSetEditor(setEntry.id);
-    });
-  });
-}
-
-function openHeadlinerSetBuilder(setId = null, resetSelection = false) {
-  ensureCareerProgressState();
-  uiMode = "headlinerSetBuilder";
-  const careerStage = getCareerStage();
-  const isElencoStage = careerStage === "elenco";
-  if (setId && getHeadlinerSetById(setId)) {
-    _materialJokeScope = "set";
-    _focusedMaterialSetId = setId;
-    selectedJokeIds.clear();
-    getHeadlinerSetById(setId).jokeIds.forEach((jokeId) => selectedJokeIds.add(jokeId));
-  } else if (resetSelection) {
-    selectedJokeIds.clear();
-    _focusedMaterialSetId = null;
-    _materialJokeScope = "unassigned";
-  }
-  const activeSet = getActiveHeadlinerSet();
-  if (_focusedMaterialSetId && !getHeadlinerSetById(_focusedMaterialSetId)) _focusedMaterialSetId = null;
-  const focusedSet = getHeadlinerSetById(_focusedMaterialSetId) || activeSet || state.headlinerSets?.[0] || null;
-  if (focusedSet) _focusedMaterialSetId = focusedSet.id;
-  if (_materialJokeScope === "set" && !focusedSet) _materialJokeScope = "unassigned";
-  const unassignedJokes = getUnassignedJokes();
-  renderJokeList({ selectable: true });
-  const showingSetScope = _materialJokeScope === "set" && !!focusedSet;
-  const listScopeLabel = showingSetScope
-    ? `🧾 Lista abaixo: piadas do texto "${escapeHtml(focusedSet.title)}".`
-    : "🧾 Lista abaixo: piadas avulsas (fora de qualquer texto).";
-  const scopeToggleLabel = showingSetScope
-    ? "🧩 Ver piadas avulsas"
-    : focusedSet
-      ? `🎯 Voltar para "${escapeHtml(focusedSet.title)}"`
-      : "🧩 Ver piadas avulsas";
-  const setsHtml = (state.headlinerSets || []).length
-    ? state.headlinerSets.map((setEntry) => {
-      const runtime = getHeadlinerSetRuntime(setEntry);
-      const activeMark = state.activeSetId === setEntry.id ? "✅ " : "";
-      const focusMark = focusedSet?.id === setEntry.id ? " 👀" : "";
-      const specialMark = setEntry.isSpecialDraft ? " 🎬 Especial" : "";
-      return `
-        <div class="joke-item read-only ${focusedSet?.id === setEntry.id ? "set-focused" : ""}">
-          <div><strong>${activeMark}${escapeHtml(setEntry.title)}</strong>${focusMark} — ${runtime}min${specialMark}</div>
-          <div class="actions">
-            <button class="set-activate-btn" data-set-id="${setEntry.id}">Ativar</button>
-            <button class="set-load-btn" data-set-id="${setEntry.id}">Selecionar piadas</button>
-            <button class="set-special-btn" data-set-id="${setEntry.id}">Marcar especial</button>
-            <button class="set-edit-btn" data-set-id="${setEntry.id}">Editar</button>
-            <button class="set-delete-btn" data-set-id="${setEntry.id}">Apagar</button>
-          </div>
-        </div>
-      `;
-    }).join("")
-    : "<div>Nenhum texto criado ainda.</div>";
-
-  elements.btnDivLow.style.display = "flex";
-  elements.btnDivLow.innerHTML = `
-    <div class="material-sets-panel">
-      <div>${isElencoStage ? "🎬 Elenco trabalha com textos de 15 minutos. Selecione piadas e salve um texto." : "🎤 Headliner/solo é conteúdo futuro. V1.0 termina antes disso."}</div>
-      <div>Selecionadas agora: <strong>${selectedJokeIds.size}</strong> piadas</div>
-      <div style="margin-top: 8px;">
-        <button class="set-create-btn">➕ Salvar novo texto</button>
-        <button class="set-update-active-btn">💾 Atualizar texto ativo</button>
-        <button class="set-clear-selection-btn">🧹 Limpar seleção</button>
-        <button class="set-toggle-scope-btn" ${(focusedSet || showingSetScope) ? "" : "disabled"}>${scopeToggleLabel}</button>
-        <button class="set-view-material-btn">📓 Ver material tradicional</button>
-      </div>
-      <h4>${isElencoStage ? "📚 Textos de 15 minutos" : "📚 Seus textos"}</h4>
-      <div>${setsHtml}</div>
-      ${activeSet ? `<div>Texto ativo: <strong>${escapeHtml(activeSet.title)}</strong></div>` : "<div>Nenhum texto ativo.</div>"}
-      <div><strong>Texto selecionado:</strong> ${focusedSet ? escapeHtml(focusedSet.title) : "Nenhum"}</div>
-      <div>${listScopeLabel}</div>
-      <div>Piadas avulsas disponíveis: <strong>${unassignedJokes.length}</strong></div>
-      <div>Clique na lista abaixo para selecionar/deselecionar e montar o texto.</div>
-    </div>
-  `;
-
-  elements.btnDivLow.querySelector(".set-create-btn")?.addEventListener("click", () => {
-    if (!selectedJokeIds.size) { displayNarration("Selecione pelo menos uma piada para criar um texto."); return; }
-    const title = window.prompt("Nome do novo texto:", `Texto ${state.headlinerSets.length + 1}`) || "";
-    const created = createHeadlinerSet(title, [...selectedJokeIds], { targetMinutes: isElencoStage ? 15 : 25 });
-    setActiveHeadlinerSet(created.id);
-    displayNarration(`📚 Novo texto criado: ${created.title}.`);
-    openHeadlinerSetBuilder(created.id);
-  });
-  elements.btnDivLow.querySelector(".set-update-active-btn")?.addEventListener("click", () => {
-    const active = getActiveHeadlinerSet();
-    if (!active) { displayNarration("Defina um texto ativo antes de atualizar."); return; }
-    if (!selectedJokeIds.size) { displayNarration("Selecione piadas para atualizar o texto ativo."); return; }
-    updateHeadlinerSet(active.id, { jokeIds: [...selectedJokeIds] });
-    displayNarration(`💾 Texto ativo atualizado: ${active.title}.`);
-    openHeadlinerSetBuilder(active.id);
-  });
-  elements.btnDivLow.querySelector(".set-clear-selection-btn")?.addEventListener("click", () => {
-    selectedJokeIds.clear();
-    openHeadlinerSetBuilder(null, false);
-  });
-  elements.btnDivLow.querySelector(".set-toggle-scope-btn")?.addEventListener("click", () => {
-    if (showingSetScope) {
-      _materialJokeScope = "unassigned";
-    } else if (focusedSet) {
-      _materialJokeScope = "set";
-      _focusedMaterialSetId = focusedSet.id;
-    }
-    openHeadlinerSetBuilder(null, false);
-  });
-  elements.btnDivLow.querySelector(".set-view-material-btn")?.addEventListener("click", () => showMaterialNotebookView());
-
-  elements.btnDivLow.querySelectorAll(".set-activate-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setActiveHeadlinerSet(btn.dataset.setId);
-      openHeadlinerSetBuilder(btn.dataset.setId);
-    });
-  });
-  elements.btnDivLow.querySelectorAll(".set-load-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const selectedSet = getHeadlinerSetById(btn.dataset.setId);
-      if (!selectedSet) return;
-      _materialJokeScope = "set";
-      _focusedMaterialSetId = selectedSet.id;
-      openHeadlinerSetBuilder(selectedSet.id);
-    });
-  });
-  elements.btnDivLow.querySelectorAll(".set-special-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      updateHeadlinerSet(btn.dataset.setId, { isSpecialDraft: true });
-      displayNarration("🎬 Texto marcado como draft de especial.");
-      openHeadlinerSetBuilder(btn.dataset.setId);
-    });
-  });
-  elements.btnDivLow.querySelectorAll(".set-edit-btn").forEach((btn) => {
-    btn.addEventListener("click", () => renderHeadlinerSetEditor(btn.dataset.setId));
-  });
-  elements.btnDivLow.querySelectorAll(".set-delete-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      deleteHeadlinerSet(btn.dataset.setId);
-      openHeadlinerSetBuilder(null, false);
-    });
-  });
-}
 
 function showMaterialNotebookView() {
   uiMode = "viewMaterial";
@@ -5095,23 +3982,6 @@ function showMaterialNotebookView() {
 
 function handleViewMaterial() {
   exitSelectionMode();
-  const careerStage = getCareerStage();
-  if (careerStage === "open") {
-    showMaterialNotebookView();
-    return;
-  }
-  if (careerStage === "elenco") {
-    setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
-    openHeadlinerSetBuilder(null, true);
-    displayNarration("🎬 Elenco trabalha com textos de 15 minutos. Selecione piadas, organize e ative um texto.");
-    return;
-  }
-  if (careerStage === "headliner") {
-    setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
-    openHeadlinerSetBuilder(null, true);
-    displayNarration("🚧 Conteúdo Headliner será expandido na v2/v3. A v1.0 termina no começo do Elenco.");
-    return;
-  }
   showMaterialNotebookView();
 }
 
@@ -5245,10 +4115,11 @@ function finalizeRewrite() {
   joke.history = [];
   joke.lastResult = "⏱️ reescrita, ainda não testada";
   incrementRouteCounter("rewriteCount");
+  maybeOfferCareerEvent();
+  maybeResolveRunEnding();
 
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
   const xpGain = applyXp(XP_GAIN.jokeRewrite);
-  addHeadlinerPrep(2);
 
   clearPendingRewrite();
   exitWritingMode();
@@ -5272,6 +4143,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function bootGame() {
+  validateGameContent();
   state = loadGameState();
   applyTheme(state.theme || "classic");
   ensureCareerProgressState();
@@ -5279,39 +4151,21 @@ function bootGame() {
   if (state.hasStarted && state.avatar) {
     enterGame(true);
     displayNarration(homeText);
+    if (state.runState.status === "ended") {
+      setTimeout(renderFinalizedRun, 300);
+      return;
+    }
     refreshRouteInviteAvailability("load");
     if (pendingEvent) {
       setTimeout(() => checkAndShowPendingEvent(), 1400);
-    }
-
-    // Catch-up: if player is elenco+ but never chose a class
-    if (state.level !== "open" && !state.chosenClass) {
-      setTimeout(() => showClassSelectionDialog(), 500);
     }
 
     // Catch-up: if player has unspent perk points
     if ((state.availablePerkPoints || 0) > 0) {
       setTimeout(() => showPerkSelectionDialog(), 1000);
     }
-    if (state.v1Completed && getCareerStage() === "headliner" && (!state.headlinerSets || state.headlinerSets.length === 0)) {
-      setTimeout(() => {
-        queueCriticalDialog(
-          "📚 Você chegou ao headliner.\n\nAgora organize seus textos no menu Material para preparar solos e especial.",
-          [{ label: "Abrir Material", handler: () => handleViewMaterial() }]
-        );
-      }, 850);
-    } else if (!state.v1Completed && getCareerStage() === "headliner") {
-      setTimeout(() => maybeShowHeadlinerFutureNotice(), 850);
-    }
-    if (state.v1Completed) {
-      setTimeout(() => {
-        updateSpecialTapeEligibility();
-        maybeOfferSpecialTaping();
-      }, 900);
-    }
-    if (state.v1Completed && !state.legacyEnding && getCareerStage() === "headliner" && (state.levelNumber || 1) >= 18) {
-      setTimeout(() => maybeTriggerLegacyChoice(), 1200);
-    }
+    setTimeout(() => maybeOfferCareerEvent(), 500);
+    setTimeout(() => maybeResolveRunEnding(), 700);
   } else {
     startIntro();
   }

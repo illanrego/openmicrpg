@@ -8,6 +8,8 @@
 
 Open Mic RPG é um jogo de RPG no navegador onde você vive a jornada de um comediante stand-up, desde os primeiros passos no open mic até se tornar um profissional estabelecido. O jogo combina mecânicas de escrita de piadas, apresentações em shows, progressão de personagem e um sistema de dia/semana para criar uma experiência imersiva e estratégica.
 
+> A reestruturação roguelite V2 está em andamento. Consulte [`DESIGN_V2.md`](DESIGN_V2.md) para as decisões de produto e [`OPEN_MIC_RPG_REFERENCE.md`](OPEN_MIC_RPG_REFERENCE.md) para o estado atual dos sistemas.
+
 **Open Mic RPG is a browser-based RPG game where you live the journey of a stand-up comedian, from your first steps at open mic nights to becoming an established professional. The game combines joke writing mechanics, show performances, character progression, and a day/week system to create an immersive and strategic experience.**
 
 Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiência retro inspirada em RPGs clássicos de SNES, com uma interface pixelada e animações suaves que capturam a essência dos jogos de comédia stand-up.
@@ -31,16 +33,17 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ### ✏️ Sistema de Escrita de Piadas
 - **Dois modos de escrita**: "Sentar e escrever" (mais eficiente, gasta motivação) ou "Anotar durante o dia" (gratuito, menos eficiente)
 - **Sistema de potencial**: Cada piada tem um potencial baseado em suas estatísticas (texto, motivação) e modo de escrita
-- **Customização**: Escolha o tom (besteirol, vulgar, limpo, humor negro, hack) e estrutura (oneliner, bit, storytelling, prop)
+- **Customização progressiva**: Tons e estruturas são liberados por estudo, nível e conquistas de corridas anteriores
 - **Reescrita**: Melhore piadas existentes usando experiência e recursos
 - **Pool de ideias**: Mais de 50 ideias pré-definidas para inspirar sua escrita
 
-**Two writing modes**: "Sit and write" (more efficient, costs motivation) or "Note during the day" (free, less efficient) | **Potential system**: Each joke has potential based on your stats (texto, motivation) and writing mode | **Customization**: Choose tone (besteirol, vulgar, limpo, humor negro, hack) and structure (oneliner, bit, storytelling, prop) | **Rewriting**: Improve existing jokes using experience and resources | **Idea pool**: Over 50 predefined ideas to inspire your writing**
+**Two writing modes**: "Sit and write" (more efficient, costs motivation) or "Note during the day" (free, less efficient) | **Potential system**: Each joke has potential based on your stats (texto, motivation) and writing mode | **Progressive customization**: Unlock tones and structures through study, levels, and past-run achievements | **Rewriting**: Improve existing jokes using experience and resources | **Idea pool**: Over 50 predefined ideas to inspire your writing**
 
 ### 🎭 Sistema de Shows
 - **Diversos tipos de shows**: Open mics, shows pagos, corporativos, especiais
 - **Pacote Open expandido**: Novas casas iniciantes com foco em aprendizado de set curto
-- **Headliner por textos**: No headliner, você organiza sets completos (`textos`) para solos
+- **Corridas de 100 dias**: A carreira termina em um desfecho de Elenco e alimenta um arquivo de legado
+- **Crowd work**: Aloque 0-3 minutos de improviso ao preparar o show
 - **Sistema de dificuldade**: Cada show tem uma dificuldade que afeta seu desempenho
 - **Afinidade de tipo**: Diferentes shows favorecem diferentes tons e estruturas
 - **Sistema de notas**: De 1 (deu água) a 5 (explodiu), com feedback visual e narrativo
@@ -55,21 +58,21 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
   - **Entrega**: Afeta seu desempenho nos shows e reduz dificuldade (máx. 200)
   - **Motivação**: Recursos necessários para escrever piadas melhores
   - **Fãs**: Popularidade que desbloqueia oportunidades
-- **Arco de carreira**: Progressão de `Open` para `Elenco` e depois `Headliner`
+- **Arco de carreira**: Progressão de `Open` para `Elenco`, com classe detectada pelo comportamento
 - **Sistema de XP**: Ganhe experiência através de shows e atividades
 - **Perks/Talents**: Duas árvores de habilidades (Texto e Entrega) com mais de 10 perks únicos
 - **Flow State**: Estado especial que aumenta sua eficiência temporariamente
 
-**Main stats**: Texto (affects joke quality, max 200), Entrega (affects show performance, max 200), Motivation (resource for writing better jokes), Fans (popularity that unlocks opportunities) | **Career arc**: Progression from `Open` to `Elenco` to `Headliner` | **XP system**: Gain experience through shows and activities | **Perks/Talents**: Two skill trees (Texto and Entrega) with over 10 unique perks | **Flow State**: Special state that temporarily increases efficiency**
+**Main stats**: Texto (affects joke quality, max 200), Entrega (affects show performance), Motivation, and Fans | **Career arc**: Progress from Open to Elenco through behavior-driven class events | **XP system**: Gain experience through shows and activities | **Perks/Talents**: Two skill trees with more than 10 perks | **Flow State**: Temporary efficiency bonuses**
 
 ### ⏰ Sistema de Tempo
 - **Dias e semanas**: Gerencie seu tempo dia a dia
-- **Pontos de atividade**: Limite de ações por dia (1-3 dependendo do emprego)
+- **Pontos de atividade**: Limite de ações por dia (1-3 conforme emprego, progresso e legado)
 - **Sistema de emprego**: Trabalhos que afetam seus pontos de atividade e progressão
 - **Eventos semanais**: Eventos especiais que aparecem durante a semana
 - **Histórico de shows**: Acompanhe seus shows passados com métricas detalhadas
 
-**Days and weeks**: Manage your time day by day | **Activity points**: Limit of actions per day (1-3 depending on employment) | **Employment system**: Jobs that affect your activity points and progression | **Weekly events**: Special events that appear during the week | **Show history**: Track your past shows with detailed metrics**
+**Days and weeks**: Manage a 100-day run | **Activity points**: One by default, two with employment | **Employment system**: Professional invitations affect progression | **Weekly events**: Special events appear during the run | **Show history**: Track past performances**
 
 ### 🎨 Sistema de Conteúdo e Estudo
 - **Criar conteúdo**: Gere conteúdo digital para ganhar fãs e recursos
@@ -82,9 +85,9 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ### 💾 Sistema de Persistência
 - **Salvamento automático**: Seu progresso é salvo automaticamente no navegador
 - **Carregamento**: Retome de onde parou a qualquer momento
-- **Múltiplos saves**: Suporte para diferentes partidas
+- **Arquivo de legado**: Conclusões de corridas sobrevivem ao reset e liberam novas opções
 
-**Auto-save**: Your progress is automatically saved in the browser | **Loading**: Resume from where you left off at any time | **Multiple saves**: Support for different playthroughs**
+**Auto-save**: Your progress is automatically saved in the browser | **Loading**: Resume from where you left off at any time | **Legacy archive**: Completed runs survive active-run resets and unlock new options**
 
 ## Tecnologias Utilizadas / Technology Stack 💻
 
@@ -139,6 +142,8 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 openmicrpg1/
 ├── index.html          # Página principal / Main page
 ├── script.js           # Lógica principal do jogo / Main game logic
+├── content/            # Catálogos de progressão, mundo, eventos e finais
+├── tests/              # Testes automatizados das mecânicas V2
 ├── styles.css          # Estilos e animações / Styles and animations
 ├── BALANCE_ANALYSIS.md # Histórico de balanceamento / Balance history
 ├── BALANCE_CHANGES.md  # Histórico de mudanças / Change history
@@ -197,18 +202,14 @@ O jogo já possui classes profissionais que modificam a experiência e desbloque
 - **Produtor**: Shows e gestão
 - **Ator Cômico**: Performance, TV, cinema
 - **Influencer**: Conteúdo digital, virais
-- **Professor**: Ensino e teoria da comédia
 
-**The game now includes professional classes that shape progression and career opportunities: Classic Comedian, Screenwriter, Producer, Comic Actor, Influencer, Professor**
+**The game includes five professional classes that shape progression and career opportunities: Classic Comedian, Screenwriter, Producer, Comic Actor, and Influencer. V2 automatic class detection is still pending.**
 
 ### Professor Carvalho Guidance
 Professor Carvalho atua como mentor ao longo do jogo, com diálogos de orientação em marcos importantes (primeiro bomb, primeiro kill, transições de carreira e momentos de baixa motivação).
 
-### Legacy Choice Endgame
-No arco final de `Headliner`, você escolhe qual legado quer construir (estrada, autoria ou híbrido palco+mídia) e recebe um epílogo com avaliação multidimensional.
-
-### Taping Special (Finale Gate)
-A gravação do especial (`Taping Special`) é um marco obrigatório do arco final. O legado só é liberado após concluir a gravação.
+### Finais e legado V2
+O desfecho é resolvido entre os dias 65 e 100 conforme classe, emprego, circuito de Elenco e consistência. Cada corrida concluída amplia opções futuras sem carregar estatísticas numéricas.
 
 ### Sistema de Eventos / Event System
 Eventos especiais aparecem durante a semana, oferecendo oportunidades únicas, desafios e recompensas que podem mudar o curso da sua carreira.
