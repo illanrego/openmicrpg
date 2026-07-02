@@ -154,14 +154,14 @@ const structures = ["oneliner", "storytelling", "bit", "prop"];
 const STRUCTURE_MINUTE_RANGES = {
   oneliner: [1, 1],
   prop: [1, 1],
-  bit: [2, 3],
-  storytelling: [3, 5]
+  bit: [2, 2],
+  storytelling: [3, 3]
 };
 
 const structureDescriptions = {
   oneliner: "Piada curta e direta, que não necessita de mais contexto. 1 min.",
-  storytelling: "Uma narrativa, uma história com vários punchs. 3-5 min.",
-  bit: "Sequência de piadas conectadas sobre um mesmo tema. 2-3 min.",
+  storytelling: "Uma narrativa, uma história com vários punchs. 3 min.",
+  bit: "Sequência de piadas conectadas sobre um mesmo tema. 2 min.",
   prop: "Usa objetos ou elementos visuais para complementar a piada. 1 min."
 };
 
@@ -3051,7 +3051,7 @@ function renderSetSummary() {
   const jokeMinutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones = [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
-  const maxCrowdMinutes = selectedJokes.length ? Math.min(3, Math.max(0, offeredMinutes - jokeMinutes)) : 0;
+  const maxCrowdMinutes = selectedJokes.length ? 3 : 0;
   currentShow.crowdWorkMinutes = clamp(currentShow.crowdWorkMinutes || 0, 0, maxCrowdMinutes);
   const crowdMinutes = currentShow.crowdWorkMinutes;
   const minutes = jokeMinutes + crowdMinutes;
@@ -3065,7 +3065,7 @@ function renderSetSummary() {
 
   elements.btnDivLow.style.display = "flex";
   elements.btnDivLow.innerHTML = `
-    <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${minutes}min</strong> / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
+    <div>🎭 Set atual: <strong>${selectedJokes.length}</strong> piadas | <span style="color: ${minuteColor}"><strong>${jokeMinutes}min</strong>${crowdMinutes ? ` + <strong>${crowdMinutes}min</strong> crowd` : ''} / ${offeredMinutes}min oferecidos${timeWarning}</span></div>
     <div class="crowd-work-control">🗣️ Crowd work: ${[0, 1, 2, 3].map(value => `<button type="button" class="crowd-work-minute-btn${value === crowdMinutes ? " selected" : ""}" data-crowd-minutes="${value}" ${value > maxCrowdMinutes ? "disabled" : ""}>${value} min</button>`).join(" ")}</div>
     <div>🎨 Clima do set: ${tones}</div>
     ${currentShow ? `<div>⚡ Dificuldade: ${(currentShow.difficulty * 100).toFixed(0)}% caos</div>` : ""}
