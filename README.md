@@ -19,12 +19,12 @@ Desenvolvido com JavaScript vanilla, HTML5 e CSS3, o jogo oferece uma experiênc
 ## Screenshots / Capturas de Tela
 
 <div align="center">
-  <img src="./screen2.png" alt="Gameplay Screenshot 1" width="800"/>
+  <img src="./assets/screenshots/screen2.png" alt="Gameplay Screenshot 1" width="800"/>
   <p><em>Interface principal do jogo / Main game interface</em></p>
 </div>
 
 <div align="center">
-  <img src="./screen3.png" alt="Gameplay Screenshot 2" width="800"/>
+  <img src="./assets/screenshots/screen3.png" alt="Gameplay Screenshot 2" width="800"/>
   <p><em>Sistema de escrita de piadas e gerenciamento de material / Joke writing system and material management</em></p>
 </div>
 
@@ -145,23 +145,25 @@ openmicrpg1/
 ├── content/            # Catálogos de progressão, mundo, eventos e finais
 ├── tests/              # Testes automatizados das mecânicas V2
 ├── styles.css          # Estilos e animações / Styles and animations
-├── BALANCE_ANALYSIS.md # Histórico de balanceamento / Balance history
-├── BALANCE_CHANGES.md  # Histórico de mudanças / Change history
-├── CAP_*.md           # Histórico de caps e simulações / Cap history
+├── DESIGN_V2.md        # Decisões atuais de produto / Current product design
+├── OPEN_MIC_RPG_REFERENCE.md # Mecânicas implementadas / Implemented mechanics
 ├── docs/
-│   └── GAME_MECHANICS.md # Referência canônica / Canonical mechanics reference
+│   └── legacy/         # Planos e análises históricas / Historical documents
 └── assets/            # Imagens e recursos / Images and resources
-    ├── avatar*.png    # Avatares do jogador / Player avatars
-    ├── carvalho.png   # Professor Carvalho / Professor Carvalho
-    └── *.png          # Imagens de cenas e shows / Scene and show images
+    ├── avatars/       # Avatares selecionáveis / Selectable avatars
+    ├── characters/    # Personagens e mentores / Characters and mentors
+    ├── venues/        # Casas e locais de show / Venues and show locations
+    ├── scenes/        # Escrita, eventos e resultados / Writing, events and results
+    ├── screenshots/   # Imagens da documentação / Documentation screenshots
+    └── unused/        # Conceitos ainda sem uso / Unused concepts
 ```
 
-**`index.html` - Main page | `script.js` - Main game logic | `styles.css` - Styles and animations | `docs/GAME_MECHANICS.md` - Canonical mechanics reference | `BALANCE_*.md`/`CAP_*.md` - Historical balance notes | `assets/` - Images and resources**
+**`index.html` - Main page | `script.js` - Main game logic | `styles.css` - Styles and animations | `DESIGN_V2.md` - Current product design | `OPEN_MIC_RPG_REFERENCE.md` - Implemented mechanics | `docs/legacy/` - Historical documents | `assets/` - Images and resources**
 
 ## Mecânicas do Jogo / Game Mechanics 🎲
 
-> Referência canônica para agentes e mudanças de balanceamento: [`docs/GAME_MECHANICS.md`](docs/GAME_MECHANICS.md).
-> Os arquivos `BALANCE_*.md` e `CAP_*.md` são histórico de decisões e podem estar parcialmente defasados.
+> Referência canônica das mecânicas implementadas: [`OPEN_MIC_RPG_REFERENCE.md`](OPEN_MIC_RPG_REFERENCE.md).
+> Planos anteriores e análises de balanceamento ficam em [`docs/legacy/`](docs/legacy/) e podem estar defasados.
 
 ### Sistema de Escrita / Writing System
 - **Potencial base**: 0.35-0.85 (aleatório)

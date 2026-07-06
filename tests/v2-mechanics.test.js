@@ -65,7 +65,7 @@ test("content registry validates", () => {
   assert.equal(run("validateGameContent()"), true);
 });
 
-test("legacy archive grants options but no numeric AP or perk advantage", () => {
+test("legacy archive grants only non-mentor options and no numeric advantage", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
     { runId: "1", classId: "roteirista", dominantTone: "humor negro", endTier: "glorioso" },
@@ -73,14 +73,29 @@ test("legacy archive grants options but no numeric AP or perk advantage", () => 
     { runId: "3", classId: "produtor", dominantTone: "limpo", endTier: "honesto" }
   ]));
   const state = JSON.parse(run("JSON.stringify(loadGameState())"));
-  assert.equal(state.onelinerUnlocked, true);
-  assert.equal(state.storytellingUnlocked, true);
-  assert.equal(state.propUnlocked, true);
+  assert.equal(state.onelinerUnlocked, false);
+  assert.equal(state.storytellingUnlocked, false);
+  assert.equal(state.propUnlocked, false);
   assert.equal(state.hackUnlocked, true);
-  assert.equal(state.humorNegroUnlocked, true);
+  assert.equal(state.humorNegroUnlocked, false);
   assert.equal(state.activityPoints, 1);
   assert.equal(state.availablePerkPoints, 0);
   assert.equal("legacyAp2Unlocked" in state, false);
+});
+
+test("existing save unlocks survive the mentor-owned migration", () => {
+  const { run, storage } = createHarness();
+  storage.set("openMicRPG.save.v2", JSON.stringify({
+    storytellingUnlocked: true,
+    onelinerUnlocked: true,
+    humorNegroUnlocked: true,
+    propUnlocked: true
+  }));
+  const state = JSON.parse(run("JSON.stringify(loadGameState())"));
+  assert.equal(state.storytellingUnlocked, true);
+  assert.equal(state.onelinerUnlocked, true);
+  assert.equal(state.humorNegroUnlocked, true);
+  assert.equal(state.propUnlocked, true);
 });
 
 test("Professor saves migrate without losing the run", () => {
@@ -114,6 +129,65 @@ test("Event 2 is deterministic and requires Event 1 completion", () => {
   assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'roteirista' && item.phase === 2)"), false);
   run("state.careerPathState.event1ByClass.roteirista.status = 'completed'");
   assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'roteirista' && item.phase === 2)"), true);
+});
+
+test("all Event 2 paths contain an exclusive two-way branch", () => {
+  const { run } = createHarness();
+  assert.equal(run("V2_PROGRESSION.classOrder.every(id => V2_EVENTS.classEvents[`${id}:event2`].choices.length === 2)"), true);
+});
+
+test("accepting Event 2 records its branch before assigning the class", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    queueCriticalDialog = () => {}; updateStats = () => {}; checkEmploymentOffer = () => {}; displayNarration = () => {};
+    advanceDays = days => { state.currentDay += days; return days; };
+    state.currentDay = 40;
+    state.careerPathState.event1ByClass.roteirista.status = 'completed';
+    const candidate = {classId:'roteirista',phase:2,config:V2_PROGRESSION.classPaths.roteirista.event2};
+    const branch = V2_EVENTS.classEvents['roteirista:event2'].choices[0];
+    acceptCareerEvent(candidate, branch);
+  `);
+  assert.equal(run("state.chosenClass"), "roteirista");
+  assert.equal(run("state.pathProgressState.choiceGroups['class-event2:roteirista'].choiceId"), "punch-up");
+  assert.equal(run("state.pathProgressState.flags['roteirista-punch-up']"), true);
+});
+
+test("mentor forks are deterministic, exclusive, and independently available", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    queueCriticalDialog = () => {}; updateStats = () => {}; saveGameState = () => {};
+    state.currentDay = 15; state.levelNumber = 3; state.texto = 16;
+    state.showHistory = [{nota:3}, {nota:3}];
+  `);
+  assert.equal(run("getEligiblePathEvents().some(event => event.id === 'rossini-especializacao')"), true);
+  assert.equal(run("getEligiblePathEvents().some(event => event.id === 'gabriel-especializacao')"), true);
+  run("applyPathEventChoice(V2_EVENTS.pathEvents.find(event => event.id === 'rossini-especializacao'), V2_EVENTS.pathEvents.find(event => event.id === 'rossini-especializacao').choices[0])");
+  assert.equal(run("state.humorNegroUnlocked"), true);
+  assert.equal(run("state.storytellingUnlocked"), false);
+  assert.equal(run("state.pathProgressState.flags['specialization:humor-negro']"), true);
+  assert.equal(run("getEligiblePathEvents().some(event => event.id === 'rossini-especializacao')"), false);
+  assert.equal(run("getEligiblePathEvents().some(event => event.id === 'gabriel-especializacao')"), true);
+});
+
+test("mentor revisit unlocks the unchosen skill without specialization", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    queueCriticalDialog = () => {}; updateStats = () => {}; saveGameState = () => {};
+    state.currentDay = 15; state.levelNumber = 3; state.showHistory = [{nota:3}];
+    const early = V2_EVENTS.pathEvents.find(event => event.id === 'rossini-especializacao');
+    applyPathEventChoice(early, early.choices[0]);
+    state.currentDay = 70; state.showHistory = Array.from({length:6}, () => ({nota:3}));
+  `);
+  assert.equal(run("getEligiblePathEvents().some(event => event.id === 'rossini-revisita')"), true);
+  run(`
+    const revisit = V2_EVENTS.pathEvents.find(event => event.id === 'rossini-revisita');
+    applyPathEventChoice(revisit, getPathEventChoices(revisit)[0]);
+  `);
+  assert.equal(run("state.storytellingUnlocked"), true);
+  assert.equal(run("state.pathProgressState.flags['specialization:storytelling'] || false"), false);
 });
 
 test("multi-day career events advance the clock without changing AP costs", () => {
@@ -158,6 +232,34 @@ test("crowd work is minute weighted and leaves zero-allocation scoring unchanged
   assert.equal(weighted.breakdown.at(-1).isCrowdWork, true);
   assert.equal(weighted.breakdown.at(-1).minutes, 3);
   assert.equal(weighted.averageScore, (0.3 + 0.28 * 3) / 4);
+});
+
+test("structure usage is persisted by performed minutes", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); tallyPerformedStructures([{structure:'storytelling',minutes:3},{structure:'bit',minutes:2}], 2)");
+  const tally = JSON.parse(run("JSON.stringify(state.structureTally)"));
+  assert.equal(tally.storytelling, 3);
+  assert.equal(tally.bit, 2);
+  assert.equal(tally.crowdWork, 2);
+});
+
+test("pure endings require successful runs, complementary breadth, and early mentor specialization", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.toneTally = {'besteirol':0,'vulgar':0,'limpo':1,'humor negro':7,'hack':0,'político':0};
+    state.structureTally = {bit:3,oneliner:2,storytelling:2,prop:0,crowdWork:0};
+  `);
+  assert.equal(run("resolvePureEnding()"), null);
+  run("state.pathProgressState.flags['specialization:humor-negro'] = true");
+  assert.equal(run("resolvePureEnding().id"), "pure:tone:humor negro");
+  run(`
+    state.currentDay = 100;
+    state.showHistory = [];
+    state.careerPathState.goodShowsCount = 0;
+  `);
+  assert.equal(run("resolveRunEndingCandidate().id"), "failure");
+  assert.equal(run("resolveRunEndingCandidate().pureEnding || null"), null);
 });
 
 test("ending resolver respects class, default, almost, then failure priority", () => {

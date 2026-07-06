@@ -2,7 +2,7 @@
 
 > Full data dump of all game systems. Line references point to `script.js`.
 
-> V2 implemented: schema-V3 runs, hidden deterministic class events, automatic class assignment, crowd work, `político`, baseline ending resolution, archive finalization, and option-only legacy unlocks. Special routes such as Eclético remain deferred.
+> V2 implemented: schema-V3 runs, hidden deterministic class events, automatic class assignment, mentor path forks, crowd work, `político`, generic/pure ending resolution, archive finalization, and option-only legacy unlocks. Special routes such as Eclético remain deferred.
 
 ---
 
@@ -13,7 +13,7 @@
 | 1 | `besteirol` | Besteiras descompromissadas | Humor bobo e descompromissado. Funciona bem com plateias relaxadas. | Day 1 |
 | 2 | `vulgar` | Piadas pesadas sem filtro | Piadas pesadas, linguagem explícita. Pode dividir a sala. | Day 1 |
 | 3 | `limpo` | Humor família e bobinho | Humor família, sem palavrões. Ideal para corporativos. | Day 1 |
-| 4 | `humor negro` | Piadas azedas que dividem a sala | Piadas sobre temas tabu. Brilhante ou desastroso. | First nota-1 bomb at level 5+, or dominant in a past run |
+| 4 | `humor negro` | Piadas azedas que dividem a sala | Piadas sobre temas tabu. Brilhante ou desastroso. | Rossini early fork, or late revisit |
 | 5 | `hack` | Observações batidas porém eficientes | Observações batidas mas eficientes. Todo mundo já ouviu. | Level 5+, two completed runs, or dominant in a past run |
 | 6 | `político` | Poder, sociedade e contradição | Political and social material. | Level 8+ or Carvalho event |
 
@@ -24,9 +24,9 @@
 | # | Structure | Minutes | Description | Unlock |
 |---|-----------|---------|-------------|--------|
 | 1 | `bit` | 2-3 min | Sequência de piadas conectadas sobre um mesmo tema. | Day 1 |
-| 2 | `oneliner` | 1 min | Piada curta e direta. | First study action, or one completed run |
-| 3 | `storytelling` | 3-5 min | Narrativa com vários punchs. | Rossini Luz event, Level 6+, or Roteirista victory |
-| 4 | `prop` | 1 min | Usa objetos visuais para complementar a piada. | Level 10+, or Ator Cômico victory |
+| 2 | `oneliner` | 1 min | Piada curta e direta. | Gabriel early fork, or late revisit |
+| 3 | `storytelling` | 3 min | Narrativa com vários punchs. | Rossini early fork, or late revisit |
+| 4 | `prop` | 1 min | Usa objetos visuais para complementar a piada. | Gabriel early fork, or late revisit |
 | 5 | `crowd work` | 1-3 min | Pseudo-structure allocated during show preparation. | Always available in show preparation |
 
 ---
@@ -180,7 +180,7 @@ Formula: `fanGain = totalMinutes × (nota - 1) × 0.8`
 
 ### Provisional Class Ending Text
 
-All ending copy is sourced from `content/endings.js`.
+All ending copy is sourced from `content/endings.js`. Generic successful endings combine class/default base, whole-run dominant tone, whole-run dominant structure by performed minutes, and tier. Pure endings upgrade class/default success at 65% dominance plus complementary breadth; mentor-owned pure routes require the early specialization flag.
 
 1. **Cômico Clássico**: "Você vira um nome confiável: alguém que pode entrar numa noite difícil e entregar 15 minutos de verdade."
 2. **Roteirista**: "Seu texto começa a circular fora da sua própria boca: quadros, vídeos, projetos e ideias que precisam de escrita cômica."
@@ -417,7 +417,19 @@ Affinity values are added at 20% weight to the joke score: `typeAffinity[tone] �
 
 ---
 
-## 17. EVENT POOL (28 events)
+## 17. EVENTS: INCIDENTAL AND PATH
+
+Every event has one of two mechanical kinds: `incidental` for small world/stat events, or `path` for persistent run-defining choices.
+
+### Path Events
+
+| Event | Hidden window/requirement | Exclusive choice | Consequence |
+|-------|---------------------------|------------------|-------------|
+| Rossini specialization | Days 15-35, level 3+, 1 show | `humor negro` or `storytelling` | Unlock + large bonus + specialization flag |
+| Gabriel specialization | Days 15-35, texto 16+, 2 shows | `prop` or `oneliner` | Unlock + large bonus + specialization flag |
+| Rossini revisit | Days 70-85, 6 shows | Previously unchosen technique | Unlock +2, no specialization |
+| Gabriel revisit | Days 70-85, 6 shows | Previously unchosen technique | Unlock +2, no specialization |
+| Class Event 2 | Days 40-55, class thresholds | Two class-specific approaches | 7-14 days, branch bonus/flag, class assignment |
 
 ### Character Events (NPC interactions)
 
@@ -427,14 +439,12 @@ Affinity values are added at 20% weight to the joke score: `typeAffinity[tone] �
 | 2 | `cincoPiadas` | Paulo Araújo | jokes5 | Unlock "5 a 5" show +8 motivation, or delay |
 | 3 | `pauloAraujoPague15` | Paulo Araújo | pague15Invite | Unlock "Pague 15" show +10 motivation, or delay |
 | 4 | `stevanEstrada` | Stevan Gaipo | random | +8 texto, or +12 network |
-| 5 | `gabrielAndradeDicas` | Gabriel Andrade | random | +12 texto (oneliners) or +8 texto +8 motivation (prop), or +8 network |
-| 6 | `bombMentor` | Carvalho | showBomb (Copo Sujo) | +10 texto, +4 motivation |
-| 7 | `mentorOferece` | Veteran comic | random | +20 texto -10 motivation, or +5 motivation |
-| 8 | `rossiniLuzWorkshop` | Rossini Luz | levelUp3 | Unlock STORYTELLING +15 texto, or +5 texto |
-| 9 | `douglasFerreiraReading` | Douglas Ferreira | random | +8 entrega, or +6 entrega +4 texto, or +5 motivation |
-| 10 | `brunoBergProducao` | Bruno Berg | random (elenco+) | +12 network, or +8 network +5 fans, or +6 motivation |
-| 11 | `diegoFerreiraColetivo` | Diego Ferreira | random | +15 network +10 motivation, or +5 motivation |
-| 12 | `hackWarning` | Carvalho | random | +5 texto +6 motivation +2 entrega |
+| 5 | `bombMentor` | Carvalho | showBomb (Copo Sujo) | +10 texto, +4 motivation |
+| 6 | `mentorOferece` | Veteran comic | random | +20 texto -10 motivation, or +5 motivation |
+| 7 | `douglasFerreiraReading` | Douglas Ferreira | random | +8 entrega, or +6 entrega +4 texto, or +5 motivation |
+| 8 | `brunoBergProducao` | Bruno Berg | random (elenco+) | +12 network, or +8 network +5 fans, or +6 motivation |
+| 9 | `diegoFerreiraColetivo` | Diego Ferreira | random | +15 network +10 motivation, or +5 motivation |
+| 10 | `hackWarning` | Carvalho | random | +5 texto +6 motivation +2 entrega |
 
 ### Story / Generic Events
 
@@ -504,22 +514,21 @@ Affinity values are added at 20% weight to the joke score: `typeAffinity[tone] �
 ## 21. CAREER PROGRESSION SUMMARY
 
 ```
-Day 1        → Open Mic (level 1)
-First study  → "oneliner" structure unlocked
+Day 1        → Open Mic (level 1), bit + base tones
 Level 2+     → Perk points available (1 per level)
-Level 3      → Rossini Luz event (Storytelling unlock)
-Level 5      → "hack" unlocked; "humor negro" unlocks after a nota-1 bomb
+Days 15-35  → Rossini and Gabriel hidden mentor forks
+Level 5      → "hack" unlocked
 Days 15-30  → Hidden-threshold class Event 1 window
-Days 40-55  → Hidden-threshold class Event 2 window
+Days 40-55  → Hidden-threshold class Event 2 window with two-way branch
 Level 6      → ELENCO stage; class assignment remains event-driven
-Level 10     → "prop" structure unlocked
 Day 65+     → Earliest class ending
+Days 70-85  → Late mentor revisit can unlock the unchosen technique
 Day 90+     → Default ending eligibility
 Day 95+     → Almost ending eligibility
 Day 100     → Failure if no higher-priority ending resolves
 
 Special unlocks:
-  Past runs   → V2 legacy unlocks are copied into each fresh run
+  Past runs   → Hack/político/options may carry; mentor-owned skills do not
   5 jokes     → Paulo Araújo: 5 a 5 show
   3× 5a5 @ nota 4+ → Paulo Araújo: Pague 15 show
   Class assigned + stats met → Employment offer (2 AP/day)

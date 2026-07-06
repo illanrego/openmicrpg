@@ -24,6 +24,18 @@
       camaleao: "Carvalho ainda não consegue prever que versão sua vai entrar no palco — e isso começou a parecer uma qualidade.",
       none: "Carvalho diz que a voz ainda está se formando, mas o trabalho já existe."
     },
+    structure: {
+      bit: "Seu repertório se organiza em blocos que desenvolvem uma ideia antes de abandoná-la.",
+      oneliner: "A precisão vira assinatura: cada palavra precisa justificar o espaço que ocupa.",
+      storytelling: "As histórias passam a sustentar tensão, personagem e payoff por vários minutos.",
+      prop: "O palco ganha uma linguagem visual em que objetos também carregam punchlines.",
+      crowdWork: "Sua leitura de sala transforma o público em parte ativa do material.",
+      none: "A forma do seu material ainda muda de uma noite para outra."
+    },
+    pure: {
+      tone: "Você não apenas repetiu um tom: construiu uma voz reconhecível sem depender de uma única forma.",
+      structure: "Você dominou uma forma até ela virar linguagem, sem reduzir seu repertório a um único tom."
+    },
     tier: {
       glorioso: "Você chega cedo, forte e com a sensação perigosa de que tudo estava destinado a acontecer.",
       honesto: "Não foi uma ascensão perfeita. Foi trabalho suficiente para que as portas parassem de fechar.",

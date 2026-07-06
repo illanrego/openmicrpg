@@ -46,7 +46,12 @@
       default: { minDay: 90, requirements: { showsPerformedCount: 8, goodShowsCount: 3, averageNota: 3 } },
       almost: { minDay: 95, showsPerformedCount: 5, averageNota: 2.4 },
       failureDay: 100,
-      tierThresholds: { glorioso: 75, honesto: 50 }
+      tierThresholds: { glorioso: 75, honesto: 50 },
+      pure: {
+        dominantShare: 0.65,
+        maxSecondToneShare: 0.20,
+        complementaryVariety: 3
+      }
     },
     legacyUnlocks: {
       onelinerRuns: 1,

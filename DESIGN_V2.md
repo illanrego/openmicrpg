@@ -1,6 +1,6 @@
 # Design V2 — Roguelite Run-Based Restructure
 
-> New decisions from the redesign conversation. Supersedes where it conflicts with `CAREER_REWORK_PLAN.md`.
+> New decisions from the redesign conversation. Supersedes where it conflicts with the legacy [`CAREER_REWORK_PLAN.md`](docs/legacy/plans/CAREER_REWORK_PLAN.md).
 
 > Implementation: content is split across `content/`, active saves use schema V3, class paths use hidden deterministic thresholds, and ending copy is centralized in `content/endings.js`.
 
@@ -20,9 +20,9 @@
 | Structure | Default | Unlock |
 |-----------|---------|--------|
 | `bit` | Day 1 | — |
-| `oneliner` | Day 1 (with legacy) | First study action |
-| `storytelling` | Day 1 (Roteirista beaten) | Rossini Luz event (L3) or auto at L6 |
-| `prop` | Day 1 (Ator Cômico beaten) | Level 10+ |
+| `oneliner` | — | Early Gabriel fork, or late Gabriel revisit |
+| `storytelling` | — | Early Rossini fork, or late Rossini revisit |
+| `prop` | — | Early Gabriel fork, or late Gabriel revisit |
 | `crowd work` | — | **New**: pseudo-structure, not written. 1-3 min allocated in show prep. Scored on `entrega + chaos + crowdWorkPerks`. No `truePotential`. |
 
 ---
@@ -34,7 +34,7 @@
 | `besteirol` | Day 1 | — |
 | `vulgar` | Day 1 | — |
 | `limpo` | Day 1 | — |
-| `humor negro` | Day 1 (if dominant in past run) | First bomb at nota 1 AND level 5+ |
+| `humor negro` | — | Early Rossini fork, or late Rossini revisit |
 | `hack` | Day 1 (2+ runs completed) | Level 5+ |
 | `político` | — | **New**. Level 8+ OR Carvalho event. |
 
@@ -55,7 +55,24 @@ Classes are assigned based on behavior counters and event outcomes. No menu choi
 - Event 1s can be accepted freely (3 days each). They start the path.
 - Event 2s cost 7-14 days, no AP during that period, image + fast-forward text.
 - Event 2 appears only when its hidden deterministic thresholds are met.
-- Accepting Event 2 locks and assigns that class after its multi-day fast-forward.
+- Each Event 2 has two exclusive approaches with different large bonuses and a persistent path flag.
+- Choosing an Event 2 approach locks and assigns that class after its multi-day fast-forward.
+
+## Event Taxonomy and Mentor Forks
+
+There are exactly two mechanical event kinds:
+
+- `incidental`: small world events that change stats, schedule shows, or add texture without defining the run.
+- `path`: hidden-threshold events with persistent exclusive choices. Class events and mentor forks belong here.
+
+Rossini and Gabriel are independent forks, so a run may receive both:
+
+| Mentor | Early fork (days 15-35) | Late revisit (days 70-85) |
+|--------|--------------------------|---------------------------|
+| Rossini | `humor negro` or `storytelling`, large bonus, specialization flag | Unlock the unchosen option, +2 only, no specialization |
+| Gabriel | `prop` or `oneliner`, large bonus, specialization flag | Unlock the unchosen option, +2 only, no specialization |
+
+The early choice is run-defining. The late revisit broadens the player's toolbox but cannot qualify as an early specialization or manufacture a pure ending. These four skills are mentor-owned: levels, study, bombs, class victories, and legacy archive entries do not unlock them in new runs. Existing save booleans remain valid for migration safety.
 
 ---
 
@@ -91,6 +108,50 @@ Classes are assigned based on behavior counters and event outcomes. No menu choi
 ### Run Endpoint
 The run ends when the comic reaches a point where clubs ask about a solo. Cut at: **"E como eu monto meu solo?"**
 
+### Ending Screen Presentation (approved; implementation deferred)
+
+The ending must be a dedicated full-screen game state, never a critical-dialog popup. Gameplay remains locked while this screen is active.
+
+Use a hybrid renderer:
+
+- **Canvas 2D** composes the ending illustration.
+- **Semantic HTML/CSS** renders the ending title, prose, run summary, unlock reveal, archive status, and actions.
+- Do not render the whole interface inside Canvas.
+
+The initial artwork contract is a `1024x1024` canvas. Every visual layer must use that same size, alignment, and transparent safe area. Draw applicable layers in this order:
+
+1. base scene/background
+2. class
+3. dominant tone
+4. dominant structure
+5. pure or hidden path
+6. final lighting/effects
+
+The selected class, tone, structure, and route should each leave a visible mark on the final scene. This produces unique combination art without requiring one flattened source image for every possible ending.
+
+Layer paths and draw order belong in an ending-art manifest under `content/endings.js`; they must not be scattered through UI code. Missing optional layers should be skipped safely, while a base fallback always renders. Store layer identifiers (the **art recipe**) in the archive, not a Canvas bitmap or data URL.
+
+The screen should reveal:
+
+- a named ending title
+- the composed illustration, with a short progressive layer reveal
+- the ending prose
+- a concise summary of class, dominant tone, dominant structure, important path, days, and shows
+- newly unlocked options
+- `Nova corrida` and `Ver arquivo` actions
+
+The archive should display discovered ending art and conceal undiscovered endings without exposing their exact requirements. Canvas must have an equivalent text description for accessibility. A shareable image export can be added after the screen and archive are stable.
+
+Recommended implementation sequence:
+
+1. replace the ending popup with the full-screen HTML shell
+2. add the manifest-driven Canvas compositor and fallback
+3. integrate class, tone, structure, and path layer assets
+4. persist the art recipe and add the ending gallery
+5. test layer selection, missing assets, archive restoration, and responsive rendering
+
+This presentation contract is independent of the final ending thresholds and prose, which are still being revised.
+
 ### Template Endings
 Layer system:
 
@@ -98,11 +159,21 @@ Layer system:
 |-------|-------|---------|
 | Class base text | 5 | How clubs call you — flavor per class |
 | Tone flavor line | 6 | Carvalho's remark based on dominant tone |
+| Structure flavor line | 5 | Whole-run dominant performed structure, counted by minutes |
 | Performance tier | 3 | Glorioso / Honesto / Queimado |
 
-Produces ~90 combinations from ~14 authored strings.
+Generic successful endings combine class (or default), dominant tone, dominant structure, and performance tier. They use whole-run tallies, never the last show alone.
 
-### 5 Special Endings (full unique text + image)
+### Pure Endings
+
+Pure endings upgrade an already successful class/default ending; they never rescue an `almost` or `failure` run.
+
+- Tone-pure: one tone has at least 65%, the second tone has at most 20%, and at least 3 structures were performed.
+- Structure-pure: one structure has at least 65% of performed minutes and at least 3 tones were performed.
+- Mentor-owned dominant options require their matching early specialization flag. A late revisit does not count.
+- If both axes qualify, the larger dominance margin wins; an exact tie prefers tone-pure.
+
+### Deferred Special Endings (not active)
 
 | # | Ending | Trigger |
 |---|--------|---------|
@@ -133,21 +204,20 @@ Tone combos flagged via `toneTally` ratios:
 | 50/50 limpo + besteirol | Special flavor |
 | Any two tones 40-60%, rest <15% | Hybrid flavor |
 
-Hidden paths override tone flavor line in template endings. Not full new endings — just a distinct Carvalho remark.
+These combinations remain design notes only. The active milestone implements generic and pure endings; corruption, Cópia, Camaleão, Eclético, and other hidden routes remain deferred.
 
 ---
 
 ## Legacy Archive (cross-run, survives wipe)
 
-Stored in `localStorage` key `"openMicRPG.legacyArchive.v1"`. Each run completion appends: `{ classId, dominantTone, endTier, score, day, runNumber }`.
+Stored in `localStorage` key `"openMicRPG.legacyArchive.v1"`. Each run completion also records `dominantStructure` and `pureEndingId`.
 
 | # Runs | Unlocks |
 |--------|---------|
-| 1 | `oneliner` from day 1 |
 | 2 | `hack` from day 1, Ator Cômico + Influencer classes unlocked |
-| Beat with Roteirista | `storytelling` from day 1 |
-| Beat with Ator Cômico | `prop` from day 1 |
-| Dominant tone in any run | That tone starts unlocked |
+| Dominant `político` in a past run | `político` from day 1 |
+
+The archive never bypasses the Rossini/Gabriel mentor forks for `humor negro`, `storytelling`, `prop`, or `oneliner`.
 
 Legacy rewards unlock options only. Eclético, secret tones, and their unlock rules remain disabled until their mechanics are revised.
 

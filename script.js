@@ -61,12 +61,11 @@ function loadLegacyArchive() {
 function computeLegacyBonuses() {
   const archive = loadLegacyArchive();
   const dominantTones = new Set(archive.map(run => run.dominantTone).filter(Boolean));
-  const completedClasses = new Set(archive.map(run => run.classId).filter(Boolean));
   return {
-    oneliner: archive.length >= 1,
-    humorNegro: dominantTones.has("humor negro"),
-    storytelling: completedClasses.has("roteirista"),
-    prop: completedClasses.has("atorComico"),
+    oneliner: false,
+    humorNegro: false,
+    storytelling: false,
+    prop: false,
     hack: archive.length >= 2 || dominantTones.has("hack"),
     politico: dominantTones.has("político"),
     expandedClasses: archive.length >= 2
@@ -126,8 +125,8 @@ function getUnlockedTones() {
 function getUnlockedStructures() {
   const base = ["bit"];
   if (state && state.onelinerUnlocked) base.push("oneliner");
-  if (state && (state.storytellingUnlocked || state.levelNumber >= 6)) base.push("storytelling");
-  if (state && (state.propUnlocked || state.levelNumber >= 10)) base.push("prop");
+  if (state && state.storytellingUnlocked) base.push("storytelling");
+  if (state && state.propUnlocked) base.push("prop");
   return base;
 }
 
@@ -340,7 +339,7 @@ function validateGameContent() {
   const allowedMetrics = new Set([
     "texto", "entrega", "network", "fans", "studyCount", "writeCount", "rewriteCount",
     "contentCount", "showsScheduledCount", "showsPerformedCount", "goodShowsCount",
-    "consecutiveGoodShows", "bigRoomShowsCount", "elencoGoodShowsCount", "averageNota"
+    "consecutiveGoodShows", "bigRoomShowsCount", "elencoGoodShowsCount", "averageNota", "levelNumber"
   ]);
   const seen = new Set();
   classIds.forEach(classId => {
@@ -351,12 +350,24 @@ function validateGameContent() {
     [1, 2].forEach(phase => {
       const event = V2_EVENTS.classEvents?.[`${classId}:event${phase}`];
       if (!event) errors.push(`Conteúdo de evento ausente: ${classId}:event${phase}`);
+      if (event && event.kind !== "path") errors.push(`Evento de classe sem tipo path: ${event.id}`);
+      if (phase === 2 && (!event?.choiceGroup || (event.choices || []).length !== 2)) errors.push(`Event 2 sem bifurcação válida: ${classId}`);
       Object.keys(path?.[`event${phase}`]?.requirements || {}).forEach(metric => {
         if (!allowedMetrics.has(metric)) errors.push(`Métrica inválida: ${metric}`);
       });
     });
   });
-  ["base", "tone", "tier"].forEach(key => {
+  (V2_EVENTS.pathEvents || []).forEach(event => {
+    if (event.kind !== "path") errors.push(`Evento-chave sem tipo path: ${event.id}`);
+    if (!event.choiceGroup) errors.push(`Evento-chave sem choiceGroup: ${event.id}`);
+    Object.keys(event.requirements || {}).forEach(metric => {
+      if (!allowedMetrics.has(metric)) errors.push(`Métrica inválida: ${metric}`);
+    });
+  });
+  eventPool.forEach(event => {
+    if (event.kind !== "incidental" && event.kind !== "path") errors.push(`Tipo de evento inválido: ${event.id}`);
+  });
+  ["base", "tone", "structure", "pure", "tier"].forEach(key => {
     if (!V2_ENDINGS[key] || typeof V2_ENDINGS[key] !== "object") errors.push(`Catálogo de finais ausente: ${key}`);
   });
   if (!V2_ENDINGS.cliffhanger) errors.push("Cliffhanger final ausente");
@@ -658,6 +669,8 @@ function createDefaultRunState(existing = {}) {
     status: existing.status === "ended" ? "ended" : "active",
     ruleset: "v2",
     endingId: existing.endingId || null,
+    pureEndingId: existing.pureEndingId || null,
+    dominantStructure: existing.dominantStructure || null,
     endingTier: existing.endingTier || null,
     endingScore: Number.isFinite(existing.endingScore) ? existing.endingScore : null,
     endedDay: Number.isFinite(existing.endedDay) ? existing.endedDay : null,
@@ -687,6 +700,31 @@ function createDefaultCareerPathState(existing = {}) {
     elencoGoodShowsCount: Math.max(0, Math.round(existing.elencoGoodShowsCount || 0)),
     employmentDeclinedUntil: Math.max(0, Math.round(existing.employmentDeclinedUntil || 0)),
     employmentOfferPending: !!existing.employmentOfferPending
+  };
+}
+
+function createDefaultPathProgressState(existing = {}) {
+  const normalizeChoice = (value) => {
+    if (!value || typeof value !== "object" || !value.choiceId) return null;
+    return {
+      eventId: typeof value.eventId === "string" ? value.eventId : null,
+      choiceId: String(value.choiceId),
+      day: Number.isFinite(value.day) ? value.day : null,
+      specialization: typeof value.specialization === "string" ? value.specialization : null,
+      late: !!value.late
+    };
+  };
+  return {
+    flags: existing.flags && typeof existing.flags === "object" ? { ...existing.flags } : {},
+    choiceGroups: Object.fromEntries(
+      Object.entries(existing.choiceGroups || {})
+        .map(([groupId, value]) => [groupId, normalizeChoice(value)])
+        .filter(([, value]) => !!value)
+    ),
+    completedEventIds: Array.isArray(existing.completedEventIds)
+      ? [...new Set(existing.completedEventIds.filter(Boolean))]
+      : [],
+    pendingEventId: typeof existing.pendingEventId === "string" ? existing.pendingEventId : null
   };
 }
 
@@ -752,6 +790,19 @@ function createDefaultToneTally() {
   return { besteirol: 0, vulgar: 0, limpo: 0, "humor negro": 0, hack: 0, "político": 0 };
 }
 
+function createDefaultStructureTally() {
+  return { bit: 0, oneliner: 0, storytelling: 0, prop: 0, crowdWork: 0 };
+}
+
+function normalizeStructureTally(tally = {}) {
+  return Object.fromEntries(
+    Object.entries(createDefaultStructureTally()).map(([structure, defaultValue]) => {
+      const value = Number(tally?.[structure] ?? defaultValue);
+      return [structure, Number.isFinite(value) ? Math.max(0, Math.round(value)) : defaultValue];
+    })
+  );
+}
+
 function normalizeToneTally(tally = {}) {
   return Object.fromEntries(
     Object.entries(createDefaultToneTally()).map(([tone, defaultValue]) => {
@@ -768,6 +819,16 @@ function tallyPerformedTones(setList = []) {
   });
 }
 
+function tallyPerformedStructures(setList = [], crowdWorkMinutes = 0) {
+  state.structureTally = normalizeStructureTally(state.structureTally);
+  setList.forEach(joke => {
+    if (joke?.structure in state.structureTally) {
+      state.structureTally[joke.structure] += Math.max(1, Math.round(joke.minutes || 1));
+    }
+  });
+  state.structureTally.crowdWork += Math.max(0, Math.round(crowdWorkMinutes || 0));
+}
+
 function ensureCareerProgressState() {
   if (!state) return;
   if (state.chosenClass === "professor") state.chosenClass = "comicoClassico";
@@ -775,6 +836,7 @@ function ensureCareerProgressState() {
   state.routeCounters = normalizeRouteCounters(state.routeCounters);
   state.runState = createDefaultRunState(state.runState);
   state.careerPathState = seedCareerPathCountersFromHistory(createDefaultCareerPathState(state.careerPathState), state.showHistory);
+  state.pathProgressState = createDefaultPathProgressState(state.pathProgressState);
   state.eventRuntime = createDefaultEventRuntime(state.eventRuntime);
   state.eventRuntime.seenIds = [...new Set([...(state.eventRuntime.seenIds || []), ...(state.eventsSeen || [])])];
   state.routeInviteState = normalizeRouteInviteState(state.routeInviteState);
@@ -800,9 +862,7 @@ function ensureCareerProgressState() {
   state.propUnlocked = !!state.propUnlocked;
   state.politicoUnlocked = !!state.politicoUnlocked;
   state.toneTally = normalizeToneTally(state.toneTally);
-  if (!state.humorNegroUnlocked && (state.levelNumber || 1) >= 5 && (state.showHistory || []).some(show => show.nota === 1)) {
-    state.humorNegroUnlocked = true;
-  }
+  state.structureTally = normalizeStructureTally(state.structureTally);
   state.venueReputation = normalizeVenueReputationMap(state.venueReputation);
 }
 
@@ -1107,6 +1167,58 @@ function getToneProfile() {
   };
 }
 
+function getStructureProfile() {
+  const tally = normalizeStructureTally(state.structureTally);
+  const entries = Object.entries(tally).filter(([, minutes]) => minutes > 0);
+  const totalMinutes = entries.reduce((sum, [, minutes]) => sum + minutes, 0);
+  if (!totalMinutes) return { totalMinutes: 0, sharesByStructure: {}, dominantStructure: null, tiedDominantStructures: [] };
+  const sharesByStructure = Object.fromEntries(entries.map(([structure, minutes]) => [structure, minutes / totalMinutes]));
+  const maxShare = Math.max(...Object.values(sharesByStructure));
+  const tiedDominantStructures = Object.keys(sharesByStructure).filter(structure => Math.abs(sharesByStructure[structure] - maxShare) < 0.000001);
+  return {
+    totalMinutes,
+    sharesByStructure,
+    dominantStructure: tiedDominantStructures.length === 1 ? tiedDominantStructures[0] : null,
+    tiedDominantStructures
+  };
+}
+
+function hasRunSpecialization(specializationId) {
+  return !!state.pathProgressState?.flags?.[`specialization:${specializationId}`];
+}
+
+function resolvePureEnding(toneProfile = getToneProfile(), structureProfile = getStructureProfile()) {
+  const rules = V2_PROGRESSION.endingRules?.pure || {};
+  const dominantShare = rules.dominantShare || 0.65;
+  const maxSecondToneShare = rules.maxSecondToneShare || 0.20;
+  const complementaryVariety = rules.complementaryVariety || 3;
+  const toneEntries = Object.entries(toneProfile.sharesByTone || {}).sort((a, b) => b[1] - a[1]);
+  const structureEntries = Object.entries(structureProfile.sharesByStructure || {}).sort((a, b) => b[1] - a[1]);
+  const toneSpecialization = { "humor negro": "humor-negro" }[toneProfile.dominantTone];
+  const structureSpecialization = { oneliner: "oneliner", storytelling: "storytelling", prop: "prop" }[structureProfile.dominantStructure];
+  const toneCandidate = toneProfile.dominantTone
+    && (toneEntries[0]?.[1] || 0) >= dominantShare
+    && (toneEntries[1]?.[1] || 0) <= maxSecondToneShare
+    && structureEntries.length >= complementaryVariety
+    && (!toneSpecialization || hasRunSpecialization(toneSpecialization));
+  const structureCandidate = structureProfile.dominantStructure
+    && (structureEntries[0]?.[1] || 0) >= dominantShare
+    && toneEntries.length >= complementaryVariety
+    && (!structureSpecialization || hasRunSpecialization(structureSpecialization));
+  if (!toneCandidate && !structureCandidate) return null;
+  const toneMargin = (toneEntries[0]?.[1] || 0) - (toneEntries[1]?.[1] || 0);
+  const structureMargin = (structureEntries[0]?.[1] || 0) - (structureEntries[1]?.[1] || 0);
+  if (toneCandidate && (!structureCandidate || toneMargin >= structureMargin)) {
+    return { id: `pure:tone:${toneProfile.dominantTone}`, axis: "tone", value: toneProfile.dominantTone };
+  }
+  return { id: `pure:structure:${structureProfile.dominantStructure}`, axis: "structure", value: structureProfile.dominantStructure };
+}
+
+function decorateSuccessfulEndingCandidate(candidate) {
+  const pureEnding = resolvePureEnding();
+  return pureEnding ? { ...candidate, pureEnding } : candidate;
+}
+
 function getStrongestClassReadiness(metrics = getCareerMetrics()) {
   return Math.max(0, ...(V2_PROGRESSION.classOrder || []).map(classId => {
     const requirements = V2_PROGRESSION.classPaths?.[classId]?.event2?.requirements || {};
@@ -1139,10 +1251,10 @@ function resolveRunEndingCandidate() {
   const classId = state.careerPathState?.detectedClassId || state.chosenClass;
   const classRequirements = V2_PROGRESSION.classPaths?.[classId]?.endingRequirements;
   if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
-    return { id: `class:${classId}`, category: "class", classId };
+    return decorateSuccessfulEndingCandidate({ id: `class:${classId}`, category: "class", classId });
   }
   if (day >= (rules.default?.minDay || 90) && meetsHiddenRequirements(rules.default?.requirements, metrics)) {
-    return { id: "default", category: "default", classId: null };
+    return decorateSuccessfulEndingCandidate({ id: "default", category: "default", classId: null });
   }
   const completedEvent1 = Object.values(state.careerPathState?.event1ByClass || {}).some(entry => entry.status === "completed");
   if (day >= (rules.almost?.minDay || 95)
@@ -1167,13 +1279,15 @@ function archiveFinalizedRun(summary) {
   }
 }
 
-function buildEndingMessage(candidate, tier, toneProfile) {
+function buildEndingMessage(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
   const baseKey = candidate.category === "class" ? candidate.classId : candidate.category;
   const base = V2_ENDINGS.base?.[baseKey] || V2_ENDINGS.base?.default || "";
-  const toneKey = toneProfile.isCamaleaoCandidate ? "camaleao" : toneProfile.hybridPair ? "hybrid" : toneProfile.dominantTone || "none";
+  const toneKey = toneProfile.dominantTone || "none";
   const tone = V2_ENDINGS.tone?.[toneKey] || "";
+  const structure = V2_ENDINGS.structure?.[structureProfile.dominantStructure || "none"] || "";
+  const pure = candidate.pureEnding?.axis ? V2_ENDINGS.pure?.[candidate.pureEnding.axis] || "" : "";
   const tierText = V2_ENDINGS.tier?.[tier] || "";
-  return `🏁 FIM DA CORRIDA\n\n${base}\n\n${tone}\n\n${tierText}\n\n${V2_ENDINGS.cliffhanger || ""}`;
+  return `🏁 FIM DA CORRIDA\n\n${base}\n\n${tone}\n\n${structure}${pure ? `\n\n🏆 ${pure}` : ""}\n\n${tierText}\n\n${V2_ENDINGS.cliffhanger || ""}`;
 }
 
 function setGameplayLocked(locked) {
@@ -1185,12 +1299,18 @@ function renderFinalizedRun() {
   if (state.runState?.status !== "ended") return;
   setGameplayLocked(true);
   const toneProfile = getToneProfile();
+  const structureProfile = getStructureProfile();
   const candidate = {
     id: state.runState.endingId,
     category: state.runState.endingId?.startsWith("class:") ? "class" : state.runState.endingId,
-    classId: state.runState.endingId?.startsWith("class:") ? state.runState.endingId.split(":")[1] : null
+    classId: state.runState.endingId?.startsWith("class:") ? state.runState.endingId.split(":")[1] : null,
+    pureEnding: state.runState.pureEndingId ? {
+      id: state.runState.pureEndingId,
+      axis: state.runState.pureEndingId.split(":")[1],
+      value: state.runState.pureEndingId.split(":").slice(2).join(":")
+    } : null
   };
-  queueCriticalDialog(buildEndingMessage(candidate, state.runState.endingTier, toneProfile), [
+  queueCriticalDialog(buildEndingMessage(candidate, state.runState.endingTier, toneProfile, structureProfile), [
     { label: "🎤 Nova corrida", handler: startNewRunAfterEnding },
     { label: "📊 Ver histórico", handler: handleViewHistory }
   ]);
@@ -1199,10 +1319,13 @@ function renderFinalizedRun() {
 function finalizeRun(candidate) {
   if (!candidate || state.runState?.status !== "active") return false;
   const toneProfile = getToneProfile();
+  const structureProfile = getStructureProfile();
   const score = calculateRunEndingScore();
   const tier = getRunEndingTier(score);
   state.runState.status = "ended";
   state.runState.endingId = candidate.id;
+  state.runState.pureEndingId = candidate.pureEnding?.id || null;
+  state.runState.dominantStructure = structureProfile.dominantStructure;
   state.runState.endingTier = tier;
   state.runState.endingScore = score;
   state.runState.endedDay = state.currentDay;
@@ -1214,6 +1337,8 @@ function finalizeRun(candidate) {
     endingId: candidate.id,
     classId: candidate.classId || null,
     dominantTone: toneProfile.dominantTone,
+    dominantStructure: structureProfile.dominantStructure,
+    pureEndingId: candidate.pureEnding?.id || null,
     endTier: tier,
     score,
     day: state.currentDay
@@ -1302,18 +1427,18 @@ const describeTone = (tone) => toneDescriptions[tone] || "coisa difícil de rotu
 const formatHistory = (history = []) => history && history.length ? history.join(" ") : "⏱️ nenhuma referência recente";
 
 function getQuartoForWeekday(weekday) {
-  const quartos = ['quarto1.png', 'quarto2.png', 'quarto3.png', 'quarto4.png', 'quarto5.png'];
+  const quartos = ['assets/scenes/writing/quarto1.png', 'assets/scenes/writing/quarto2.png', 'assets/scenes/writing/quarto3.png', 'assets/scenes/writing/quarto4.png', 'assets/scenes/writing/quarto5.png'];
   if (weekday === 0) return quartos[1]; // Domingo
   if (weekday === 6) return quartos[0]; // Sábado
   return quartos[weekday - 1];          // Segunda–Sexta
 }
 
 function getNotebookImageForTexto(texto) {
-  if (texto >= 200) return "notebook5.png";  // Max tier
-  if (texto >= 150) return "notebook4.png";  // Very high
-  if (texto >= 90) return "notebook3.png";   // High
-  if (texto >= 30) return "notebook2.png";   // Mid
-  return "notebook1.png";                     // Low
+  if (texto >= 200) return "assets/scenes/writing/notebook5.png";  // Max tier
+  if (texto >= 150) return "assets/scenes/writing/notebook4.png";  // Very high
+  if (texto >= 90) return "assets/scenes/writing/notebook3.png";   // High
+  if (texto >= 30) return "assets/scenes/writing/notebook2.png";   // Mid
+  return "assets/scenes/writing/notebook1.png";                     // Low
 }
 
 function findDaysToWeekday(targetWeekday) {
@@ -1433,6 +1558,111 @@ function showPerkSelectionDialog() {
 
 // ─── Class & Employment Helpers ───
 let careerEventDialogPending = false;
+let pathEventDialogPending = false;
+
+function isSkillUnlocked(unlockId) {
+  const stateKeyByUnlock = {
+    humorNegro: "humorNegroUnlocked",
+    storytelling: "storytellingUnlocked",
+    prop: "propUnlocked",
+    oneliner: "onelinerUnlocked"
+  };
+  const stateKey = stateKeyByUnlock[unlockId];
+  return stateKey ? !!state[stateKey] : false;
+}
+
+function unlockMentorSkill(unlockId) {
+  const stateKeyByUnlock = {
+    humorNegro: "humorNegroUnlocked",
+    storytelling: "storytellingUnlocked",
+    prop: "propUnlocked",
+    oneliner: "onelinerUnlocked"
+  };
+  const stateKey = stateKeyByUnlock[unlockId];
+  if (!stateKey) return false;
+  const wasUnlocked = !!state[stateKey];
+  state[stateKey] = true;
+  return !wasUnlocked;
+}
+
+function getPathEventChoices(event) {
+  if (!event?.revisitOf) return event?.choices || [];
+  const original = (V2_EVENTS.pathEvents || []).find(candidate => candidate.choiceGroup === event.revisitOf);
+  const earlyChoice = state.pathProgressState?.choiceGroups?.[event.revisitOf]?.choiceId;
+  if (!original || !earlyChoice) return [];
+  return (original.choices || [])
+    .filter(choice => choice.id !== earlyChoice && !isSkillUnlocked(choice.unlock))
+    .map(choice => ({
+      ...choice,
+      specialization: null,
+      effects: choice.unlock === "humorNegro" || choice.unlock === "oneliner" ? { texto: 2 } : { entrega: 2 },
+      narration: `${choice.narration} A técnica amplia seu repertório, mas chegou tarde demais para definir esta corrida.`
+    }));
+}
+
+function getEligiblePathEvents() {
+  ensureCareerProgressState();
+  if (state.runState?.status !== "active") return [];
+  const metrics = getCareerMetrics();
+  const day = state.currentDay || 1;
+  return (V2_EVENTS.pathEvents || []).filter(event => {
+    if (!event || state.pathProgressState.completedEventIds.includes(event.id)) return false;
+    const isPending = state.pathProgressState.pendingEventId === event.id;
+    if (!isPending && (day < event.minDay || day > event.maxDay)) return false;
+    if (state.pathProgressState.choiceGroups[event.choiceGroup]) return false;
+    if (event.revisitOf && !state.pathProgressState.choiceGroups[event.revisitOf]) return false;
+    if (!meetsHiddenRequirements(event.requirements || {}, metrics)) return false;
+    return getPathEventChoices(event).length > 0;
+  });
+}
+
+function maybeOfferPathEvent() {
+  if (pathEventDialogPending || careerEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
+  const event = getEligiblePathEvents()[0];
+  if (!event) return false;
+  const choices = getPathEventChoices(event);
+  if (!choices.length) return false;
+  state.pathProgressState.pendingEventId = event.id;
+  pathEventDialogPending = true;
+  saveGameState();
+  queueCriticalDialog(`${event.title}\n\n${event.text}`, choices.map(choice => ({
+    label: choice.label,
+    handler: () => {
+      pathEventDialogPending = false;
+      applyPathEventChoice(event, choice);
+    }
+  })), { imageSrc: event.image || "", imageAlt: event.title, imageIsCharacter: (event.image || "").includes("/characters/") });
+  return true;
+}
+
+function applyPathEventChoice(event, choice) {
+  ensureCareerProgressState();
+  const late = !!event.revisitOf;
+  applyEventEffects(choice.effects || {});
+  const newlyUnlocked = unlockMentorSkill(choice.unlock);
+  state.pathProgressState.choiceGroups[event.choiceGroup] = {
+    eventId: event.id,
+    choiceId: choice.id,
+    day: state.currentDay || 1,
+    specialization: late ? null : (choice.specialization || null),
+    late
+  };
+  if (!late && choice.specialization) state.pathProgressState.flags[`specialization:${choice.specialization}`] = true;
+  state.pathProgressState.completedEventIds.push(event.id);
+  state.pathProgressState.completedEventIds = [...new Set(state.pathProgressState.completedEventIds)];
+  state.pathProgressState.pendingEventId = null;
+  registerCareerChoice("mentor-path-choice", {
+    eventId: event.id,
+    choiceGroup: event.choiceGroup,
+    choiceId: choice.id,
+    specialization: late ? null : (choice.specialization || null),
+    late
+  });
+  const unlockText = newlyUnlocked ? `\n\n🔓 ${choice.unlock.toUpperCase()} desbloqueado.` : "";
+  queueCriticalDialog(`${choice.narration || "A escolha começa a alterar sua corrida."}${formatEffectsSummary(choice.effects || {})}${unlockText}`);
+  updateStats();
+  saveGameState();
+}
 
 function getCareerMetrics() {
   const history = state.showHistory || [];
@@ -1443,6 +1673,7 @@ function getCareerMetrics() {
     entrega: state.entrega || 0,
     network: state.network || 0,
     fans: state.fans || 0,
+    levelNumber: state.levelNumber || 1,
     studyCount: counters.studyCount,
     writeCount: counters.writeCount,
     rewriteCount: counters.rewriteCount,
@@ -1501,7 +1732,8 @@ function getEligibleCareerEvents() {
 }
 
 function maybeOfferCareerEvent() {
-  if (careerEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
+  if (careerEventDialogPending || pathEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
+  if (maybeOfferPathEvent()) return true;
   const candidate = getEligibleCareerEvents()[0];
   if (!candidate) return false;
   const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
@@ -1510,15 +1742,22 @@ function maybeOfferCareerEvent() {
   if (!content) return false;
   careerEventDialogPending = true;
   saveGameState();
-  queueCriticalDialog(`${content.title}\n\n${content.text}\n\nEssa oportunidade ocupa ${candidate.config.durationDays} dia(s).`, [
-    {
-      label: content.acceptLabel,
-      handler: () => {
-        careerEventDialogPending = false;
-        acceptCareerEvent(candidate);
-      }
-    },
-    {
+  const pathChoices = candidate.phase === 2 && Array.isArray(content.choices)
+    ? content.choices.map(choice => ({
+        label: choice.label,
+        handler: () => {
+          careerEventDialogPending = false;
+          acceptCareerEvent(candidate, choice);
+        }
+      }))
+    : [{
+        label: content.acceptLabel,
+        handler: () => {
+          careerEventDialogPending = false;
+          acceptCareerEvent(candidate);
+        }
+      }];
+  pathChoices.push({
       label: content.declineLabel,
       handler: () => {
         careerEventDialogPending = false;
@@ -1526,12 +1765,12 @@ function maybeOfferCareerEvent() {
         saveGameState();
         maybeOfferCareerEvent();
       }
-    }
-  ], { imageSrc: content.image || "", imageAlt: content.title, imageIsCharacter: candidate.phase === 2 });
+    });
+  queueCriticalDialog(`${content.title}\n\n${content.text}\n\nEssa oportunidade ocupa ${candidate.config.durationDays} dia(s).`, pathChoices, { imageSrc: content.image || "", imageAlt: content.title, imageIsCharacter: candidate.phase === 2 });
   return true;
 }
 
-function acceptCareerEvent(candidate) {
+function acceptCareerEvent(candidate, branchChoice = null) {
   const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
   phaseMap[candidate.classId].status = "accepted";
   if (candidate.phase === 2) state.careerPathState.lockedPathId = candidate.classId;
@@ -1546,8 +1785,23 @@ function acceptCareerEvent(candidate) {
   if (state.runState?.status === "ended") return;
   phaseMap[candidate.classId].status = "completed";
   phaseMap[candidate.classId].completedDay = state.currentDay;
-  if (candidate.phase === 2) assignDetectedClass(candidate.classId);
-  displayNarration(`⏩ ${candidate.config.durationDays} dias passaram nessa oportunidade.`);
+  if (candidate.phase === 2) {
+    const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event2`];
+    if (branchChoice) {
+      applyEventEffects(branchChoice.effects || {});
+      state.pathProgressState.choiceGroups[content.choiceGroup] = {
+        eventId: content.id,
+        choiceId: branchChoice.id,
+        day: state.currentDay || 1,
+        specialization: null,
+        late: false
+      };
+      if (branchChoice.flag) state.pathProgressState.flags[branchChoice.flag] = true;
+      registerCareerChoice("class-event2-branch", { classId: candidate.classId, choiceId: branchChoice.id, flag: branchChoice.flag || null });
+    }
+    assignDetectedClass(candidate.classId);
+  }
+  displayNarration(`⏩ ${candidate.config.durationDays} dias passaram nessa oportunidade.${branchChoice?.narration ? ` ${branchChoice.narration}` : ""}`);
   saveGameState();
   maybeOfferCareerEvent();
 }
@@ -1691,17 +1945,8 @@ function applyXp(amount) {
   state.xp = Math.max(0, Math.round((state.xp || 0) + gain));
   state.levelNumber = getLevelFromXp(state.xp);
   state.level = getLevelTier(state.levelNumber);
-  maybeUnlockHumorNegro();
   maybeUnlockPolitico();
   return gain;
-}
-
-function maybeUnlockHumorNegro() {
-  if (state.humorNegroUnlocked || (state.levelNumber || 1) < 5) return false;
-  if (!(state.showHistory || []).some(show => show.nota === 1)) return false;
-  state.humorNegroUnlocked = true;
-  queueCriticalDialog("💀 Você já provou o pior que o palco pode oferecer. O fracasso ensina onde a linha está.\n\n🔓 HUMOR NEGRO DESBLOQUEADO!\n\nPiadas sobre temas tabu. Brilhante ou desastroso — você decide.");
-  return true;
 }
 
 function maybeUnlockPolitico(show = null, nota = 0) {
@@ -1988,8 +2233,6 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
     state.availablePerkPoints = (state.availablePerkPoints || 0) + levelsGained;
     showPerkSelectionDialog();
 
-    if (state.levelNumber >= 3) maybeTriggerEvent("levelUp3", { source: "levelUp" });
-
     if (previousCareerStage === "open" && currentCareerStage === "elenco") {
       maybeTriggerCarvalhoDialog("enterElenco", { previousCareerStage, currentCareerStage });
     }
@@ -2172,7 +2415,6 @@ function eventMatchesTrigger(event, trigger, context = {}) {
     case "jokes5":     return false;
     case "pague15Invite": return false;
     case "random":     return Math.random() < 0.25;
-    case "levelUp3":   return state.levelNumber >= 3;
     default:           return false;
   }
 }
@@ -2363,6 +2605,7 @@ function loadGameState() {
     propUnlocked: false,
     politicoUnlocked: false,
     toneTally: createDefaultToneTally(),
+    structureTally: createDefaultStructureTally(),
     chosenClass: null, hasEmployment: false,
     unlockedPerks: [], availablePerkPoints: 0,
     careerMilestones: createDefaultCareerMilestones(),
@@ -2370,6 +2613,7 @@ function loadGameState() {
     routeInviteState: createDefaultRouteInviteState(),
     runState: createDefaultRunState(),
     careerPathState: createDefaultCareerPathState(),
+    pathProgressState: createDefaultPathProgressState(),
     eventRuntime: createDefaultEventRuntime(),
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
@@ -2428,6 +2672,7 @@ function loadGameState() {
       propUnlocked: !!parsed.propUnlocked || bonuses.prop,
       politicoUnlocked: !!parsed.politicoUnlocked || bonuses.politico,
       toneTally: normalizeToneTally(parsed.toneTally),
+      structureTally: normalizeStructureTally(parsed.structureTally),
       level: getLevelTier(resolvedLevelNumber),
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
@@ -2443,6 +2688,7 @@ function loadGameState() {
       routeInviteState: normalizeRouteInviteState(parsed.routeInviteState),
       runState: createDefaultRunState(parsed.runState),
       careerPathState: seedCareerPathCountersFromHistory(createDefaultCareerPathState(parsed.careerPathState), parsed.showHistory),
+      pathProgressState: createDefaultPathProgressState(parsed.pathProgressState),
       eventRuntime: createDefaultEventRuntime(parsed.eventRuntime),
       careerChoices: Array.isArray(parsed.careerChoices) ? parsed.careerChoices : [],
       carvalhoDialogState: {
@@ -2489,11 +2735,13 @@ function saveGameState() {
     hackUnlocked: state.hackUnlocked, propUnlocked: state.propUnlocked,
     politicoUnlocked: state.politicoUnlocked,
     toneTally: state.toneTally,
+    structureTally: state.structureTally,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment,
     unlockedPerks: state.unlockedPerks, availablePerkPoints: state.availablePerkPoints,
     careerMilestones: state.careerMilestones, routeCounters: state.routeCounters,
     routeInviteState: state.routeInviteState,
     runState: state.runState, careerPathState: state.careerPathState,
+    pathProgressState: state.pathProgressState,
     eventRuntime: state.eventRuntime,
     careerChoices: state.careerChoices,
     carvalhoDialogState: state.carvalhoDialogState,
@@ -2820,7 +3068,7 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
       elements.image.style.opacity = '1';
       elements.image.style.transform = 'scale(1)';
     };
-    elements.image.src = imageToUse || "quarto1.png";
+    elements.image.src = imageToUse || "assets/scenes/writing/quarto1.png";
     if (elements.image.complete) elements.image.onload();
   }, 200);
 
@@ -3088,7 +3336,7 @@ function renderSetSummary() {
 function startIntro() {
   uiMode = "intro";
   introStep = 0;
-  setScene("intro", "Professor Carvalho", "carvalho.png", true);
+  setScene("intro", "Professor Carvalho", "assets/characters/carvalho.png", true);
   elements.introScreen.classList.remove("hidden");
   elements.screen.classList.add("hidden");
   if (elements.mainTitle) elements.mainTitle.style.display = "block";
@@ -3691,8 +3939,25 @@ function performShow() {
     state.stageTime += stageTimeGain;
 
     state.showHistory = state.showHistory || [];
-    state.showHistory.push({ showId: showPlayed.id, day: state.currentDay, nota, showType, jokeResults: breakdownWithEmoji.map(j => ({ title: j.title, emoji: j.emoji, nota: j.nota })) });
+    state.showHistory.push({
+      showId: showPlayed.id,
+      day: state.currentDay,
+      nota,
+      showType,
+      jokeResults: breakdownWithEmoji.map((j, index) => {
+        const sourceJoke = j.isCrowdWork ? null : setList[index];
+        return {
+          title: j.title,
+          emoji: j.emoji,
+          nota: j.nota,
+          tone: sourceJoke?.tone || null,
+          structure: sourceJoke?.structure || (j.isCrowdWork ? "crowdWork" : null),
+          minutes: Math.max(1, Math.round(sourceJoke?.minutes || j.minutes || 1))
+        };
+      })
+    });
     tallyPerformedTones(setList);
+    tallyPerformedStructures(setList, crowdWorkMinutes);
     ensureCareerProgressState();
     if (nota >= 4) state.careerPathState.goodShowsCount += 1;
     if ((showPlayed.minMinutes || 0) >= 7 || showPlayed.isElencoCircuit) state.careerPathState.bigRoomShowsCount += 1;
@@ -3878,10 +4143,6 @@ function handleStudy() {
   if (markCareerMilestone("firstStudy")) {
     maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
   }
-  if (!state.onelinerUnlocked) {
-    state.onelinerUnlocked = true;
-    queueCriticalDialog("📝 Você estudou grandes comediantes e percebeu: o poder está na economia de palavras. Corte a gordura, deixe só o punchline.\n\n🔓 ONELINER DESBLOQUEADO!\n\nUma piada curta e direta de 1 minuto. Agora você pode criar oneliners afiados.");
-  }
   state.texto = clamp((state.texto || 0) + 4, 0, 200);
   state.motivation = clamp(state.motivation + 2, 0, 120);
   incrementRouteCounter("studyCount");
@@ -3912,10 +4173,23 @@ function handleViewHistory() {
   elements.subTitle.textContent = "📊 Histórico de Shows";
 
   const history = state.showHistory || [];
-  if (history.length === 0) {
+  const runArchive = loadLegacyArchive().slice().reverse();
+  const runArchiveHtml = runArchive.map(run => {
+    const classLabel = run.classId && CLASSES[run.classId] ? CLASSES[run.classId].name : "Sem classe definida";
+    const pureLabel = run.pureEndingId ? ` · 🏆 ${run.pureEndingId.replaceAll(":", " / ")}` : "";
+    return `<div class="history-item history-good"><div class="history-info"><strong>Corrida ${run.runNumber || "?"} · ${escapeHtml(classLabel)}</strong><span class="history-date">Tom: ${escapeHtml(run.dominantTone || "indefinido")} · Estrutura: ${escapeHtml(run.dominantStructure || "indefinida")} · Dia ${run.day || "?"}${escapeHtml(pureLabel)}</span></div></div>`;
+  }).join("");
+  if (history.length === 0 && runArchive.length === 0) {
     displayNarration("📊 Você ainda não fez nenhum show. Busque um show e suba no palco!");
     elements.btnDivLow.style.display = "flex";
     elements.btnDivLow.innerHTML = `<div>Nenhum show registrado ainda.</div>`;
+    return;
+  }
+
+  if (history.length === 0) {
+    displayNarration("🏁 Suas corridas concluídas ficam registradas no arquivo.");
+    elements.btnDivLow.style.display = "flex";
+    elements.btnDivLow.innerHTML = `<h4>🏁 Arquivo de corridas:</h4><div class="history-list">${runArchiveHtml}</div>`;
     return;
   }
 
@@ -3955,6 +4229,7 @@ function handleViewHistory() {
       <div class="stat-box"><strong>${showsNota5}</strong><span>Nota 5</span></div>
     </div>
     <div class="history-distribution">💧 ${notaCounts[1]} | 😶 ${notaCounts[2]} | 🙂 ${notaCounts[3]} | 🔥 ${notaCounts[4]} | 🤯 ${notaCounts[5]}</div>
+    ${runArchiveHtml ? `<h4>🏁 Arquivo de corridas:</h4><div class="history-list">${runArchiveHtml}</div>` : ""}
     <h4>📜 Últimos 10 shows:</h4>
     <div class="history-list">${historyHtml || '<div>Nenhum show ainda.</div>'}</div>
   `;
