@@ -217,6 +217,39 @@ test("automatic class assignment applies its bonus only once", () => {
   assert.equal(run("state.texto"), 30);
 });
 
+test("employment offer blocks generic endings until answered", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    globalThis.employmentDialogMessage = "";
+    queueCriticalDialog = (message) => { globalThis.employmentDialogMessage = message; };
+    state.currentDay = 90;
+    state.chosenClass = 'roteirista';
+    state.texto = 50;
+    state.showHistory = Array.from({length:8}, () => ({nota:3}));
+    state.careerPathState.goodShowsCount = 3;
+  `);
+  assert.equal(run("maybeResolveRunEnding()"), false);
+  assert.equal(run("state.runState.status"), "active");
+  assert.equal(run("state.careerPathState.employmentOfferPending"), true);
+  assert.match(run("employmentDialogMessage"), /Primeiro Convite Profissional/);
+});
+
+test("stale pending employment offer is re-shown without duplicating dialogs", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    globalThis.employmentDialogCount = 0;
+    queueCriticalDialog = () => { globalThis.employmentDialogCount += 1; };
+    state.chosenClass = 'produtor';
+    state.network = 42;
+    state.careerPathState.employmentOfferPending = true;
+  `);
+  assert.equal(run("checkEmploymentOffer()"), true);
+  assert.equal(run("checkEmploymentOffer()"), true);
+  assert.equal(run("employmentDialogCount"), 1);
+});
+
 test("político affinities use category defaults and venue overrides", () => {
   const { run } = createHarness();
   assert.equal(run("getTypeAffinity(findShowById('bar-universitario'), 'político')"), 0.7);

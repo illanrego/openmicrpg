@@ -1350,8 +1350,17 @@ function finalizeRun(candidate) {
 }
 
 function maybeResolveRunEnding() {
+  if (checkEmploymentOffer()) return false;
   const candidate = resolveRunEndingCandidate();
   return candidate ? finalizeRun(candidate) : false;
+}
+
+function maybeCheckProgressionGates(options = {}) {
+  if (state.runState?.status !== "active") return false;
+  if (checkEmploymentOffer()) return true;
+  if (options.allowCareerEvents !== false && maybeOfferCareerEvent()) return true;
+  if (options.resolveEnding !== false) return maybeResolveRunEnding();
+  return false;
 }
 
 function startNewRunAfterEnding() {
@@ -1377,7 +1386,7 @@ function addScheduledShow(showId, dayScheduled, showType = "normal") {
   if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS) return false;
   state.scheduledShows.push({ showId, dayScheduled, showType });
   incrementRouteCounter("showsScheduledCount");
-  if (state.runState?.status === "active") setTimeout(() => maybeOfferCareerEvent(), 0);
+  if (state.runState?.status === "active") setTimeout(() => maybeCheckProgressionGates({ resolveEnding: false }), 0);
   return true;
 }
 
@@ -1559,6 +1568,7 @@ function showPerkSelectionDialog() {
 // ─── Class & Employment Helpers ───
 let careerEventDialogPending = false;
 let pathEventDialogPending = false;
+let employmentOfferDialogPending = false;
 
 function isSkillUnlocked(unlockId) {
   const stateKeyByUnlock = {
@@ -1763,7 +1773,7 @@ function maybeOfferCareerEvent() {
         careerEventDialogPending = false;
         phaseMap[candidate.classId].status = "declined";
         saveGameState();
-        maybeOfferCareerEvent();
+        maybeCheckProgressionGates({ resolveEnding: false });
       }
     });
   queueCriticalDialog(`${content.title}\n\n${content.text}\n\nEssa oportunidade ocupa ${candidate.config.durationDays} dia(s).`, pathChoices, { imageSrc: content.image || "", imageAlt: content.title, imageIsCharacter: candidate.phase === 2 });
@@ -1803,7 +1813,7 @@ function acceptCareerEvent(candidate, branchChoice = null) {
   }
   displayNarration(`⏩ ${candidate.config.durationDays} dias passaram nessa oportunidade.${branchChoice?.narration ? ` ${branchChoice.narration}` : ""}`);
   saveGameState();
-  maybeOfferCareerEvent();
+  maybeCheckProgressionGates({ resolveEnding: false });
 }
 
 function assignDetectedClass(classId) {
@@ -1824,13 +1834,40 @@ function assignDetectedClass(classId) {
 }
 
 
+function queueEmploymentOfferDialog(cls) {
+  if (employmentOfferDialogPending) return true;
+  employmentOfferDialogPending = true;
+  queueCriticalDialog(`💼 Primeiro Convite Profissional!\n\nSeu caminho como ${cls.name} começou a ficar claro.\n\nConvite: ${cls.opportunityTitle}\n\nNão é fama.\nNão é contrato milionário.\nÉ o primeiro sinal de que alguém no circuito consegue imaginar você fazendo isso de verdade.`, [
+    { label: "✅ Aceitar convite", handler: () => {
+      employmentOfferDialogPending = false;
+      state.careerPathState.employmentOfferPending = false;
+      state.hasEmployment = true;
+      registerCareerChoice("opportunity-accepted", { classId: state.chosenClass });
+      playSound('victory');
+      spawnConfetti(40);
+      flashScreen('rgba(90, 143, 90, 0.3)');
+      queueCriticalDialog(`🎉 Convite aceito!\n\n${V2_ENDINGS.base?.[state.chosenClass] || "Seu caminho profissional começou."}`);
+      saveGameState();
+      maybeCheckProgressionGates({ allowCareerEvents: false });
+    }},
+    { label: "Ainda não", handler: () => {
+      employmentOfferDialogPending = false;
+      state.careerPathState.employmentOfferPending = false;
+      state.careerPathState.employmentDeclinedUntil = (state.currentDay || 1) + 7;
+      saveGameState();
+      maybeCheckProgressionGates({ allowCareerEvents: false });
+    } }
+  ]);
+  return true;
+}
+
 function checkEmploymentOffer() {
-  if (!state.chosenClass || state.hasEmployment) return;
+  if (!state.chosenClass || state.hasEmployment) return false;
   ensureCareerProgressState();
-  if (state.careerPathState.employmentOfferPending) return;
-  if ((state.currentDay || 1) < (state.careerPathState.employmentDeclinedUntil || 0)) return;
   const cls = CLASSES[state.chosenClass];
-  if (!cls || !cls.empReq) return;
+  if (!cls || !cls.empReq) return false;
+  if (state.careerPathState.employmentOfferPending) return queueEmploymentOfferDialog(cls);
+  if ((state.currentDay || 1) < (state.careerPathState.employmentDeclinedUntil || 0)) return false;
 
   let meetsRequirements = true;
   for (const [stat, required] of Object.entries(cls.empReq)) {
@@ -1841,24 +1878,9 @@ function checkEmploymentOffer() {
   if (meetsRequirements) {
     state.careerPathState.employmentOfferPending = true;
     saveGameState();
-    queueCriticalDialog(`💼 Primeiro Convite Profissional!\n\nSeu caminho como ${cls.name} começou a ficar claro.\n\nConvite: ${cls.opportunityTitle}\n\nNão é fama.\nNão é contrato milionário.\nÉ o primeiro sinal de que alguém no circuito consegue imaginar você fazendo isso de verdade.`, [
-      { label: "✅ Aceitar convite", handler: () => {
-        state.careerPathState.employmentOfferPending = false;
-        state.hasEmployment = true;
-        registerCareerChoice("opportunity-accepted", { classId: state.chosenClass });
-        playSound('victory');
-        spawnConfetti(40);
-        flashScreen('rgba(90, 143, 90, 0.3)');
-        queueCriticalDialog(`🎉 Convite aceito!\n\n${V2_ENDINGS.base?.[state.chosenClass] || "Seu caminho profissional começou."}`);
-        saveGameState();
-      }},
-      { label: "Ainda não", handler: () => {
-        state.careerPathState.employmentOfferPending = false;
-        state.careerPathState.employmentDeclinedUntil = (state.currentDay || 1) + 7;
-        saveGameState();
-      } }
-    ]);
+    return queueEmploymentOfferDialog(cls);
   }
+  return false;
 }
 
 // §9  XP & LEVEL SYSTEM
@@ -2237,8 +2259,7 @@ function checkLevelProgression(nota, showType, prevLevelNumber) {
       maybeTriggerCarvalhoDialog("enterElenco", { previousCareerStage, currentCareerStage });
     }
 
-    checkEmploymentOffer();
-    maybeOfferCareerEvent();
+    maybeCheckProgressionGates({ resolveEnding: false });
   }
 }
 
@@ -2330,7 +2351,7 @@ function advanceDays(count, options = {}) {
     }
     if (recoverMotivation) state.motivation = clamp(state.motivation + recoverMotivation, 0, 120);
     processFlowState();
-    if (typeof maybeResolveRunEnding === "function" && maybeResolveRunEnding()) break;
+    if (typeof maybeCheckProgressionGates === "function" && maybeCheckProgressionGates({ allowCareerEvents: false })) break;
   }
 
   updateStats();
@@ -2348,7 +2369,7 @@ function advanceDays(count, options = {}) {
       }
       if (state.motivation <= 25) maybeTriggerCarvalhoDialog("lowMotivation", { source: "newDay" });
     }
-    if (options.allowCareerEvents !== false && typeof maybeOfferCareerEvent === "function") maybeOfferCareerEvent();
+    if (options.allowCareerEvents !== false && typeof maybeCheckProgressionGates === "function") maybeCheckProgressionGates({ resolveEnding: false });
   }
   saveGameState();
   return advanced;
@@ -2523,6 +2544,7 @@ function handleEventChoiceIndex(index) {
           imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
           imageIsCharacter: !!eventRef.isCharacterEvent
         });
+        checkEmploymentOffer();
         return;
       }
       queueCriticalDialog(`${choice.narration || "Convite aceito!"}${effectsSummary}\n\n📅 Show marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
@@ -2530,6 +2552,7 @@ function handleEventChoiceIndex(index) {
         imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
         imageIsCharacter: !!eventRef.isCharacterEvent
       });
+      checkEmploymentOffer();
     }
     return;
   }
@@ -2551,6 +2574,7 @@ function handleEventChoiceIndex(index) {
           imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
           imageIsCharacter: !!eventRef.isCharacterEvent
         });
+        checkEmploymentOffer();
         return;
       }
       queueCriticalDialog(`${choice.narration || "Show agendado!"}${effectsSummary}\n\n📅 ${show.name} marcado para ${getDayName(state.currentDay + daysAhead)} (${daysAhead} dia(s)).`, [], {
@@ -2558,6 +2582,7 @@ function handleEventChoiceIndex(index) {
         imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
         imageIsCharacter: !!eventRef.isCharacterEvent
       });
+      checkEmploymentOffer();
     }
     return;
   }
@@ -2569,6 +2594,7 @@ function handleEventChoiceIndex(index) {
       imageIsCharacter: !!eventRef.isCharacterEvent
     });
   }
+  checkEmploymentOffer();
 }
 
 function applyEventEffects(effects) {
@@ -3629,8 +3655,7 @@ function finalizeJokeCreation() {
     notes: `Nasceu ${idea.mood}`, history: [], truePotential: adjustedPotential, writingMode: mode.id
   });
   incrementRouteCounter("writeCount");
-  maybeOfferCareerEvent();
-  maybeResolveRunEnding();
+  maybeCheckProgressionGates();
   if ((state.jokes.length || 0) >= 10 && markCareerMilestone("jokes10")) {
     maybeTriggerCarvalhoDialog("jokes10", { jokeCount: state.jokes.length });
   }
@@ -3985,9 +4010,7 @@ function performShow() {
     }
     processOpenStageConsistencyOutcome(nota);
     processElencoCircuitOutcome(showType, nota);
-    checkEmploymentOffer();
-    maybeOfferCareerEvent();
-    maybeResolveRunEnding();
+    maybeCheckProgressionGates();
 
     updateStats();
     renderJokeList({ selectable: false });
@@ -4122,8 +4145,7 @@ function createContent() {
   state.network = (state.network || 10) + 1;
   state.motivation = clamp(state.motivation - 4, 0, 120);
   incrementRouteCounter("contentCount");
-  maybeOfferCareerEvent();
-  maybeResolveRunEnding();
+  maybeCheckProgressionGates();
   const xpGain = applyXp(XP_GAIN.content);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.15)');
@@ -4146,8 +4168,7 @@ function handleStudy() {
   state.texto = clamp((state.texto || 0) + 4, 0, 200);
   state.motivation = clamp(state.motivation + 2, 0, 120);
   incrementRouteCounter("studyCount");
-  maybeOfferCareerEvent();
-  maybeResolveRunEnding();
+  maybeCheckProgressionGates();
   const xpGain = applyXp(XP_GAIN.study);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.2)');
@@ -4390,8 +4411,7 @@ function finalizeRewrite() {
   joke.history = [];
   joke.lastResult = "⏱️ reescrita, ainda não testada";
   incrementRouteCounter("rewriteCount");
-  maybeOfferCareerEvent();
-  maybeResolveRunEnding();
+  maybeCheckProgressionGates();
 
   const label = joke.truePotential > 0.7 ? "promissora" : joke.truePotential > 0.5 ? "com potencial" : "incerta";
   const xpGain = applyXp(XP_GAIN.jokeRewrite);
@@ -4439,8 +4459,7 @@ function bootGame() {
     if ((state.availablePerkPoints || 0) > 0) {
       setTimeout(() => showPerkSelectionDialog(), 1000);
     }
-    setTimeout(() => maybeOfferCareerEvent(), 500);
-    setTimeout(() => maybeResolveRunEnding(), 700);
+    setTimeout(() => maybeCheckProgressionGates(), 500);
   } else {
     startIntro();
   }
