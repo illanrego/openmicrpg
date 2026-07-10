@@ -1290,9 +1290,136 @@ function buildEndingMessage(candidate, tier, toneProfile, structureProfile = get
   return `🏁 FIM DA CORRIDA\n\n${base}\n\n${tone}\n\n${structure}${pure ? `\n\n🏆 ${pure}` : ""}\n\n${tierText}\n\n${V2_ENDINGS.cliffhanger || ""}`;
 }
 
+function getEndingTitle(candidate, tier) {
+  if (candidate.pureEnding?.axis === "tone") return `Voz pura: ${candidate.pureEnding.value}`;
+  if (candidate.pureEnding?.axis === "structure") return `Forma pura: ${candidate.pureEnding.value}`;
+  if (candidate.category === "class" && candidate.classId && CLASSES[candidate.classId]) {
+    return `O solo de ${CLASSES[candidate.classId].name}`;
+  }
+  if (candidate.category === "almost") return "Quase solo";
+  if (candidate.category === "failure") return "O silêncio";
+  if (tier === "glorioso") return "O convite inevitável";
+  return "O circuito reconhece";
+}
+
+function getEndingCategoryLabel(candidate) {
+  if (candidate.pureEnding?.axis) return candidate.pureEnding.axis === "tone" ? "puro de tom" : "puro de estrutura";
+  if (candidate.category === "class") return "classe formada";
+  if (candidate.category === "default") return "final de circuito";
+  if (candidate.category === "almost") return "quase";
+  if (candidate.category === "failure") return "falha";
+  return candidate.category || "corrida";
+}
+
+function getEndingLabel(value, fallback = "indefinido") {
+  if (!value) return fallback;
+  if (CLASSES[value]) return CLASSES[value].name;
+  if (value === "crowdWork") return "Crowd work";
+  return String(value);
+}
+
+function getLegacyOptionUnlocksFromArchive(archive = []) {
+  const dominantTones = new Set(archive.map(run => run.dominantTone).filter(Boolean));
+  return {
+    hack: archive.length >= 2 || dominantTones.has("hack"),
+    politico: dominantTones.has("político"),
+    expandedClasses: archive.length >= 2
+  };
+}
+
+function getEndingUnlockText() {
+  const archive = loadLegacyArchive();
+  const currentRunId = state.runState?.runId;
+  const previousArchive = currentRunId ? archive.filter(run => run.runId !== currentRunId) : archive.slice(0, -1);
+  const before = getLegacyOptionUnlocksFromArchive(previousArchive);
+  const after = getLegacyOptionUnlocksFromArchive(archive);
+  const labels = [];
+  if (after.hack && !before.hack) labels.push("tom hack");
+  if (after.politico && !before.politico) labels.push("tom político");
+  if (after.expandedClasses && !before.expandedClasses) labels.push("classes Ator Cômico e Influencer");
+  if (labels.length) return `Novas opções no próximo run: ${labels.join(", ")}.`;
+  return state.runState?.archived
+    ? "Final registrado no arquivo de corridas."
+    : "O arquivo não pôde ser atualizado neste navegador.";
+}
+
+function buildEndingViewData(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
+  const metrics = getCareerMetrics();
+  const baseKey = candidate.category === "class" ? candidate.classId : candidate.category;
+  const base = V2_ENDINGS.base?.[baseKey] || V2_ENDINGS.base?.default || "";
+  const toneKey = toneProfile.dominantTone || "none";
+  const structureKey = structureProfile.dominantStructure || "none";
+  const pure = candidate.pureEnding?.axis ? V2_ENDINGS.pure?.[candidate.pureEnding.axis] || "" : "";
+  const paragraphs = [
+    base,
+    V2_ENDINGS.tone?.[toneKey] || "",
+    V2_ENDINGS.structure?.[structureKey] || "",
+    pure ? `🏆 ${pure}` : "",
+    V2_ENDINGS.tier?.[tier] || "",
+    V2_ENDINGS.cliffhanger || ""
+  ].filter(Boolean);
+
+  return {
+    title: getEndingTitle(candidate, tier),
+    categoryLabel: getEndingCategoryLabel(candidate),
+    paragraphs,
+    summary: [
+      ["Classe", getEndingLabel(candidate.classId || state.careerPathState?.detectedClassId || state.chosenClass, "Sem classe definida")],
+      ["Tom dominante", getEndingLabel(toneProfile.dominantTone)],
+      ["Estrutura", getEndingLabel(structureProfile.dominantStructure)],
+      ["Caminho", getEndingCategoryLabel(candidate)],
+      ["Dia", state.runState?.endedDay || state.currentDay || "?"],
+      ["Shows", metrics.showsPerformedCount || 0]
+    ],
+    unlocks: getEndingUnlockText()
+  };
+}
+
 function setGameplayLocked(locked) {
   Object.values(elements.buttons || {}).forEach(button => { if (button) button.disabled = !!locked; });
   [elements.btnEndDay, elements.btnGoToShow, elements.btnContinuar].forEach(button => { if (button) button.disabled = !!locked; });
+}
+
+function renderEndingSummary(summary = []) {
+  if (!elements.ending?.summary) return;
+  elements.ending.summary.innerHTML = "";
+  summary.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = String(value);
+    item.appendChild(term);
+    item.appendChild(detail);
+    elements.ending.summary.appendChild(item);
+  });
+}
+
+function showEndingScreen(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
+  const ending = elements.ending;
+  if (!ending?.screen) return false;
+  const view = buildEndingViewData(candidate, tier, toneProfile, structureProfile);
+  if (ending.eyebrow) ending.eyebrow.textContent = `Fim da corrida · ${view.categoryLabel}`;
+  if (ending.title) ending.title.textContent = view.title;
+  if (ending.prose) {
+    ending.prose.innerHTML = "";
+    view.paragraphs.forEach(paragraph => {
+      const node = document.createElement("p");
+      node.textContent = paragraph;
+      ending.prose.appendChild(node);
+    });
+  }
+  renderEndingSummary(view.summary);
+  if (ending.unlocks) ending.unlocks.textContent = view.unlocks;
+  uiMode = "ending";
+  setGameplayLocked(true);
+  ending.screen.classList.remove("hidden");
+  if (ending.newRun && typeof ending.newRun.focus === "function") ending.newRun.focus();
+  return true;
+}
+
+function hideEndingScreen() {
+  if (elements.ending?.screen) elements.ending.screen.classList.add("hidden");
 }
 
 function renderFinalizedRun() {
@@ -1310,10 +1437,7 @@ function renderFinalizedRun() {
       value: state.runState.pureEndingId.split(":").slice(2).join(":")
     } : null
   };
-  queueCriticalDialog(buildEndingMessage(candidate, state.runState.endingTier, toneProfile, structureProfile), [
-    { label: "🎤 Nova corrida", handler: startNewRunAfterEnding },
-    { label: "📊 Ver histórico", handler: handleViewHistory }
-  ]);
+  showEndingScreen(candidate, state.runState.endingTier, toneProfile, structureProfile);
 }
 
 function finalizeRun(candidate) {
@@ -1367,6 +1491,20 @@ function startNewRunAfterEnding() {
   if (state.runState?.status !== "ended" || !state.runState.archived) return;
   localStorage.removeItem(STORAGE_KEY);
   window.location.reload();
+}
+
+function viewArchiveFromEnding() {
+  hideEndingScreen();
+  handleViewHistory();
+  setGameplayLocked(true);
+  if (elements.btnDivLow) {
+    const newRunButton = document.createElement("button");
+    newRunButton.type = "button";
+    newRunButton.className = "ending-archive-new-run";
+    newRunButton.textContent = "🎤 Nova corrida";
+    newRunButton.addEventListener("click", startNewRunAfterEnding);
+    elements.btnDivLow.appendChild(newRunButton);
+  }
 }
 
 function getScheduledShowsForToday() {
@@ -2866,6 +3004,16 @@ function cacheElements() {
   elements.profile = {
     title: document.querySelector("#profileTitleText"),
     badges: document.querySelector("#profileBadges")
+  };
+  elements.ending = {
+    screen: document.querySelector("#endingScreen"),
+    eyebrow: document.querySelector("#endingEyebrow"),
+    title: document.querySelector("#endingTitle"),
+    prose: document.querySelector("#endingProse"),
+    summary: document.querySelector("#endingSummary"),
+    unlocks: document.querySelector("#endingUnlocks"),
+    newRun: document.querySelector("#endingNewRunBtn"),
+    archive: document.querySelector("#endingArchiveBtn")
   };
 }
 
@@ -4497,4 +4645,6 @@ function attachEvents() {
 
   if (elements.confirmNameBtn) elements.confirmNameBtn.addEventListener("click", confirmPlayerName);
   if (elements.playerNameInput) elements.playerNameInput.addEventListener("keypress", (e) => { if (e.key === "Enter") confirmPlayerName(); });
+  if (elements.ending?.newRun) elements.ending.newRun.addEventListener("click", startNewRunAfterEnding);
+  if (elements.ending?.archive) elements.ending.archive.addEventListener("click", viewArchiveFromEnding);
 }

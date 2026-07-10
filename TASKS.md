@@ -28,9 +28,9 @@ Today: ending still uses critical-dialog popup (`finalizeRun` → dialog with No
 
 Target: dedicated full-screen state (DESIGN_V2):
 
-- [ ] HTML/CSS ending shell (lock gameplay while active)
-- [ ] Wire existing ending resolver output into shell (title, prose, summary, unlocks)
-- [ ] Actions: `Nova corrida`, `Ver arquivo` (or history/archive equivalent)
+- [x] HTML/CSS ending shell (lock gameplay while active)
+- [x] Wire existing ending resolver output into shell (title, prose, summary, unlocks)
+- [x] Actions: `Nova corrida`, `Ver arquivo` (or history/archive equivalent)
 - [ ] Canvas compositor + art-recipe manifest (can start with base fallback only)
 - [ ] Progressive layer reveal if assets exist; skip missing layers safely
 - [ ] Accessibility text equivalent for canvas
@@ -83,6 +83,7 @@ Target: dedicated full-screen state (DESIGN_V2):
 - Created `.hermes.md`, `AGENTS.md`, `TASKS.md` for agent pickup from repo cwd.
 - Verified tests: 20/20 pass.
 - Confirmed ending presentation still dialog-based; main remaining product polish for ship.
+- Replaced ending critical-dialog presentation with full-screen HTML/CSS shell wired to existing resolver/finalized run output.
 
 ## Next session start here
 
