@@ -1,6 +1,6 @@
 # Open Mic RPG — live ship board
 
-Last updated: 2026-07-10  
+Last updated: 2026-07-24
 Deadline: **2026-07-23** (12 days to build, ship on day 13)  
 Owner: Illan  
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -96,6 +96,7 @@ Target: dedicated full-screen state (DESIGN_V2):
 ### 2026-07-24
 - Finished the six-avatar roster and generated all 30 avatar-specific show-result scenes at 1024×1024.
 - Wired show results to `assets/scenes/results/<avatar>/<result>.png`, with score-to-result lookup covered by the mechanics test suite.
+- Restored mobile narration focus: after a new message settles, mobile viewports scroll it into view while respecting reduced-motion preferences.
 
 ## Next session start here
 

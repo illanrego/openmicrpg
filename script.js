@@ -3229,6 +3229,14 @@ function resetSubtitle() {
   elements.subTitle.textContent = "Construa sua jornada de Comic";
 }
 
+function focusNarrationOnMobile(token) {
+  if (token !== narrationRenderToken || !elements.text || typeof window.matchMedia !== "function") return;
+  if (!window.matchMedia("(max-width: 767px)").matches) return;
+
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  elements.text.scrollIntoView?.({ behavior, block: "center", inline: "nearest" });
+}
+
 function displayNarration(message) {
   narrationRenderToken += 1;
   const token = narrationRenderToken;
@@ -3242,6 +3250,9 @@ function displayNarration(message) {
     elements.text.style.transform = 'translateY(0)';
     showText("#text", message, 0, 18, null, token);
   }, 100);
+  // The scene image updates just before narration in most actions. Wait until its
+  // layout transition has settled, then bring the new message into the mobile viewport.
+  setTimeout(() => focusNarrationOnMobile(token), 450);
 }
 
 function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
