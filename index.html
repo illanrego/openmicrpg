@@ -24,26 +24,34 @@
         <div id="avatarSelection">
           <h3>✨ Escolha seu avatar ✨</h3>
           <div class="avatar-option" data-avatar="avatar1">
-            <img src="assets/avatars/avatar1.png" width="80" alt="Avatar 1" />
+            <img src="assets/avatars/avatar1-refined.png" width="80" alt="Avatar 1" />
             <span>Avatar 1</span>
           </div>
           <div class="avatar-option" data-avatar="avatar2">
-            <img src="assets/avatars/avatar2.png" width="80" alt="Avatar 2" />
+            <img src="assets/avatars/avatar2-refined.png" width="80" alt="Avatar 2" />
             <span>Avatar 2</span>
           </div>
           <div class="avatar-option" data-avatar="avatar3">
-            <img src="assets/avatars/avatar3.png" width="80" alt="Avatar 3" />
+            <img src="assets/avatars/avatar3-refined.png" width="80" alt="Avatar 3" />
             <span>Avatar 3</span>
           </div>
           <div class="avatar-option" data-avatar="avatar4">
-            <img src="assets/avatars/avatar4.png" width="80" alt="Avatar 4" />
+            <img src="assets/avatars/avatar4-refined.png" width="80" alt="Avatar 4" />
             <span>Avatar 4</span>
+          </div>
+          <div class="avatar-option" data-avatar="avatar5">
+            <img src="assets/avatars/avatar5-refined.png" width="80" alt="Avatar 5" />
+            <span>Avatar 5</span>
+          </div>
+          <div class="avatar-option" data-avatar="avatar6">
+            <img src="assets/avatars/avatar6-refined.png" width="80" alt="Avatar 6" />
+            <span>Avatar 6</span>
           </div>
         </div>
       </div>
       <div id="screen1" class="hidden">
         <div id="player">
-          <img id="avatar" src="assets/avatars/avatar1.png" width="96" alt="Avatar" />
+          <img id="avatar" src="assets/avatars/avatar1-refined.png" width="96" alt="Avatar" />
           <div id="stats">
             <span class="stat stat-day" data-stat="day">
               <span>📅</span>
@@ -135,30 +143,27 @@
           </div>
           <div id="btnDivLow"></div>
           <button id="btnContinuar">🚀 Apresentar</button>
+          <section id="endingScreen" class="ending-screen hidden" aria-labelledby="endingTitle">
+            <div class="ending-screen__inner">
+              <div class="ending-screen__art">
+                <img id="endingArt" class="ending-screen__art-image" src="assets/scenes/performance/great-show-4-out-5.png" alt="" />
+              </div>
+              <article class="ending-screen__copy">
+                <p id="endingEyebrow" class="ending-screen__eyebrow">Fim da corrida</p>
+                <h2 id="endingTitle"></h2>
+                <div id="endingProse" class="ending-screen__prose"></div>
+                <dl id="endingSummary" class="ending-screen__summary"></dl>
+                <div id="endingUnlocks" class="ending-screen__unlock"></div>
+                <div class="ending-screen__actions">
+                  <button id="endingNewRunBtn" type="button">🎤 Nova corrida</button>
+                  <button id="endingArchiveBtn" type="button">📊 Ver arquivo</button>
+                </div>
+              </article>
+            </div>
+          </section>
         </div>
       </div>
     </div>
-    <section id="endingScreen" class="ending-screen hidden" aria-labelledby="endingTitle" aria-modal="true" role="dialog">
-      <div class="ending-screen__inner">
-        <div class="ending-screen__art" aria-hidden="true">
-          <div class="ending-screen__stage">
-            <span class="ending-screen__spotlight"></span>
-            <span class="ending-screen__mic">🎤</span>
-          </div>
-        </div>
-        <article class="ending-screen__copy">
-          <p id="endingEyebrow" class="ending-screen__eyebrow">Fim da corrida</p>
-          <h2 id="endingTitle"></h2>
-          <div id="endingProse" class="ending-screen__prose"></div>
-          <dl id="endingSummary" class="ending-screen__summary"></dl>
-          <div id="endingUnlocks" class="ending-screen__unlock"></div>
-          <div class="ending-screen__actions">
-            <button id="endingNewRunBtn" type="button">🎤 Nova corrida</button>
-            <button id="endingArchiveBtn" type="button">📊 Ver arquivo</button>
-          </div>
-        </article>
-      </div>
-    </section>
     <div id="criticalOverlay" class="critical-overlay hidden">
       <div id="criticalDialogBox" class="critical-dialog">
         <div id="criticalDialogContent" class="critical-dialog-content">

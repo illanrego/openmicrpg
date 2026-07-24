@@ -65,6 +65,15 @@ test("content registry validates", () => {
   assert.equal(run("validateGameContent()"), true);
 });
 
+test("show result art resolves by selected avatar and score", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.avatar = 'avatar6';");
+  assert.equal(run("getShowResultImage(1)"), "assets/scenes/results/avatar6/deu-agua.png");
+  assert.equal(run("getShowResultImage(5)"), "assets/scenes/results/avatar6/explodiu.png");
+  run("state.avatar = 'unknown-avatar';");
+  assert.equal(run("getShowResultImage(3)"), "assets/scenes/results/avatar1/segurou.png");
+});
+
 test("legacy archive grants only non-mentor options and no numeric advantage", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
@@ -129,6 +138,27 @@ test("Event 2 is deterministic and requires Event 1 completion", () => {
   assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'roteirista' && item.phase === 2)"), false);
   run("state.careerPathState.event1ByClass.roteirista.status = 'completed'");
   assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'roteirista' && item.phase === 2)"), true);
+});
+
+test("qualified class paths remain available ahead of the default ending", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 90;
+    state.texto = 50;
+    state.routeCounters.writeCount = 10;
+    state.routeCounters.rewriteCount = 3;
+    state.showHistory = Array.from({length:8}, () => ({nota:3}));
+    state.careerPathState.goodShowsCount = 3;
+    state.careerPathState.event1ByClass.roteirista.status = 'completed';
+  `);
+  assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'roteirista' && item.phase === 2)"), true);
+  run("globalThis.careerPathDialog = ''; queueCriticalDialog = message => { globalThis.careerPathDialog = message; }");
+  assert.equal(run("maybeCheckProgressionGates()"), true);
+  assert.equal(run("state.careerPathState.event2ByClass.roteirista.status"), "pending");
+  assert.match(run("careerPathDialog"), /Sala de Roteiro/);
+  run("state.careerPathState.event2ByClass.roteirista.status = 'accepted'");
+  assert.equal(run("resolveRunEndingCandidate()"), null);
 });
 
 test("all Event 2 paths contain an exclusive two-way branch", () => {

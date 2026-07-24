@@ -131,6 +131,22 @@ The selected class, tone, structure, and route should each leave a visible mark 
 
 Layer paths and draw order belong in an ending-art manifest under `content/endings.js`; they must not be scattered through UI code. Missing optional layers should be skipped safely, while a base fallback always renders. Store layer identifiers (the **art recipe**) in the archive, not a Canvas bitmap or data URL.
 
+### Show result art (no layering)
+
+Show outcomes are **not** composed from transparent layers. Deliver **30 finished images**: 5 result tiers × 6 avatars.
+
+- Paths: `assets/scenes/results/<avatarId>/<resultId>.png`
+- Result ids: `deu-agua`, `risinhos`, `segurou`, `matou`, `explodiu`
+- Avatar ids: `avatar1` … `avatar6`
+- Keep `assets/scenes/performance/` as fallback until pairs exist
+- Details: `assets/scenes/results/README.md`
+
+Ending-run art (class/tone/structure/path/lighting layers under `assets/scenes/endings/`) is a separate system and is not mixed with show-result assets.
+
+### Character Scope Decision
+
+V2 does **not** include a player avatar builder, recolorable clothing, or modular face/hair/body layers. Use predefined characters and finished result×avatar images for show outcomes. Character customization may be reconsidered after V2, but it must not block ending art.
+
 The screen should reveal:
 
 - a named ending title

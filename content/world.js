@@ -30,10 +30,12 @@
     intro: { title: "Professor Carvalho", image: "assets/characters/carvalho.png" }
   };
   content.world.avatarImages = {
-    avatar1: "assets/avatars/avatar1.png",
-    avatar2: "assets/avatars/avatar2.png",
-    avatar3: "assets/avatars/avatar3.png",
-    avatar4: "assets/avatars/avatar4.png"
+    avatar1: "assets/avatars/avatar1-refined.png",
+    avatar2: "assets/avatars/avatar2-refined.png",
+    avatar3: "assets/avatars/avatar3-refined.png",
+    avatar4: "assets/avatars/avatar4-refined.png",
+    avatar5: "assets/avatars/avatar5-refined.png",
+    avatar6: "assets/avatars/avatar6-refined.png"
   };
 content.world.homeText =
     "Você está em casa, à toa. Você tem certeza que será descoberto pelo mercado de comédia, já que se considera naturalmente muito mais engraçado que todo mundo que faz stand up. Apesar disso, talvez fosse uma boa ideia escrever piadas ou buscar show para se apresentar - só enquanto a fama não vem do nada...";

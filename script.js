@@ -218,6 +218,20 @@ const scenes = GAME_CONTENT.world?.scenes || {} ;
 
 const avatarImages = GAME_CONTENT.world?.avatarImages || {} ;
 
+const SHOW_RESULT_IDS = Object.freeze({
+  1: "deu-agua",
+  2: "risinhos",
+  3: "segurou",
+  4: "matou",
+  5: "explodiu"
+});
+
+function getShowResultImage(nota) {
+  const avatarId = avatarImages[state?.avatar] ? state.avatar : "avatar1";
+  const resultId = SHOW_RESULT_IDS[nota] || SHOW_RESULT_IDS[3];
+  return `assets/scenes/results/${avatarId}/${resultId}.png`;
+}
+
 const confettiColors = ['#d4a84b', '#ffd966', '#f5e6c8', '#a65d4e', '#5a8f5a'];
 
 // ─── Narrative strings ───
@@ -1253,6 +1267,7 @@ function resolveRunEndingCandidate() {
   if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
     return decorateSuccessfulEndingCandidate({ id: `class:${classId}`, category: "class", classId });
   }
+  if (hasInProgressCareerPath()) return null;
   if (day >= (rules.default?.minDay || 90) && meetsHiddenRequirements(rules.default?.requirements, metrics)) {
     return decorateSuccessfulEndingCandidate({ id: "default", category: "default", classId: null });
   }
@@ -1397,7 +1412,7 @@ function renderEndingSummary(summary = []) {
 
 function showEndingScreen(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
   const ending = elements.ending;
-  if (!ending?.screen) return false;
+  if (!ending?.screen || !elements.mainPanel) return false;
   const view = buildEndingViewData(candidate, tier, toneProfile, structureProfile);
   if (ending.eyebrow) ending.eyebrow.textContent = `Fim da corrida · ${view.categoryLabel}`;
   if (ending.title) ending.title.textContent = view.title;
@@ -1413,6 +1428,7 @@ function showEndingScreen(candidate, tier, toneProfile, structureProfile = getSt
   if (ending.unlocks) ending.unlocks.textContent = view.unlocks;
   uiMode = "ending";
   setGameplayLocked(true);
+  elements.mainPanel.classList.add("ending-active");
   ending.screen.classList.remove("hidden");
   if (ending.newRun && typeof ending.newRun.focus === "function") ending.newRun.focus();
   return true;
@@ -1420,6 +1436,7 @@ function showEndingScreen(candidate, tier, toneProfile, structureProfile = getSt
 
 function hideEndingScreen() {
   if (elements.ending?.screen) elements.ending.screen.classList.add("hidden");
+  elements.mainPanel?.classList.remove("ending-active");
 }
 
 function renderFinalizedRun() {
@@ -1864,19 +1881,32 @@ function getEligibleCareerEvents() {
     const second = state.careerPathState.event2ByClass[classId];
     if (first?.status === "completed" && ["unseen", "pending"].includes(second?.status)) {
       const config = path.event2;
-      if (second.status === "pending" || (day >= config.minDay && day <= config.maxDay && meetsHiddenRequirements(config.requirements, metrics))) {
+      const isInOfferWindow = day >= config.minDay && day <= config.maxDay;
+      const isLateQualifiedPath = day >= (V2_PROGRESSION.endingRules?.default?.minDay || 90)
+        && day < (V2_PROGRESSION.endingRules?.failureDay || 100);
+      if (second.status === "pending" || ((isInOfferWindow || isLateQualifiedPath) && meetsHiddenRequirements(config.requirements, metrics))) {
         candidates.push({ classId, phase: 2, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
       }
       return;
     }
     if (["unseen", "pending"].includes(first?.status)) {
       const config = path.event1;
-      if (first.status === "pending" || (day >= config.minDay && day <= config.maxDay && meetsHiddenRequirements(config.requirements, metrics))) {
+      const isInOfferWindow = day >= config.minDay && day <= config.maxDay;
+      const isLateQualifiedPath = day >= (V2_PROGRESSION.endingRules?.default?.minDay || 90)
+        && day < (V2_PROGRESSION.endingRules?.failureDay || 100);
+      if (first.status === "pending" || ((isInOfferWindow || isLateQualifiedPath) && meetsHiddenRequirements(config.requirements, metrics))) {
         candidates.push({ classId, phase: 1, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
       }
     }
   });
   return candidates.sort((a, b) => b.phase - a.phase || b.readiness - a.readiness || a.order - b.order);
+}
+
+function hasInProgressCareerPath() {
+  const pathState = state.careerPathState;
+  return [pathState?.event1ByClass, pathState?.event2ByClass]
+    .flatMap(phaseMap => Object.values(phaseMap || {}))
+    .some(event => ["pending", "accepted"].includes(event?.status));
 }
 
 function maybeOfferCareerEvent() {
@@ -2953,6 +2983,7 @@ function cacheElements() {
   elements.image = document.querySelector("#locationImg");
   elements.jokeList = document.querySelector("#jokeList");
   elements.legend = document.querySelector("#legend");
+  elements.mainPanel = document.querySelector("#blackScreen");
   elements.btnDivLow = document.querySelector("#btnDivLow");
   elements.btnContinuar = document.querySelector("#btnContinuar");
   elements.introScreen = document.querySelector("#introScreen");
@@ -3242,6 +3273,13 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
       elements.image.style.opacity = '1';
       elements.image.style.transform = 'scale(1)';
     };
+    elements.image.onerror = customImage && scene.image
+      ? () => {
+          if (token !== sceneRenderToken) return;
+          elements.image.onerror = null;
+          elements.image.src = scene.image;
+        }
+      : null;
     elements.image.src = imageToUse || "assets/scenes/writing/quarto1.png";
     if (elements.image.complete) elements.image.onload();
   }, 200);
@@ -4212,11 +4250,12 @@ function showResultNarrative(nota, breakdown, timeImpact, deltas = {}) {
     1: "💧 Silêncio constrangedor. O garçom falou mais alto que você. Aceite que faz parte e reescreva."
   };
 
-  if (nota === 5) { setScene("explode"); playSound('victory'); setTimeout(() => { spawnConfetti(70); flashScreen('rgba(212, 168, 75, 0.4)'); }, 300); }
-  else if (nota === 4) { setScene("kill"); playSound('victory'); setTimeout(() => { spawnConfetti(40); flashScreen('rgba(212, 168, 75, 0.3)'); }, 300); }
-  else if (nota === 3) { setScene("ok"); playSound('getSomething'); flashScreen('rgba(245, 230, 200, 0.15)'); }
-  else if (nota === 2) { setScene("risinhos"); playSound('click'); flashScreen('rgba(200, 180, 150, 0.15)'); }
-  else { setScene("bomb"); playSound('boom'); shakeScreen(); flashScreen('rgba(166, 68, 68, 0.25)'); }
+  const resultImage = getShowResultImage(nota);
+  if (nota === 5) { setScene("explode", undefined, resultImage); playSound('victory'); setTimeout(() => { spawnConfetti(70); flashScreen('rgba(212, 168, 75, 0.4)'); }, 300); }
+  else if (nota === 4) { setScene("kill", undefined, resultImage); playSound('victory'); setTimeout(() => { spawnConfetti(40); flashScreen('rgba(212, 168, 75, 0.3)'); }, 300); }
+  else if (nota === 3) { setScene("ok", undefined, resultImage); playSound('getSomething'); flashScreen('rgba(245, 230, 200, 0.15)'); }
+  else if (nota === 2) { setScene("risinhos", undefined, resultImage); playSound('click'); flashScreen('rgba(200, 180, 150, 0.15)'); }
+  else { setScene("bomb", undefined, resultImage); playSound('boom'); shakeScreen(); flashScreen('rgba(166, 68, 68, 0.25)'); }
 
   const detalhes = breakdown.length ? breakdown.map((entry) => `${entry.title} ${entry.emoji}`).join(" | ") : "";
   const statFragments = [`Nota ${nota}/5`];

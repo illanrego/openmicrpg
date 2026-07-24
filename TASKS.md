@@ -67,7 +67,9 @@ Target: dedicated full-screen state (DESIGN_V2):
 - [ ] Final special-ending precedence rules
 
 ### F. Art & polish
-- [ ] Ending art layers (class / tone / structure / path / lighting)
+- [x] Named NPC portraits: Rossini, Bruno, Douglas, Diego (user-supplied; copying into `assets/characters/`)
+- [x] Show result art: 30 finished images (`assets/scenes/results/<avatar>/<result>.png`) — no layering
+- [ ] Ending art layers (class / tone / structure / path / lighting) under `assets/scenes/endings/`
 - [ ] Ending gallery in archive UI
 - [ ] Shareable ending image export
 - [ ] Copy polish pass across all ending tiers
@@ -85,9 +87,18 @@ Target: dedicated full-screen state (DESIGN_V2):
 - Confirmed ending presentation still dialog-based; main remaining product polish for ship.
 - Replaced ending critical-dialog presentation with full-screen HTML/CSS shell wired to existing resolver/finalized run output.
 
+### 2026-07-23
+- Fixed class-path fallback at the default-ending threshold: qualified Event 1/2 paths are now offered on days 90-99 instead of silently expiring, and a started class event blocks the generic ending until it resolves. Added a regression test for the Roteirista path.
+- Moved the ending presentation inside the normal `#blackScreen` gameplay panel, replacing the fixed full-viewport dialog treatment. The ending now uses a temporary performance-scene image placeholder.
+- Expanded player-avatar customization to six refined avatars. Show results are 30 finished result×avatar images (no layering); ending layers remain a separate system.
+- Dropped show-result transparent-layer composition after a failed preview approach.
+
+### 2026-07-24
+- Finished the six-avatar roster and generated all 30 avatar-specific show-result scenes at 1024×1024.
+- Wired show results to `assets/scenes/results/<avatar>/<result>.png`, with score-to-result lookup covered by the mechanics test suite.
+
 ## Next session start here
 
-1. Implement ending HTML shell + plug resolver output (A first 3 boxes)
-2. Manual playtest one successful class run
-3. Canvas compositor + art layers
-4. Then special endings, hidden paths, gallery — full DESIGN_V2 scope
+1. Manual playtest one successful class run: Event 1 → Event 2 → class → job offer → elenco → class ending
+2. Manual playtest one no-class/default/almost/failure run
+3. Ending Canvas/art-recipe (separate from show results), special endings, gallery — full DESIGN_V2 scope
