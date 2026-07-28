@@ -272,7 +272,7 @@
       image: "assets/characters/stevan-gaipo.png",
       choices: [
         { label: "Aceitar o convite", startShowId: "veterano-turne", allowScheduleOverflow: true, narration: "Você aceita o convite do Stevan! É uma oportunidade extra na agenda: a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada." },
-        { label: "Agradecer mas recusar", effects: { fans: -5, motivation: 6 }, narration: "Você agradece o convite mas prefere se preparar mais. Stevan entende e diz que a porta tá aberta." }
+        { label: "Agradecer mas recusar", effects: { fans: -10, motivation: 10 }, narration: "Você abre mão da visibilidade, mas ganha fôlego para preparar melhor o próximo passo." }
       ]
     },
     {
@@ -281,7 +281,7 @@
       image: "assets/venues/corporativo.png",
       choices: [
         { label: "Aceitar o desafio", startShowId: "corporativo-surpresa", narration: "Você aceita e já começa a pensar em piadas sobre trabalho. O cachê vai ajudar nas contas!" },
-        { label: "Indicar outro comediante", effects: { texto: 6, motivation: 4, network: 5 }, narration: "Você passa o contato de um amigo. Ele agradece muito e te deve uma. Você usa o tempo livre pra estudar." }
+        { label: "Indicar outro comediante", effects: { texto: 10, motivation: 8, network: 9 }, narration: "Você passa o contato de um amigo. Ele te deve uma, e você transforma o tempo livre em trabalho de texto." }
       ]
     },
     {
@@ -344,7 +344,25 @@
       image: "assets/characters/paulo-araujo.png",
       choices: [
         { label: "Aceitar o convite", effects: { motivation: 8, texto: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
-        { label: "Quero mais material primeiro", effects: { motivation: -2 }, narration: "Você prefere escrever mais antes de encarar a plateia. Paulo entende e diz que é só chamar.", delayRouteInviteDays: 3 }
+        { label: "Quero mais material primeiro", effects: { motivation: -6, texto: 8 }, narration: "Você abre mão do slot imediato e usa a pressão para escrever mais antes de encarar a plateia.", delayRouteInviteDays: 3 }
+      ]
+    },
+    {
+      id: "joaoValioSeVira", trigger: "seViraNos5Invite", once: true, isCharacterEvent: true,
+      text: "João Valio, dono da Black House Comedy, te chama depois de ver seu 5 a 5: 'Quero te colocar no Se Vira nos 5. São cinco minutos em Sorocaba — tem viagem, casa nova e gente prestando atenção. Um comediante pode ser fácil de lidar, vender bem ou mandar bem no palco. Geralmente dois desses três bastam, mas só um não.'",
+      image: "assets/characters/joao-valio.png",
+      choices: [
+        { label: "Aceitar e viajar para Sorocaba", effects: { motivation: 8, network: 6 }, scheduleShow: "se-vira-nos-5", scheduleDelayDays: 2, showType: "seViraNos5", unlockSeViraNos5: true, narration: "João confirma seu nome no Se Vira nos 5. Você separa dois dias para chegar à Black House Comedy e preparar o set." },
+        { label: "Ainda não consigo fazer a viagem", effects: { motivation: -5, texto: 8 }, narration: "Você abre mão desta data e usa a pressão para aparar o texto. João deixa a porta aberta para outro convite.", delayRouteInviteDays: 4 }
+      ]
+    },
+    {
+      id: "joaoValioBlackHouseElenco", trigger: "blackHouseElencoInvite", once: true, isCharacterEvent: true, requiresCareerStage: "elenco",
+      text: "Quando você chega ao Elenco, João Valio lembra do seu resultado no Se Vira nos 5: 'Você fez a casa prestar atenção e agora tem mais tempo de palco. Quero te chamar para o Show de Elenco da Black House Comedy. Lembra: ser fácil de lidar, vender bem e mandar bem no palco. Dois bastam; continua trabalhando para não depender de um só.'",
+      image: "assets/characters/joao-valio.png",
+      choices: [
+        { label: "Aceitar o Show de Elenco", effects: { motivation: 10, network: 10, texto: 4 }, scheduleShow: "black-house-show-de-elenco", scheduleDelayDays: 2, showType: "elenco15", unlockBlackHouseElenco: true, narration: "João te inclui no Show de Elenco. A próxima viagem para Sorocaba está marcada e agora a Black House entra no seu circuito." },
+        { label: "Pedir outra data", effects: { motivation: -5, texto: 8 }, narration: "Você protege o texto antes de encarar quinze minutos na casa. João aceita remarcar, mas mantém a cobrança.", delayRouteInviteDays: 4 }
       ]
     },
     {
@@ -353,7 +371,7 @@
       image: "assets/characters/paulo-araujo.png",
       choices: [
         { label: "Aceitar fazer parte do elenco fixo", effects: { motivation: 10, network: 8, texto: 5 }, unlockPague15: true, narration: "Paulo te adiciona ao elenco fixo do Pague 15! Agora você pode participar desse show às quintas-feiras. É um passo importante na sua carreira!" },
-        { label: "Ainda não me sinto pronto", effects: { motivation: -3 }, narration: "Você prefere ganhar mais experiência antes. Paulo entende e diz que a porta sempre estará aberta.", delayRouteInviteDays: 4 }
+        { label: "Ainda não me sinto pronto", effects: { motivation: -7, texto: 8 }, narration: "Você abre mão do elenco agora e volta para o texto; Paulo mantém a porta aberta, mas não congela a escala.", delayRouteInviteDays: 4 }
       ]
     },
     {
@@ -380,7 +398,7 @@
       text: "Um produtor de TV te viu num show e quer te chamar para um quadro. É uma oportunidade única, mas exige compromisso.",
       choices: [
         { label: "Aceitar imediatamente", effects: { fans: 30, motivation: -8, network: 10 }, narration: "Você entra na TV! Fãs novos aparecem, mas a pressão é intensa." },
-        { label: "Pedir tempo para pensar", effects: { motivation: 5, network: -3 }, narration: "Você quer ter certeza. O produtor respeita, mas fica um pouco frustrado." }
+        { label: "Pedir tempo para pensar", effects: { motivation: 8, network: -8, texto: 6 }, narration: "Você protege sua energia e avalia o convite, mas o produtor segue procurando alguém mais disponível." }
       ]
     },
     {
@@ -431,7 +449,7 @@
       image: "assets/characters/carvalho.png",
       choices: [
         { label: "Aceitar a mentoria", effects: { texto: 20, motivation: -10 }, narration: "A jornada é brutal, mas você evolui muito como artista." },
-        { label: "Recusar educadamente", effects: { motivation: 5, network: 3 }, narration: "Você agradece, mas prefere seguir seu próprio caminho." }
+        { label: "Recusar educadamente", effects: { motivation: 8, network: 8, texto: 4 }, narration: "Você agradece e preserva autonomia, sem fechar a porta para uma conversa futura." }
       ]
     },
     {
@@ -439,14 +457,14 @@
       text: "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
       choices: [
         { label: "Se inscrever", effects: { motivation: -5, fans: 15, network: 8 }, narration: "Você participa e, independente do resultado, ganha visibilidade." },
-        { label: "Esperar a próxima edição", effects: { motivation: 3 }, narration: "Você decide se preparar melhor para a próxima. Sem pressa." }
+        { label: "Esperar a próxima edição", effects: { motivation: 8, texto: 8 }, narration: "Você abre mão da vitrine imediata e usa o tempo para chegar com material mais forte." }
       ]
     },
     {
       id: "piratearamSeuShow", trigger: "fans30", once: true,
       text: "Alguém gravou seu set inteiro e postou na internet sem permissão. Suas piadas estão expostas.",
       choices: [
-        { label: "Pedir para remover", effects: { motivation: -5, fans: -5 }, narration: "Você consegue tirar, mas o estrago já foi feito. Hora de escrever material novo." },
+        { label: "Pedir para remover", effects: { motivation: -8, fans: -10, texto: 6 }, narration: "Você consegue tirar, mas perde parte do alcance e precisa reconstruir o material exposto." },
         { label: "Deixar e usar como divulgação", effects: { fans: 20, motivation: 5 }, narration: "Você transforma o limão em limonada. O vídeo vira seu cartão de visitas." }
       ]
     },
@@ -456,8 +474,8 @@
       text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
       choices: [
         { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, muda o tom. Se a galera tá rindo antes de você falar, acelera.' Você absorve cada palavra." },
-        { label: "Pedir dicas de presença de palco", effects: { entrega: 6, texto: 4 }, narration: "Douglas te mostra como usar o espaço do palco. 'Não fica parado no mic. Anda, ocupa, faz a plateia te seguir com os olhos.' Simples mas poderoso." },
-        { label: "Agradecer e ir embora", effects: { motivation: 5, network: 3 }, narration: "Você agradece a dica rápida. Douglas sorri e volta pro portão. 'Qualquer coisa, tô ali.'" }
+        { label: "Pedir dicas de presença de palco", effects: { entrega: 10, texto: 6 }, narration: "Douglas te mostra como usar o espaço do palco. 'Não fica parado no mic. Anda, ocupa, faz a plateia te seguir com os olhos.' Simples mas poderoso." },
+        { label: "Agradecer e ir embora", effects: { motivation: 8, network: 7 }, narration: "Você agradece a dica rápida. Douglas sorri e volta pro portão. 'Qualquer coisa, tô ali.'" }
       ]
     },
     {
@@ -467,7 +485,7 @@
       choices: [
         { label: "Aprender sobre produção", effects: { network: 12, texto: 5, motivation: -3 }, narration: "Bruno te mostra os bastidores: contrato com casa, divisão de bilheteria, curadoria de elenco. É cansativo mas revelador. Você entende como o negócio funciona." },
         { label: "Perguntar sobre gestão de carreira", effects: { network: 8, motivation: 5, fans: 5 }, narration: "Bruno te dá conselhos sobre posicionamento: 'Não aceita qualquer show. Escolha onde aparece. Sua marca é o que as pessoas falam quando você sai.' Você sai pensando diferente." },
-        { label: "Só bater um papo", effects: { motivation: 6, network: 5 }, narration: "Vocês ficam trocando histórias do circuito. Bruno é uma enciclopédia viva da comédia brasileira." }
+        { label: "Só bater um papo", effects: { motivation: 8, network: 8 }, narration: "Vocês ficam trocando histórias do circuito. Bruno é uma enciclopédia viva da comédia brasileira." }
       ]
     },
     {
@@ -475,7 +493,7 @@
       text: "Diego Ferreira te manda mensagem num grupo de WhatsApp: 'Opa! Tô montando um coletivo de comédia. A ideia é juntar gente nova, dividir palco, trocar material, fazer shows juntos. Topa entrar?'",
       choices: [
         { label: "Entrar no coletivo", effects: { network: 15, motivation: 10, entrega: 5 }, narration: "Você entra no coletivo! Shows em grupo, ensaios semanais, troca de material. É como ter uma família de comédia. Seu network explode." },
-        { label: "Preferir seguir solo", effects: { motivation: 5, texto: 3 }, narration: "Você agradece mas prefere seguir seu próprio caminho. Diego entende: 'Respeito. Se mudar de ideia, a porta tá aberta.'" }
+        { label: "Preferir seguir solo", effects: { motivation: 8, texto: 8, network: -5 }, narration: "Você preserva autonomia e volta ao texto, mas deixa de ganhar a rede imediata do coletivo." }
       ]
     },
     {
@@ -483,7 +501,7 @@
       text: "Professor Carvalho te liga: 'Parabéns pelas 5 piadas! Agora, um aviso importante sobre CALLBACKS. Callback fraco só menciona algo antigo e repete referência. Callback forte usa o elemento anterior para criar uma piada nova: nova premissa, nova virada ou novo punchline. Se você só repete, vira truque previsível. Use com moderação e intenção.'",
       image: "assets/characters/carvalho.png",
       choices: [
-        { label: "✅ Entendido", effects: { texto: 5, motivation: 6, entrega: 2 }, narration: "Você anota no caderno: 'Callback bom cria piada nova; callback fraco só repete.' Carvalho sorri e te manda voltar pro texto original." }
+        { label: "✅ Entendido", effects: { texto: 8, motivation: 8, entrega: 4 }, narration: "Você anota no caderno: 'Callback bom cria piada nova; callback fraco só repete.' Carvalho sorri e te manda voltar pro texto original." }
       ]
     }
   ].map(event => ({ ...event, kind: event.kind || "incidental" }));

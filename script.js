@@ -67,7 +67,7 @@ function computeLegacyBonuses() {
     storytelling: false,
     prop: false,
     hack: archive.length >= 2 || dominantTones.has("hack"),
-    politico: dominantTones.has("político") || archive.some(run => run.politicoUnlocked),
+    politico: archive.length >= 2 || dominantTones.has("político") || archive.some(run => run.politicoUnlocked),
     writingGuide: archive.some(run => run.writingGuideUnlocked),
     crowdWork: archive.some(run => run.crowdWorkUnlocked),
     expandedClasses: archive.length >= 2
@@ -177,6 +177,7 @@ const structureDescriptions = {
 const PROFILE_BADGE_LABELS = {
   storytellingUnlocked: { label: "📚 Storytelling", kind: "feature" },
   fiveA5Unlocked: { label: "⭐ 5 a 5", kind: "milestone" },
+  seViraNos5Unlocked: { label: "🏠 Se Vira nos 5", kind: "milestone" },
   pague15Unlocked: { label: "🏆 Pague 15", kind: "milestone" },
   timingBasico: { label: "⏱️ Timing", kind: "perk" },
   timingAvancado: { label: "⏱️ Timing Pro", kind: "perk" },
@@ -625,6 +626,7 @@ function getProfileBadges() {
 
   if (state.storytellingUnlocked) badges.push(PROFILE_BADGE_LABELS.storytellingUnlocked);
   if (state.fiveA5Unlocked) badges.push(PROFILE_BADGE_LABELS.fiveA5Unlocked);
+  if (state.seViraNos5Unlocked) badges.push(PROFILE_BADGE_LABELS.seViraNos5Unlocked);
   if (state.pague15Unlocked) badges.push(PROFILE_BADGE_LABELS.pague15Unlocked);
 
   const visiblePerks = Array.isArray(state.unlockedPerks)
@@ -694,6 +696,8 @@ function createDefaultRunState(existing = {}) {
     ruleset: "v2",
     endingId: existing.endingId || null,
     pureEndingId: existing.pureEndingId || null,
+    specialEndingId: existing.specialEndingId || null,
+    endingClassId: existing.endingClassId || null,
     endingArtId: existing.endingArtId || null,
     dominantStructure: existing.dominantStructure || null,
     endingTier: existing.endingTier || null,
@@ -780,7 +784,9 @@ function seedCareerPathCountersFromHistory(pathState, history = []) {
 function createDefaultRouteInviteState() {
   return {
     cincoPiadas: { pending: false, nextOfferDay: 1 },
-    pauloAraujoPague15: { pending: false, nextOfferDay: 1 }
+    joaoValioSeVira: { pending: false, nextOfferDay: 1 },
+    pauloAraujoPague15: { pending: false, nextOfferDay: 1 },
+    joaoValioBlackHouseElenco: { pending: false, nextOfferDay: 1 }
   };
 }
 
@@ -893,7 +899,7 @@ function ensureCareerProgressState() {
 
 function isRouteInviteEvent(eventOrId) {
   const eventId = typeof eventOrId === "string" ? eventOrId : eventOrId?.id;
-  return eventId === "cincoPiadas" || eventId === "pauloAraujoPague15";
+  return eventId === "cincoPiadas" || eventId === "joaoValioSeVira" || eventId === "pauloAraujoPague15" || eventId === "joaoValioBlackHouseElenco";
 }
 
 function canRouteInviteAppearNow(eventId) {
@@ -912,13 +918,21 @@ function refreshRouteInviteAvailability(source = "system") {
   if (!state.fiveA5Unlocked && !state.eventsSeen.includes("cincoPiadas") && Array.isArray(state.jokes) && state.jokes.length >= 5) {
     state.routeInviteState.cincoPiadas.pending = true;
   }
+  const bestFiveA5 = Math.max(0, ...(state.showHistory || []).filter(entry => entry.showId === "5a5").map(entry => entry.nota || 0));
+  if (!state.seViraNos5Unlocked && !state.eventsSeen.includes("joaoValioSeVira") && bestFiveA5 >= 3) {
+    state.routeInviteState.joaoValioSeVira.pending = true;
+  }
   if (!state.pague15Unlocked && !state.eventsSeen.includes("pauloAraujoPague15") && (state.shows5a5AtLevel4 || 0) >= 3) {
     state.routeInviteState.pauloAraujoPague15.pending = true;
+  }
+  const bestSeViraNos5 = Math.max(0, ...(state.showHistory || []).filter(entry => entry.showId === "se-vira-nos-5").map(entry => entry.nota || 0));
+  if (getCareerStage() === "elenco" && !state.blackHouseElencoUnlocked && !state.eventsSeen.includes("joaoValioBlackHouseElenco") && bestSeViraNos5 >= 4) {
+    state.routeInviteState.joaoValioBlackHouseElenco.pending = true;
   }
 
   if (activeEvent || pendingEvent) return;
 
-  const routeInviteOrder = ["cincoPiadas", "pauloAraujoPague15"];
+  const routeInviteOrder = ["cincoPiadas", "joaoValioSeVira", "pauloAraujoPague15", "joaoValioBlackHouseElenco"];
   for (const eventId of routeInviteOrder) {
     if (!canRouteInviteAppearNow(eventId)) continue;
     const event = eventPool.find((entry) => entry.id === eventId);
@@ -968,6 +982,7 @@ function isShowUnlockedForCareer(show) {
   if (show.isHeadlinerSoloPipeline || show.isSpecialTapeShow || show.requiresCareerStage === "headliner") return false;
   if (show.requiresAvatar && !show.requiresAvatar.includes(state.avatar)) return false;
   if (show.requiresEmployment && !state.hasEmployment) return false;
+  if (show.requiresBlackHouseElenco && !state.blackHouseElencoUnlocked) return false;
   if (show.requiresMadeIt || show.requiresSpecialTapeBooked) return false;
   if (show.requiredFans && (state.fans || 0) < show.requiredFans) return false;
   if (show.requiredNetwork && (state.network || 0) < show.requiredNetwork) return false;
@@ -1021,7 +1036,7 @@ function maybeTriggerCarvalhoDialog(trigger, context = {}) {
 }
 
 function getElencoCircuitShows() {
-  return showPool.filter((show) => show.isElencoCircuit);
+  return showPool.filter((show) => show.isElencoCircuit && isShowUnlockedForCareer(show));
 }
 
 function maybeAddElencoCircuitGig(shows, alreadyScheduledIds, weekDay) {
@@ -1268,6 +1283,40 @@ function getRunEndingTier(score) {
   return "queimado";
 }
 
+function resolveSpecialEndingCandidate(successfulCandidate, toneProfile = getToneProfile(), structureProfile = getStructureProfile()) {
+  if (!successfulCandidate) return null;
+  const rules = V2_PROGRESSION.endingRules?.special || {};
+  const toneShares = toneProfile.sharesByTone || {};
+  const toneCount = Object.keys(toneShares).length;
+  const structureCount = Object.keys(structureProfile.sharesByStructure || {}).length;
+  const archiveClassIds = new Set(loadLegacyArchive().map(run => run.classId).filter(Boolean));
+  if (successfulCandidate.classId) archiveClassIds.add(successfulCandidate.classId);
+
+  if (successfulCandidate.classId && archiveClassIds.size >= (rules.herdeiro?.requiredClassEndings || 5)) {
+    return { id: "special:herdeiro", category: "special", specialId: "herdeiro", classId: successfulCandidate.classId };
+  }
+  if (successfulCandidate.classId === rules.bastidorSombrio?.classId
+    && toneProfile.dominantTone === rules.bastidorSombrio?.tone
+    && hasRunSpecialization(rules.bastidorSombrio?.specialization)) {
+    return { id: "special:bastidor-sombrio", category: "special", specialId: "bastidor-sombrio", classId: successfulCandidate.classId };
+  }
+  const [politico, humorNegro] = rules.profetaDoCaos?.tones || [];
+  if (politico && humorNegro
+    && toneShares[politico] >= rules.profetaDoCaos.minShare
+    && toneShares[politico] <= rules.profetaDoCaos.maxShare
+    && toneShares[humorNegro] >= rules.profetaDoCaos.minShare
+    && toneShares[humorNegro] <= rules.profetaDoCaos.maxShare
+    && structureCount >= rules.profetaDoCaos.minStructures) {
+    return { id: "special:profeta-do-caos", category: "special", specialId: "profeta-do-caos", classId: successfulCandidate.classId || null };
+  }
+  if (toneProfile.isCamaleaoCandidate
+    && toneCount >= rules.camaleao?.minTones
+    && structureCount >= rules.camaleao?.minStructures) {
+    return { id: "special:camaleao", category: "special", specialId: "camaleao", classId: successfulCandidate.classId || null };
+  }
+  return null;
+}
+
 function resolveRunEndingCandidate() {
   if (state.runState?.status !== "active") return null;
   const rules = V2_PROGRESSION.endingRules || {};
@@ -1275,12 +1324,15 @@ function resolveRunEndingCandidate() {
   const day = state.currentDay || 1;
   const classId = state.careerPathState?.detectedClassId || state.chosenClass;
   const classRequirements = V2_PROGRESSION.classPaths?.[classId]?.endingRequirements;
+  let successfulCandidate = null;
   if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.showsPerformedCount >= (rules.classMinShows || 10) && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
-    return decorateSuccessfulEndingCandidate({ id: `class:${classId}`, category: "class", classId });
+    successfulCandidate = { id: `class:${classId}`, category: "class", classId };
   }
+  if (successfulCandidate) return resolveSpecialEndingCandidate(successfulCandidate) || decorateSuccessfulEndingCandidate(successfulCandidate);
   if (hasInProgressCareerPath()) return null;
   if (day >= (rules.default?.minDay || 90) && meetsHiddenRequirements(rules.default?.requirements, metrics)) {
-    return decorateSuccessfulEndingCandidate({ id: "default", category: "default", classId: null });
+    successfulCandidate = { id: "default", category: "default", classId: null };
+    return resolveSpecialEndingCandidate(successfulCandidate) || decorateSuccessfulEndingCandidate(successfulCandidate);
   }
   const completedEvent1 = Object.values(state.careerPathState?.event1ByClass || {}).some(entry => entry.status === "completed");
   if (day >= (rules.almost?.minDay || 95)
@@ -1288,7 +1340,7 @@ function resolveRunEndingCandidate() {
     && (metrics.averageNota >= (rules.almost?.averageNota || 2.4) || completedEvent1)) {
     return { id: "almost", category: "almost", classId: classId || null };
   }
-  if (day >= (rules.failureDay || 100)) return { id: "failure", category: "failure", classId: null };
+  if (day >= (rules.failureDay || 100)) return { id: "failure", category: "failure", specialId: "silencio", classId: null };
   return null;
 }
 
@@ -1317,6 +1369,8 @@ function buildEndingMessage(candidate, tier, toneProfile, structureProfile = get
 }
 
 function getEndingTitle(candidate, tier) {
+  const specialId = String(candidate.specialId || candidate.id || "").replace(/^special:/, "");
+  if (V2_ENDINGS.special?.[specialId]?.title) return V2_ENDINGS.special[specialId].title;
   if (candidate.pureEnding?.axis === "tone") return `Voz pura: ${candidate.pureEnding.value}`;
   if (candidate.pureEnding?.axis === "structure") return `Forma pura: ${candidate.pureEnding.value}`;
   if (candidate.category === "class" && candidate.classId && CLASSES[candidate.classId]) {
@@ -1331,15 +1385,17 @@ function getEndingTitle(candidate, tier) {
 function getEndingArtwork(candidate = {}) {
   const artwork = V2_ENDINGS.artwork || {};
   const fallback = artwork.fallback || { id: "fallback", path: "assets/scenes/endings/fallback.png", alt: "Palco vazio de um clube de comédia." };
+  const specialId = String(candidate.specialId || candidate.id || "").replace(/^special:/, "");
+  if (candidate.category === "special" && artwork.special?.[specialId]) return artwork.special[specialId];
   const pureTone = candidate.pureEnding?.axis === "tone" ? candidate.pureEnding.value : null;
   if (pureTone && artwork.pureTone?.[pureTone]) return artwork.pureTone[pureTone];
   if (candidate.category === "class" && candidate.classId && artwork.class?.[candidate.classId]) return artwork.class[candidate.classId];
   if (candidate.category === "failure" && artwork.special?.silencio) return artwork.special.silencio;
-  const specialId = String(candidate.specialId || candidate.id || "").replace(/^special:/, "");
   return artwork.special?.[specialId] || fallback;
 }
 
 function getEndingCategoryLabel(candidate) {
+  if (candidate.category === "special") return "final especial";
   if (candidate.pureEnding?.axis) return candidate.pureEnding.axis === "tone" ? "puro de tom" : "puro de estrutura";
   if (candidate.category === "class") return "classe formada";
   if (candidate.category === "default") return "final de circuito";
@@ -1359,7 +1415,7 @@ function getLegacyOptionUnlocksFromArchive(archive = []) {
   const dominantTones = new Set(archive.map(run => run.dominantTone).filter(Boolean));
   return {
     hack: archive.length >= 2 || dominantTones.has("hack"),
-    politico: dominantTones.has("político"),
+    politico: archive.length >= 2 || dominantTones.has("político"),
     expandedClasses: archive.length >= 2
   };
 }
@@ -1383,7 +1439,8 @@ function getEndingUnlockText() {
 function buildEndingViewData(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
   const metrics = getCareerMetrics();
   const baseKey = candidate.category === "class" ? candidate.classId : candidate.category;
-  const base = V2_ENDINGS.base?.[baseKey] || V2_ENDINGS.base?.default || "";
+  const specialId = String(candidate.specialId || candidate.id || "").replace(/^special:/, "");
+  const base = V2_ENDINGS.special?.[specialId]?.text || V2_ENDINGS.base?.[baseKey] || V2_ENDINGS.base?.default || "";
   const toneKey = toneProfile.dominantTone || "none";
   const structureKey = structureProfile.dominantStructure || "none";
   const pure = candidate.pureEnding?.axis ? V2_ENDINGS.pure?.[candidate.pureEnding.axis] || "" : "";
@@ -1484,8 +1541,9 @@ function renderFinalizedRun() {
   const structureProfile = getStructureProfile();
   const candidate = {
     id: state.runState.endingId,
-    category: state.runState.endingId?.startsWith("class:") ? "class" : state.runState.endingId,
-    classId: state.runState.endingId?.startsWith("class:") ? state.runState.endingId.split(":")[1] : null,
+    category: state.runState.specialEndingId ? "special" : (state.runState.endingId?.startsWith("class:") ? "class" : state.runState.endingId),
+    specialId: state.runState.specialEndingId || null,
+    classId: state.runState.endingClassId || (state.runState.endingId?.startsWith("class:") ? state.runState.endingId.split(":")[1] : null),
     pureEnding: state.runState.pureEndingId ? {
       id: state.runState.pureEndingId,
       axis: state.runState.pureEndingId.split(":")[1],
@@ -1506,6 +1564,8 @@ function finalizeRun(candidate) {
   state.runState.status = "ended";
   state.runState.endingId = candidate.id;
   state.runState.pureEndingId = candidate.pureEnding?.id || null;
+  state.runState.specialEndingId = candidate.specialId || null;
+  state.runState.endingClassId = candidate.classId || null;
   state.runState.endingArtId = artwork.id;
   state.runState.dominantStructure = structureProfile.dominantStructure;
   state.runState.endingTier = tier;
@@ -1521,6 +1581,7 @@ function finalizeRun(candidate) {
     dominantTone: toneProfile.dominantTone,
     dominantStructure: structureProfile.dominantStructure,
     pureEndingId: candidate.pureEnding?.id || null,
+    specialEndingId: candidate.specialId || null,
     endingArtId: artwork.id,
     politicoUnlocked: !!state.politicoUnlocked,
     writingGuideUnlocked: !!state.writingGuideUnlocked,
@@ -1581,9 +1642,13 @@ function getNearestScheduledShow() {
 function removeScheduledShow(entry) {
   state.scheduledShows = (state.scheduledShows || []).filter(s => s !== entry);
 }
+function canAddScheduledShow(options = {}) {
+  const scheduleLimit = MAX_SCHEDULED_SHOWS + (options.allowOverflow ? 1 : 0);
+  return (state?.scheduledShows || []).length < scheduleLimit;
+}
 function addScheduledShow(showId, dayScheduled, showType = "normal", options = {}) {
   if (!state.scheduledShows) state.scheduledShows = [];
-  if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS && !options.allowOverflow) return false;
+  if (!canAddScheduledShow(options)) return false;
   state.scheduledShows.push({ showId, dayScheduled, showType, isEventGig: !!options.allowOverflow });
   incrementRouteCounter("showsScheduledCount");
   if (state.runState?.status === "active") setTimeout(() => maybeCheckProgressionGates({ resolveEnding: false }), 0);
@@ -2705,8 +2770,21 @@ function handleEventChoiceIndex(index) {
   const eventRef = activeEvent;
   const choice = eventRef.choices && eventRef.choices[index];
   if (!choice) { hideDialog(); activeEvent = null; uiMode = "idle"; return; }
+  const createsGig = !!choice.startShowId || !!choice.scheduleShow;
+  if (createsGig && !canAddScheduledShow({ allowOverflow: true })) {
+    hideDialog();
+    activeEvent = null;
+    uiMode = "idle";
+    setScene("home");
+    queueCriticalDialog("📅 Você já tem 4 shows marcados. Esse convite não pode entrar sem substituir uma data — então ele não foi aceito.", [], {
+      imageSrc: eventRef.image || "",
+      imageAlt: eventRef.id ? `Evento: ${eventRef.id}` : "Evento",
+      imageIsCharacter: !!eventRef.isCharacterEvent
+    });
+    return;
+  }
   const isRouteInvite = isRouteInviteEvent(eventRef);
-  const routeInviteAccepted = isRouteInvite ? (choice.unlock5a5 || choice.unlockPague15 || choice.startShowId || choice.scheduleShow) : false;
+  const routeInviteAccepted = isRouteInvite ? (choice.unlock5a5 || choice.unlockSeViraNos5 || choice.unlockPague15 || choice.unlockBlackHouseElenco || choice.startShowId || choice.scheduleShow) : false;
   ensureCareerProgressState();
   if (eventRef.once && !isRouteInvite && !state.eventsSeen.includes(eventRef.id)) {
     state.eventsSeen.push(eventRef.id);
@@ -2740,7 +2818,9 @@ function handleEventChoiceIndex(index) {
   const effectsSummary = formatEffectsSummary(choice.effects || {});
   applyEventEffects(choice.effects || {});
   if (choice.unlock5a5) state.fiveA5Unlocked = true;
+  if (choice.unlockSeViraNos5) state.seViraNos5Unlocked = true;
   if (choice.unlockPague15) state.pague15Unlocked = true;
+  if (choice.unlockBlackHouseElenco) state.blackHouseElencoUnlocked = true;
   updateStats();
   saveGameState();
 
@@ -2749,7 +2829,7 @@ function handleEventChoiceIndex(index) {
     const show = findShowById(choice.startShowId);
     if (show) {
       const daysAhead = Math.random() < 0.5 ? 1 : 2;
-      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, "event", { allowOverflow: !!choice.allowScheduleOverflow });
+      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, "event", { allowOverflow: true });
       updateStats();
       saveGameState();
       if (!scheduled) {
@@ -2776,10 +2856,11 @@ function handleEventChoiceIndex(index) {
     const show = findShowById(choice.scheduleShow);
     if (show) {
       let daysAhead = 1;
-      let showType = "normal";
+      let showType = choice.showType || "normal";
+      if (Number.isFinite(choice.scheduleDelayDays)) daysAhead = Math.max(1, Math.round(choice.scheduleDelayDays));
       if (choice.scheduleShow === "5a5") { daysAhead = findDaysToWeekday(0) || 7; showType = "5a5"; }
       else if (choice.scheduleShow === "pague15") { daysAhead = findDaysToWeekday(4) || 7; showType = "pague15"; }
-      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, showType);
+      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, showType, { allowOverflow: true });
       updateStats();
       saveGameState();
       if (!scheduled) {
@@ -2837,7 +2918,7 @@ function loadGameState() {
     eventsSeen: [], lastSave: null, xp: 0, levelNumber: 1,
     ...createInitialTimeState(),
     level: "open", showsAtLevel4: 0, shows5a5AtLevel4: 0,
-    fiveA5Unlocked: false, pague15Unlocked: false, network: 10,
+    fiveA5Unlocked: false, seViraNos5Unlocked: false, blackHouseElencoUnlocked: false, pague15Unlocked: false, network: 10,
     storytellingUnlocked: false,
     onelinerUnlocked: false,
     humorNegroUnlocked: false,
@@ -2925,6 +3006,8 @@ function loadGameState() {
       showsAtLevel4: parsed.showsAtLevel4 ?? 0,
       shows5a5AtLevel4: parsed.shows5a5AtLevel4 ?? 0,
       fiveA5Unlocked: parsed.fiveA5Unlocked ?? false,
+      seViraNos5Unlocked: parsed.seViraNos5Unlocked ?? false,
+      blackHouseElencoUnlocked: parsed.blackHouseElencoUnlocked ?? false,
       pague15Unlocked: parsed.pague15Unlocked ?? false,
       network: parsed.network ?? baseState.network,
       chosenClass: parsed.chosenClass === "professor" ? "comicoClassico" : (parsed.chosenClass || null),
@@ -2978,6 +3061,7 @@ function saveGameState() {
     eventsThisWeek: state.eventsThisWeek,
     level: state.level, showsAtLevel4: state.showsAtLevel4,
     shows5a5AtLevel4: state.shows5a5AtLevel4, fiveA5Unlocked: state.fiveA5Unlocked,
+    seViraNos5Unlocked: state.seViraNos5Unlocked, blackHouseElencoUnlocked: state.blackHouseElencoUnlocked,
     pague15Unlocked: state.pague15Unlocked, network: state.network, storytellingUnlocked: state.storytellingUnlocked,
     onelinerUnlocked: state.onelinerUnlocked, humorNegroUnlocked: state.humorNegroUnlocked,
     hackUnlocked: state.hackUnlocked, propUnlocked: state.propUnlocked,
@@ -4009,6 +4093,12 @@ function generateAvailableShows() {
     }
   }
 
+  // Se Vira nos 5 (Sorocaba, unlocked via João Valio; the trip takes two days)
+  if (state.seViraNos5Unlocked && !alreadyScheduledIds.includes("se-vira-nos-5")) {
+    const seViraNos5 = findShowById("se-vira-nos-5");
+    if (seViraNos5 && Math.random() < 0.65) shows.unshift({ show: seViraNos5, daysAhead: 2, showType: "seViraNos5" });
+  }
+
   // Pague 15 (Thursdays, unlocked via Paulo Araújo)
   if (state.pague15Unlocked && !alreadyScheduledIds.includes("pague15")) {
     const daysToPague15 = findDaysToWeekday(4);
@@ -4050,6 +4140,7 @@ function presentShowOptions(availableShows) {
     const offeredTime = calculateOfferedTime(show, { showType });
     let label = `🎭 ${show.name}`;
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
+    if (showType === "seViraNos5") label = `🏠 ${show.name} (convite de João Valio)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
     if (showType === "openStarter") label = `🌱 ${show.name} (open iniciante)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
@@ -4060,8 +4151,9 @@ function presentShowOptions(availableShows) {
     const difficultyTag = ` · dificuldade ${(show.difficulty * 100).toFixed(0)}%`;
     const venueRep = getVenueReputation(show.id);
     const repTag = ` · casa ${getVenueReputationTier(venueRep)} (${venueRep >= 0 ? "+" : ""}${venueRep})`;
+    const locationTag = show.location ? `\n📍 ${show.location}` : "";
     return {
-      label: `${label}${stageTag}${riskTag}${crowdTag}${difficultyTag}${repTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime} min oferecidos`,
+      label: `${label}${stageTag}${riskTag}${crowdTag}${difficultyTag}${repTag}${locationTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime} min oferecidos`,
       handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); }
     };
   });

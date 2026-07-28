@@ -89,6 +89,14 @@ test("finalized runs persist their resolved ending art ID", () => {
   assert.equal(run("loadLegacyArchive()[0].endingArtId"), "special:silencio");
 });
 
+test("finalized special endings persist their identity and class for reload", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); finalizeRun({id:'special:bastidor-sombrio', category:'special', specialId:'bastidor-sombrio', classId:'produtor'});");
+  assert.equal(run("state.runState.specialEndingId"), "bastidor-sombrio");
+  assert.equal(run("state.runState.endingClassId"), "produtor");
+  assert.equal(run("loadLegacyArchive()[0].specialEndingId"), "bastidor-sombrio");
+});
+
 test("legacy archive grants only non-mentor options and no numeric advantage", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
@@ -358,6 +366,63 @@ test("ending resolver respects class, default, almost, then failure priority", (
   assert.equal(run("resolveRunEndingCandidate().id"), "failure");
 });
 
+test("Bastidor Sombrio resolves from a successful dark producer run", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 70; state.chosenClass = 'produtor'; state.hasEmployment = true;
+    state.network = 50; state.routeCounters.showsScheduledCount = 10; state.careerPathState.elencoGoodShowsCount = 2;
+    state.showHistory = Array.from({length: 10}, () => ({nota: 4}));
+    state.toneTally = {'besteirol':0,'vulgar':0,'limpo':0,'humor negro':8,'hack':0,'político':0};
+    state.structureTally = {bit:4,oneliner:2,storytelling:2,prop:0,crowdWork:0};
+    state.pathProgressState.flags['specialization:humor-negro'] = true;
+  `);
+  assert.equal(run("resolveRunEndingCandidate().id"), "special:bastidor-sombrio");
+  assert.equal(run("getEndingArtwork(resolveRunEndingCandidate()).id"), "special:bastidor-sombrio");
+});
+
+test("Profeta do Caos resolves from an even political and dark successful run", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 90; state.showHistory = Array.from({length: 10}, () => ({nota: 3}));
+    state.careerPathState.goodShowsCount = 3;
+    state.toneTally = {'besteirol':0,'vulgar':0,'limpo':0,'humor negro':5,'hack':0,'político':5};
+    state.structureTally = {bit:4,oneliner:3,storytelling:3,prop:0,crowdWork:0};
+  `);
+  assert.equal(run("resolveRunEndingCandidate().id"), "special:profeta-do-caos");
+  assert.equal(run("getEndingArtwork(resolveRunEndingCandidate()).id"), "special:profeta-do-caos");
+});
+
+test("Camaleão resolves from a broad successful run without a dominant tone", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 90; state.showHistory = Array.from({length: 10}, () => ({nota: 3}));
+    state.careerPathState.goodShowsCount = 3;
+    state.toneTally = {'besteirol':3,'vulgar':3,'limpo':3,'humor negro':3,'hack':0,'político':0};
+    state.structureTally = {bit:4,oneliner:3,storytelling:3,prop:0,crowdWork:0};
+  `);
+  assert.equal(run("resolveRunEndingCandidate().id"), "special:camaleao");
+  assert.equal(run("getEndingArtwork(resolveRunEndingCandidate()).id"), "special:camaleao");
+});
+
+test("Herdeiro resolves when the fifth distinct class ending is completed", () => {
+  const { run, storage } = createHarness();
+  storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
+    { runId: "1", classId: "comicoClassico" }, { runId: "2", classId: "roteirista" },
+    { runId: "3", classId: "produtor" }, { runId: "4", classId: "atorComico" }
+  ]));
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 70; state.chosenClass = 'influencer'; state.hasEmployment = true;
+    state.fans = 250; state.routeCounters.contentCount = 6; state.careerPathState.elencoGoodShowsCount = 2;
+    state.showHistory = Array.from({length: 10}, () => ({nota: 4}));
+  `);
+  assert.equal(run("resolveRunEndingCandidate().id"), "special:herdeiro");
+  assert.equal(run("getEndingArtwork(resolveRunEndingCandidate()).id"), "special:herdeiro");
+});
+
 test("archive writes are idempotent by runId", () => {
   const { run } = createHarness();
   run("archiveFinalizedRun({runId:'same-run', endingId:'default'}); archiveFinalizedRun({runId:'same-run', endingId:'default'});");
@@ -371,6 +436,17 @@ test("archive carries learned writing guidance and political access into the nex
   ]));
   const state = JSON.parse(run("JSON.stringify(loadGameState())"));
   assert.equal(state.writingGuideUnlocked, true);
+  assert.equal(state.politicoUnlocked, true);
+});
+
+test("two completed runs guarantee political at the next start", () => {
+  const { run, storage } = createHarness();
+  storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
+    { runId: "1", endingId: "default" },
+    { runId: "2", endingId: "almost" }
+  ]));
+  const state = JSON.parse(run("JSON.stringify(loadGameState())"));
+  assert.equal(state.hackUnlocked, true);
   assert.equal(state.politicoUnlocked, true);
 });
 
@@ -395,6 +471,8 @@ test("important event gigs can be scheduled as a fourth show", () => {
   run("state = loadGameState(); state.scheduledShows = [{showId:'a'},{showId:'b'},{showId:'c'}];");
   assert.equal(run("addScheduledShow('veterano-turne', 4, 'event', { allowOverflow: true })"), true);
   assert.equal(run("state.scheduledShows.length"), 4);
+  assert.equal(run("canAddScheduledShow({ allowOverflow: true })"), false);
+  assert.equal(run("addScheduledShow('corporativo-surpresa', 5, 'event', { allowOverflow: true })"), false);
 });
 
 test("class endings require credible stage experience", () => {
@@ -415,4 +493,43 @@ test("Jogo do Tigrinho offers a substantial reach-versus-craft tradeoff", () => 
   assert.ok(event);
   assert.ok(event.choices.some(choice => choice.effects.fans >= 30 && choice.effects.motivation <= -10 && choice.effects.texto < 0));
   assert.ok(event.choices.some(choice => choice.effects.texto >= 12 && choice.effects.fans < 0));
+});
+
+test("Se Vira nos 5 is a five-minute Sorocaba invite scheduled two days away", () => {
+  const { run } = createHarness();
+  assert.equal(run("findShowById('se-vira-nos-5').minMinutes"), 5);
+  assert.equal(run("findShowById('se-vira-nos-5').location"), "Sorocaba - SP");
+
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.hasStarted = true;
+    setScene = () => {}; hideDialog = () => {}; updateStats = () => {}; saveGameState = () => {}; checkEmploymentOffer = () => {}; queueCriticalDialog = () => {};
+    state.showHistory = [{showId:'5a5', nota:4, showType:'5a5'}];
+    refreshRouteInviteAvailability('show');
+  `);
+  assert.equal(run("state.routeInviteState.joaoValioSeVira.pending"), true);
+  run("activeEvent = GAME_CONTENT.events.find(event => event.id === 'joaoValioSeVira'); handleEventChoiceIndex(0);");
+  assert.equal(run("state.seViraNos5Unlocked"), true);
+  assert.equal(run("state.scheduledShows[0].showId"), "se-vira-nos-5");
+  assert.equal(run("state.scheduledShows[0].dayScheduled - state.currentDay"), 2);
+  assert.equal(run("state.scheduledShows[0].showType"), "seViraNos5");
+});
+
+test("a strong Se Vira nos 5 result unlocks João Valio's Black House Elenco invite", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.hasStarted = true; state.levelNumber = 6; state.level = 'elenco'; state.seViraNos5Unlocked = true;
+    setScene = () => {}; hideDialog = () => {}; updateStats = () => {}; saveGameState = () => {}; checkEmploymentOffer = () => {}; queueCriticalDialog = () => {};
+    state.showHistory = [{showId:'se-vira-nos-5', nota:3, showType:'seViraNos5'}];
+    refreshRouteInviteAvailability('show');
+  `);
+  assert.equal(run("state.routeInviteState.joaoValioBlackHouseElenco.pending"), false);
+  run("state.showHistory[0].nota = 4; refreshRouteInviteAvailability('show');");
+  assert.equal(run("state.routeInviteState.joaoValioBlackHouseElenco.pending"), true);
+  run("activeEvent = GAME_CONTENT.events.find(event => event.id === 'joaoValioBlackHouseElenco'); handleEventChoiceIndex(0);");
+  assert.equal(run("state.blackHouseElencoUnlocked"), true);
+  assert.equal(run("state.scheduledShows[0].showId"), "black-house-show-de-elenco");
+  assert.equal(run("state.scheduledShows[0].dayScheduled - state.currentDay"), 2);
+  assert.equal(run("findShowById('black-house-show-de-elenco').isElencoCircuit"), true);
 });

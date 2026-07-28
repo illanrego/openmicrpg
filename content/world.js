@@ -431,6 +431,15 @@ content.world.homeText =
       typeAffinity: { default: 0.1, besteirol: 0.1, vulgar: -0.2, "humor negro": 0.4, limpo: 0.3, hack: 0.4 }
     },
     {
+      id: "black-house-show-de-elenco", name: "Show de Elenco - Black House Comedy", minMinutes: 10, difficulty: 0.44,
+      requiresCareerStage: "elenco", requiresBlackHouseElenco: true, isElencoCircuit: true, setLengthTarget: 15,
+      location: "Sorocaba - SP", travelDays: 2,
+      crowd: "Plateia pagante da Black House, perto do palco e acostumada com comediantes experientes da casa.",
+      intro: "João Valio te coloca no Show de Elenco da Black House Comedy. Você volta a Sorocaba para sustentar um bloco de 15 minutos.",
+      image: "assets/venues/black-house-comedy.png", vibeHint: "Texto sólido ajuda, mas profissionalismo e capacidade de vender a noite também pesam.",
+      typeAffinity: { default: 0.15, besteirol: 0.25, vulgar: 0, "humor negro": 0.3, limpo: 0.35, hack: 0.25 }
+    },
+    {
       id: "solo-lab-preview", name: "Solo Lab - Preview de 25", minMinutes: 12, difficulty: 0.5,
       requiresCareerStage: "headliner", isHeadlinerSoloPipeline: true, headlinerSoloTier: "preview", setLengthTarget: 25,
       crowd: "Público fiel e crítico que repara em cada transição.",
@@ -472,6 +481,14 @@ content.world.homeText =
       intro: "Domingo à tarde no Copo Sujo. Um palco tranquilo para testar material novo.",
       image: "assets/venues/copo-sujo-comedy.png", vibeHint: "Material conciso e punchlines claras. Ótimo para testar piadas novas.",
       typeAffinity: { default: 0, besteirol: 0.5, vulgar: 0.1, "humor negro": 0.2, limpo: 0.3, hack: 0.2 }
+    },
+    {
+      id: "se-vira-nos-5", name: "Se Vira nos 5 - Black House Comedy", minMinutes: 5, difficulty: 0.28, isSpecialShow: true,
+      location: "Sorocaba - SP", travelDays: 2,
+      crowd: "Plateia próxima do palco, acostumada com a programação da casa e pronta para julgar cinco minutos sem gordura.",
+      intro: "Você viaja até Sorocaba para o Se Vira nos 5 da Black House Comedy. São 5 minutos no palco da casa.",
+      image: "assets/venues/black-house-comedy.png", vibeHint: "Cinco minutos diretos: venda bem sua persona, seja profissional e mande bem no palco.",
+      typeAffinity: { default: 0.15, besteirol: 0.3, vulgar: 0.1, "humor negro": 0.25, limpo: 0.35, hack: 0.25 }
     },
     {
       id: "pague15", name: "Pague 15 Leve 10 - Copo Sujo", minMinutes: 5, difficulty: 0.35, isSpecialShow: true,

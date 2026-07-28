@@ -52,6 +52,12 @@
         dominantShare: 0.65,
         maxSecondToneShare: 0.20,
         complementaryVariety: 3
+      },
+      special: {
+        bastidorSombrio: { classId: "produtor", tone: "humor negro", specialization: "humor-negro" },
+        profetaDoCaos: { tones: ["político", "humor negro"], minShare: 0.4, maxShare: 0.6, minStructures: 3 },
+        camaleao: { maxToneShare: 0.3, minTones: 4, minStructures: 3 },
+        herdeiro: { requiredClassEndings: 5 }
       }
     },
     legacyUnlocks: {

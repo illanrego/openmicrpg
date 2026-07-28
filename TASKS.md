@@ -1,6 +1,6 @@
 # Open Mic RPG — live ship board
 
-Last updated: 2026-07-24
+Last updated: 2026-07-28
 Deadline: **2026-07-23** (12 days to build, ship on day 13)  
 Owner: Illan  
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -11,7 +11,7 @@ Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships
 
 ## Active pre-production intake
 
-`SHIP_PLAN.md` collects final gameplay, onboarding, balance, and shipping changes. Do not implement its items until the user completes intake and explicitly starts the plan.
+`SHIP_PLAN.md` is the active implementation record for final gameplay, onboarding, balance, and shipping work.
 
 ## Done (baseline as of 2026-07-10)
 
@@ -22,21 +22,19 @@ Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships
 - [x] Generic + pure ending resolution
 - [x] Ending copy in `content/endings.js`
 - [x] Legacy archive option unlocks
-- [x] Mechanics test suite green (`20/20` via `node --test tests/v2-mechanics.test.js`)
+- [x] Mechanics test suite green (`38/38` via `node --test tests/v2-mechanics.test.js`)
 
 ## Now — ship blockers / highest value
 
-### A. Ending presentation (approved design, not fully built)
+### A. Ending presentation
 
-Today: ending still uses critical-dialog popup (`finalizeRun` → dialog with Nova corrida / Ver histórico).
-
-Target: dedicated full-screen state (DESIGN_V2):
+Implemented as an embedded dedicated ending state inside the normal game panel:
 
 - [x] HTML/CSS ending shell (lock gameplay while active)
 - [x] Wire existing ending resolver output into shell (title, prose, summary, unlocks)
 - [x] Actions: `Nova corrida`, `Ver arquivo` (or history/archive equivalent)
 - [x] Resolve one finished avatar-neutral illustration per ending route
-- [ ] Accessibility text for ending illustrations
+- [x] Accessibility text for ending illustrations
 - [x] Persist ending-art ID/path in archive (not bitmap)
 
 ### B. Playtest & polish
@@ -55,19 +53,19 @@ Target: dedicated full-screen state (DESIGN_V2):
 - [ ] Update README for V2 (class auto-detect is implemented; correct feature claims)
 - [ ] Optional: link from personal hub / course later
 
-## Remaining DESIGN_V2 items (all in scope)
+## Remaining DESIGN_V2 ship items
 
-### D. Special endings (DESIGN_V2 § Deferred Special Endings)
-- [ ] O Bastidor Sombrio (Produtor + Humor Negro)
-- [ ] O Profeta do Caos (Político + Humor Negro 50/50)
-- [ ] O Camaleão (no tone > 30%)
-- [ ] O Herdeiro (all 5 classes across runs + secret 6th class)
-- [ ] O Silêncio (day 100 failure — prose may already exist)
+### D. Special endings
+- [x] O Bastidor Sombrio (Produtor + Humor Negro)
+- [x] O Profeta do Caos (Político + Humor Negro 40–60%)
+- [x] O Camaleão (at least 4 tones, none > 30%)
+- [x] O Herdeiro (fifth distinct class ending across runs)
+- [x] O Silêncio (Day 100 failure)
 
-### E. Hidden paths polish
-- [ ] Eclético mechanics
-- [ ] Secret tone identities + unlock rules
-- [ ] Final special-ending precedence rules
+### E. Hidden paths status
+- Deferred by `DESIGN_V2.md`: Eclético mechanics
+- Deferred by `DESIGN_V2.md`: secret tone identities + unlock rules
+- [x] Final special-ending precedence rules for the enabled special catalog
 
 ### F. Art & polish
 - [x] Named NPC portraits: Rossini, Bruno, Douglas, Diego (user-supplied; copying into `assets/characters/`)
@@ -76,7 +74,7 @@ Target: dedicated full-screen state (DESIGN_V2):
 - [ ] Ending gallery in archive UI
 - [ ] Shareable ending image export
 - [ ] Copy polish pass across all ending tiers
-- [ ] Ending accessibility text
+- [x] Ending accessibility text
 
 ### G. Onboarding
 - [ ] Tutorial/onboarding clarity for V2 systems
@@ -104,9 +102,20 @@ Target: dedicated full-screen state (DESIGN_V2):
 ### 2026-07-28
 - Produced the 17 standalone, avatar-neutral ending illustrations: five class scenes, six pure-tone scenes, five special scenes, and a shared neutral fallback under `assets/scenes/endings/`.
 - Wired the ending-art resolver, direct image rendering, fallback behavior, accessibility descriptions, and archive `endingArtId` persistence.
+- Added João Valio's Black House Comedy route: Se Vira nos 5 in Sorocaba, two-day travel scheduling, and a nota-dependent Black House Show de Elenco invitation.
 
 ## Next session start here
 
 1. Manual playtest one successful class run: Event 1 → Event 2 → class → job offer → elenco → class ending
 2. Manual playtest one no-class/default/almost/failure run
-3. Finished avatar-neutral ending illustrations, special endings, gallery — full DESIGN_V2 scope
+3. Complete the player-facing Portuguese copy and terminology pass
+4. Implement the ending gallery in the archive: show discovered ending art, conceal undiscovered endings, and restore art from archived `endingArtId`
+5. Add shareable ending-image export after the gallery is stable
+6. Polish first-run onboarding for writing, crowd work, hidden class discovery, and legacy progression
+7. Update README to describe the shipped V2 accurately, including automatic class detection, six avatars, endings, persistence, and local play
+8. Confirm the production URL, deploy, then smoke-test the deployed build on mobile and desktop
+
+## Explicitly not blocking 1.0
+
+- Eclético mechanics and secret-tone identities remain deferred by `DESIGN_V2.md`.
+- Linking the game from the personal hub/course is optional post-release work.

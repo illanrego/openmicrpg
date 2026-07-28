@@ -36,6 +36,13 @@
       tone: "Você não apenas repetiu um tom: construiu uma voz reconhecível sem depender de uma única forma.",
       structure: "Você dominou uma forma até ela virar linguagem, sem reduzir seu repertório a um único tom."
     },
+    special: {
+      "bastidor-sombrio": { title: "O Bastidor Sombrio", text: "Você aprende a conduzir a noite por trás da cortina: escala, tensão, risco e uma linguagem escura que o circuito passa a respeitar." },
+      "profeta-do-caos": { title: "O Profeta do Caos", text: "Você transforma contradição política e humor negro em sátira de atrito. A sala ri, se incomoda e continua falando do set depois." },
+      camaleao: { title: "O Camaleão", text: "Você nunca se fecha em uma única voz. Em vez disso, aprende a mudar de registro sem perder a leitura da sala." },
+      herdeiro: { title: "O Herdeiro", text: "Depois de atravessar todos os cinco caminhos do circuito, você deixa de perseguir uma vaga e passa a carregar a história inteira dele." },
+      silencio: { title: "O Silêncio", text: "O centésimo dia chega antes da carreira. O palco apaga, mas ainda existe uma próxima corrida." }
+    },
     tier: {
       glorioso: "Você chega cedo, forte e com a sensação perigosa de que tudo estava destinado a acontecer.",
       honesto: "Não foi uma ascensão perfeita. Foi trabalho suficiente para que as portas parassem de fechar.",
@@ -70,6 +77,6 @@
         silencio: { id: "special:silencio", path: "assets/scenes/endings/special/silencio.png", alt: "Clube de comédia vazio após o fechamento, com microfone solitário, cadeiras empilhadas e chuva noturna." }
       }
     },
-    enabledSpecials: []
+    enabledSpecials: ["bastidor-sombrio", "profeta-do-caos", "camaleao", "herdeiro", "silencio"]
   };
 })(window);
