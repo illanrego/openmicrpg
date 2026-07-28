@@ -271,7 +271,7 @@
       text: "Depois do show, Stevan Gaipo te aborda: 'Pô, curti teu set! Cê tem timing bom. To saindo em turnê pelo interior e preciso de alguém pra abrir. Topa vir comigo? São 7 minutos num palco lotado.'",
       image: "assets/characters/stevan-gaipo.png",
       choices: [
-        { label: "Aceitar o convite", startShowId: "veterano-turne", narration: "Você aceita o convite do Stevan! É a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada." },
+        { label: "Aceitar o convite", startShowId: "veterano-turne", allowScheduleOverflow: true, narration: "Você aceita o convite do Stevan! É uma oportunidade extra na agenda: a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada." },
         { label: "Agradecer mas recusar", effects: { fans: -5, motivation: 6 }, narration: "Você agradece o convite mas prefere se preparar mais. Stevan entende e diz que a porta tá aberta." }
       ]
     },

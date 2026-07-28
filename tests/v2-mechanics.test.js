@@ -336,6 +336,7 @@ test("ending resolver respects class, default, almost, then failure priority", (
     state.network = 35;
     state.careerPathState.goodShowsCount = 6;
     state.careerPathState.elencoGoodShowsCount = 1;
+    state.showHistory = Array.from({length:10}, () => ({nota:4}));
   `);
   assert.equal(run("resolveRunEndingCandidate().id"), "class:comicoClassico");
   run("state.chosenClass = null; state.careerPathState.detectedClassId = null; state.hasEmployment = false; state.currentDay = 100; state.showHistory = []; state.careerPathState.goodShowsCount = 0;");
@@ -346,4 +347,49 @@ test("archive writes are idempotent by runId", () => {
   const { run } = createHarness();
   run("archiveFinalizedRun({runId:'same-run', endingId:'default'}); archiveFinalizedRun({runId:'same-run', endingId:'default'});");
   assert.equal(run("loadLegacyArchive().length"), 1);
+});
+
+test("archive carries learned writing guidance and political access into the next run", () => {
+  const { run, storage } = createHarness();
+  storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
+    { runId: "1", writingGuideUnlocked: true, politicoUnlocked: true }
+  ]));
+  const state = JSON.parse(run("JSON.stringify(loadGameState())"));
+  assert.equal(state.writingGuideUnlocked, true);
+  assert.equal(state.politicoUnlocked, true);
+});
+
+test("crowd work stays locked until Carvalho unlocks it", () => {
+  const { run } = createHarness();
+  run("state = loadGameState();");
+  assert.equal(run("getMaxCrowdWorkMinutes(3)"), 0);
+  run("state.crowdWorkUnlocked = true;");
+  assert.equal(run("getMaxCrowdWorkMinutes(3)"), 3);
+});
+
+test("study is capped at three actions per week", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.weeklyStudyCount = 3;");
+  assert.equal(run("canStudyThisWeek()"), false);
+  run("state.weeklyStudyCount = 2;");
+  assert.equal(run("canStudyThisWeek()"), true);
+});
+
+test("important event gigs can be scheduled as a fourth show", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.scheduledShows = [{showId:'a'},{showId:'b'},{showId:'c'}];");
+  assert.equal(run("addScheduledShow('veterano-turne', 4, 'event', { allowOverflow: true })"), true);
+  assert.equal(run("state.scheduledShows.length"), 4);
+});
+
+test("class endings require credible stage experience", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 70; state.chosenClass = 'roteirista'; state.hasEmployment = true;
+    state.texto = 50; state.routeCounters.rewriteCount = 4;
+    state.careerPathState.elencoGoodShowsCount = 1;
+    state.showHistory = Array.from({length: 5}, () => ({ nota: 4 }));
+  `);
+  assert.equal(run("resolveRunEndingCandidate()"), null);
 });

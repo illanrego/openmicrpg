@@ -9,6 +9,10 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships by Jul 23.
 
+## Active pre-production intake
+
+`SHIP_PLAN.md` collects final gameplay, onboarding, balance, and shipping changes. Do not implement its items until the user completes intake and explicitly starts the plan.
+
 ## Done (baseline as of 2026-07-10)
 
 - [x] V2 run schema / save migration path (schema 3)

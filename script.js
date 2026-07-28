@@ -67,7 +67,9 @@ function computeLegacyBonuses() {
     storytelling: false,
     prop: false,
     hack: archive.length >= 2 || dominantTones.has("hack"),
-    politico: dominantTones.has("político"),
+    politico: dominantTones.has("político") || archive.some(run => run.politicoUnlocked),
+    writingGuide: archive.some(run => run.writingGuideUnlocked),
+    crowdWork: archive.some(run => run.crowdWorkUnlocked),
     expandedClasses: archive.length >= 2
   };
 }
@@ -128,6 +130,14 @@ function getUnlockedStructures() {
   if (state && state.storytellingUnlocked) base.push("storytelling");
   if (state && state.propUnlocked) base.push("prop");
   return base;
+}
+
+function getMaxCrowdWorkMinutes(selectedJokeCount) {
+  return state?.crowdWorkUnlocked ? Math.min(3, Math.max(0, selectedJokeCount || 0)) : 0;
+}
+
+function canStudyThisWeek() {
+  return (state?.weeklyStudyCount || 0) < 3;
 }
 
 const toneDescriptions = {
@@ -1264,7 +1274,7 @@ function resolveRunEndingCandidate() {
   const day = state.currentDay || 1;
   const classId = state.careerPathState?.detectedClassId || state.chosenClass;
   const classRequirements = V2_PROGRESSION.classPaths?.[classId]?.endingRequirements;
-  if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
+  if (day >= (rules.classMinDay || 65) && classId && state.hasEmployment && metrics.showsPerformedCount >= (rules.classMinShows || 10) && metrics.elencoGoodShowsCount >= 1 && meetsHiddenRequirements(classRequirements, metrics)) {
     return decorateSuccessfulEndingCandidate({ id: `class:${classId}`, category: "class", classId });
   }
   if (hasInProgressCareerPath()) return null;
@@ -1480,6 +1490,9 @@ function finalizeRun(candidate) {
     dominantTone: toneProfile.dominantTone,
     dominantStructure: structureProfile.dominantStructure,
     pureEndingId: candidate.pureEnding?.id || null,
+    politicoUnlocked: !!state.politicoUnlocked,
+    writingGuideUnlocked: !!state.writingGuideUnlocked,
+    crowdWorkUnlocked: !!state.crowdWorkUnlocked,
     endTier: tier,
     score,
     day: state.currentDay
@@ -1536,10 +1549,10 @@ function getNearestScheduledShow() {
 function removeScheduledShow(entry) {
   state.scheduledShows = (state.scheduledShows || []).filter(s => s !== entry);
 }
-function addScheduledShow(showId, dayScheduled, showType = "normal") {
+function addScheduledShow(showId, dayScheduled, showType = "normal", options = {}) {
   if (!state.scheduledShows) state.scheduledShows = [];
-  if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS) return false;
-  state.scheduledShows.push({ showId, dayScheduled, showType });
+  if (state.scheduledShows.length >= MAX_SCHEDULED_SHOWS && !options.allowOverflow) return false;
+  state.scheduledShows.push({ showId, dayScheduled, showType, isEventGig: !!options.allowOverflow });
   incrementRouteCounter("showsScheduledCount");
   if (state.runState?.status === "active") setTimeout(() => maybeCheckProgressionGates({ resolveEnding: false }), 0);
   return true;
@@ -2513,6 +2526,7 @@ function advanceDays(count, options = {}) {
     if (state.currentWeekDay === 1) {
       state.currentWeek = (state.currentWeek || 1) + 1;
       state.eventsThisWeek = 0;
+      state.weeklyStudyCount = 0;
       ensureCareerProgressState();
       state.elencoCircuitState.weeklyGoalProgress = 0;
       state.elencoCircuitState.completedWeek = null;
@@ -2703,7 +2717,7 @@ function handleEventChoiceIndex(index) {
     const show = findShowById(choice.startShowId);
     if (show) {
       const daysAhead = Math.random() < 0.5 ? 1 : 2;
-      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, "normal");
+      const scheduled = addScheduledShow(show.id, state.currentDay + daysAhead, "event", { allowOverflow: !!choice.allowScheduleOverflow });
       updateStats();
       saveGameState();
       if (!scheduled) {
@@ -2798,6 +2812,9 @@ function loadGameState() {
     hackUnlocked: false,
     propUnlocked: false,
     politicoUnlocked: false,
+    writingGuideUnlocked: false,
+    crowdWorkUnlocked: false,
+    weeklyStudyCount: 0,
     toneTally: createDefaultToneTally(),
     structureTally: createDefaultStructureTally(),
     chosenClass: null, hasEmployment: false,
@@ -2825,6 +2842,8 @@ function loadGameState() {
       if (bonuses.hack) baseState.hackUnlocked = true;
       if (bonuses.prop) baseState.propUnlocked = true;
       if (bonuses.politico) baseState.politicoUnlocked = true;
+      if (bonuses.writingGuide) baseState.writingGuideUnlocked = true;
+      if (bonuses.crowdWork) baseState.crowdWorkUnlocked = true;
       return baseState;
     }
     const bonuses = computeLegacyBonuses();
@@ -2865,6 +2884,9 @@ function loadGameState() {
       hackUnlocked: !!parsed.hackUnlocked || bonuses.hack,
       propUnlocked: !!parsed.propUnlocked || bonuses.prop,
       politicoUnlocked: !!parsed.politicoUnlocked || bonuses.politico,
+      writingGuideUnlocked: !!parsed.writingGuideUnlocked || bonuses.writingGuide,
+      crowdWorkUnlocked: !!parsed.crowdWorkUnlocked || bonuses.crowdWork,
+      weeklyStudyCount: Math.max(0, parsed.weeklyStudyCount || 0),
       toneTally: normalizeToneTally(parsed.toneTally),
       structureTally: normalizeStructureTally(parsed.structureTally),
       level: getLevelTier(resolvedLevelNumber),
@@ -2928,6 +2950,9 @@ function saveGameState() {
     onelinerUnlocked: state.onelinerUnlocked, humorNegroUnlocked: state.humorNegroUnlocked,
     hackUnlocked: state.hackUnlocked, propUnlocked: state.propUnlocked,
     politicoUnlocked: state.politicoUnlocked,
+    writingGuideUnlocked: state.writingGuideUnlocked,
+    crowdWorkUnlocked: state.crowdWorkUnlocked,
+    weeklyStudyCount: state.weeklyStudyCount,
     toneTally: state.toneTally,
     structureTally: state.structureTally,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment,
@@ -3522,7 +3547,7 @@ function renderSetSummary() {
   const jokeMinutes = selectedJokes.reduce((sum, joke) => sum + joke.minutes, 0);
   const tones = [...new Set(selectedJokes.map((joke) => describeTone(joke.tone)))].join(" / ") || "—";
   const offeredMinutes = currentShow?.offeredMinutes || currentShow?.minMinutes || 5;
-  const maxCrowdMinutes = selectedJokes.length ? 3 : 0;
+  const maxCrowdMinutes = getMaxCrowdWorkMinutes(selectedJokes.length);
   currentShow.crowdWorkMinutes = clamp(currentShow.crowdWorkMinutes || 0, 0, maxCrowdMinutes);
   const crowdMinutes = currentShow.crowdWorkMinutes;
   const minutes = jokeMinutes + crowdMinutes;
@@ -3722,6 +3747,17 @@ function createJokeFromMode(modeId) {
   }
 
   exitWritingMode();
+  if (!state.writingGuideUnlocked) {
+    state.writingGuideUnlocked = true;
+    _pendingJokeIdea = idea;
+    _pendingJokeMode = mode;
+    _selectedTone = "besteirol";
+    _selectedStructure = "bit";
+    _customJokeTitle = formatIdeaTitle(idea);
+    finalizeJokeCreation();
+    queueCriticalDialog("🎓 Professor Carvalho\n\nSua primeira piada nasceu sem receita. Agora você vai aprender a escolher tom e estrutura para escrever com intenção.", [{ label: "Aprender", handler: () => {} }]);
+    return;
+  }
   showJokeCustomization(idea, mode);
 }
 
@@ -3981,10 +4017,11 @@ function presentShowOptions(availableShows) {
     const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
     const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
     const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
+    const difficultyTag = ` · dificuldade ${(show.difficulty * 100).toFixed(0)}%`;
     const venueRep = getVenueReputation(show.id);
     const repTag = ` · casa ${getVenueReputationTier(venueRep)} (${venueRep >= 0 ? "+" : ""}${venueRep})`;
     return {
-      label: `${label}${stageTag}${riskTag}${crowdTag}${repTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime}min oferecidos`,
+      label: `${label}${stageTag}${riskTag}${crowdTag}${difficultyTag}${repTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime} min oferecidos`,
       handler: () => { hideDialog(); scheduleShow(show, scheduledDay, showType); }
     };
   });
@@ -4180,6 +4217,10 @@ function performShow() {
     });
     tallyPerformedTones(setList);
     tallyPerformedStructures(setList, crowdWorkMinutes);
+    if (!state.crowdWorkUnlocked && (state.showHistory?.length || 0) >= 2) {
+      state.crowdWorkUnlocked = true;
+      queueCriticalDialog("🎓 Professor Carvalho\n\nDepois de duas noites, Carvalho libera crowd work: leia a sala e use até 3 minutos do set para conversar com o público sem abandonar o material.", [{ label: "Treinar leitura de sala", handler: () => {} }]);
+    }
     ensureCareerProgressState();
     if (nota >= 4) state.careerPathState.goodShowsCount += 1;
     if ((showPlayed.minMinutes || 0) >= 7 || showPlayed.isElencoCircuit) state.careerPathState.bigRoomShowsCount += 1;
@@ -4359,6 +4400,11 @@ function createContent() {
 function handleStudy() {
   if (uiMode === "event") return;
   exitSelectionMode();
+  if (!canStudyThisWeek()) {
+    shakeScreen();
+    displayNarration("📚 Você já estudou 3 vezes nesta semana. Teste, escreva ou descanse até a próxima semana.");
+    return;
+  }
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
   if (markCareerMilestone("firstStudy")) {
     maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
@@ -4366,6 +4412,7 @@ function handleStudy() {
   state.texto = clamp((state.texto || 0) + 4, 0, 200);
   state.motivation = clamp(state.motivation + 2, 0, 120);
   incrementRouteCounter("studyCount");
+  state.weeklyStudyCount = (state.weeklyStudyCount || 0) + 1;
   maybeCheckProgressionGates();
   const xpGain = applyXp(XP_GAIN.study);
   setScene("home");
