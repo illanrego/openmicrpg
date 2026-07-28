@@ -401,11 +401,11 @@
       ]
     },
     {
-      id: "ofertaDinheiro", trigger: "random",
-      text: "Uma empresa te oferece um bom dinheiro para fazer uma publi no palco. O produto é... questionável.",
+      id: "jogoDoTigrinho", trigger: "random", cooldown: 8,
+      text: "Uma casa de aposta quer que você divulgue o Jogo do Tigrinho no palco. O cachê e o alcance são altos, mas a proposta bate torto com parte do público e com o material que você vem construindo.",
       choices: [
-        { label: "Aceitar o dinheiro", effects: { fans: -10, motivation: 5, network: -5 }, narration: "Você faz a publi. O dinheiro ajuda, mas alguns fãs ficam decepcionados." },
-        { label: "Recusar com educação", effects: { fans: 8, motivation: 3 }, narration: "Você mantém sua integridade. Os fãs verdadeiros respeitam isso." }
+        { label: "Aceitar a publi", effects: { fans: 35, network: 10, motivation: -15, texto: -8 }, narration: "O alcance dispara e produtores passam seu contato, mas você sai do palco com menos vontade de escrever e uma conta criativa para pagar." },
+        { label: "Recusar e transformar a proposta em bit", effects: { texto: 15, motivation: 8, fans: -8 }, narration: "Você perde o alcance fácil, mas transforma a conversa em material e preserva o eixo do trabalho." }
       ]
     },
     {

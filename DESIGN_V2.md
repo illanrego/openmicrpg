@@ -112,24 +112,17 @@ The run ends when the comic reaches a point where clubs ask about a solo. Cut at
 
 The ending must be a dedicated full-screen game state, never a critical-dialog popup. Gameplay remains locked while this screen is active.
 
-Use a hybrid renderer:
+Use a direct-image renderer:
 
-- **Canvas 2D** composes the ending illustration.
+- **One finished PNG** renders the ending illustration.
 - **Semantic HTML/CSS** renders the ending title, prose, run summary, unlock reveal, archive status, and actions.
 - Do not render the whole interface inside Canvas.
 
-The initial artwork contract is a `1024x1024` canvas. Every visual layer must use that same size, alignment, and transparent safe area. Draw applicable layers in this order:
+The artwork contract is a square `1024×1024` finished illustration. It is selected by ending route and displayed directly; no visual layers, transparent safe areas, or draw order exist.
 
-1. base scene/background
-2. class
-3. dominant tone
-4. dominant structure
-5. pure or hidden path
-6. final lighting/effects
+The selected ending route determines the final illustration. Class, pure-tone, and special routes each receive one authored scene; prose and summary preserve the remaining route-specific detail without multiplying art assets by avatar or stat combination.
 
-The selected class, tone, structure, and route should each leave a visible mark on the final scene. This produces unique combination art without requiring one flattened source image for every possible ending.
-
-Layer paths and draw order belong in an ending-art manifest under `content/endings.js`; they must not be scattered through UI code. Missing optional layers should be skipped safely, while a base fallback always renders. Store layer identifiers (the **art recipe**) in the archive, not a Canvas bitmap or data URL.
+Ending art uses one finished, avatar-neutral illustration per ending route. Do not use a Canvas compositor, art-recipe manifest, or runtime layers. The selected avatar is never shown directly; illustrations use a generic silhouette/shadow, cropped figure, or no performer so one asset works for every avatar. Store a stable ending-art ID/path in the archive, not a bitmap or data URL.
 
 ### Show result art (no layering)
 
@@ -141,7 +134,7 @@ Show outcomes are **not** composed from transparent layers. Deliver **30 finishe
 - Keep `assets/scenes/performance/` as fallback until pairs exist
 - Details: `assets/scenes/results/README.md`
 
-Ending-run art (class/tone/structure/path/lighting layers under `assets/scenes/endings/`) is a separate system and is not mixed with show-result assets.
+Ending-run art is stored as finished class, pure-tone, and special-ending illustrations under `assets/scenes/endings/`; it is not mixed with show-result assets.
 
 ### Character Scope Decision
 
@@ -150,21 +143,21 @@ V2 does **not** include a player avatar builder, recolorable clothing, or modula
 The screen should reveal:
 
 - a named ending title
-- the composed illustration, with a short progressive layer reveal
+- the selected finished illustration
 - the ending prose
 - a concise summary of class, dominant tone, dominant structure, important path, days, and shows
 - newly unlocked options
 - `Nova corrida` and `Ver arquivo` actions
 
-The archive should display discovered ending art and conceal undiscovered endings without exposing their exact requirements. Canvas must have an equivalent text description for accessibility. A shareable image export can be added after the screen and archive are stable.
+The archive should display discovered ending art and conceal undiscovered endings without exposing their exact requirements. Every illustration must have an equivalent text description for accessibility. A shareable image export can be added after the screen and archive are stable.
 
 Recommended implementation sequence:
 
 1. replace the ending popup with the full-screen HTML shell
-2. add the manifest-driven Canvas compositor and fallback
-3. integrate class, tone, structure, and path layer assets
-4. persist the art recipe and add the ending gallery
-5. test layer selection, missing assets, archive restoration, and responsive rendering
+2. add direct finished-illustration lookup and a neutral fallback
+3. map class, pure-tone, and special ending IDs to finished illustration assets
+4. persist the ending-art ID and add the ending gallery
+5. test illustration selection, fallback behavior, archive restoration, and responsive rendering
 
 This presentation contract is independent of the final ending thresholds and prose, which are still being revised.
 

@@ -694,6 +694,7 @@ function createDefaultRunState(existing = {}) {
     ruleset: "v2",
     endingId: existing.endingId || null,
     pureEndingId: existing.pureEndingId || null,
+    endingArtId: existing.endingArtId || null,
     dominantStructure: existing.dominantStructure || null,
     endingTier: existing.endingTier || null,
     endingScore: Number.isFinite(existing.endingScore) ? existing.endingScore : null,
@@ -1327,6 +1328,17 @@ function getEndingTitle(candidate, tier) {
   return "O circuito reconhece";
 }
 
+function getEndingArtwork(candidate = {}) {
+  const artwork = V2_ENDINGS.artwork || {};
+  const fallback = artwork.fallback || { id: "fallback", path: "assets/scenes/endings/fallback.png", alt: "Palco vazio de um clube de comédia." };
+  const pureTone = candidate.pureEnding?.axis === "tone" ? candidate.pureEnding.value : null;
+  if (pureTone && artwork.pureTone?.[pureTone]) return artwork.pureTone[pureTone];
+  if (candidate.category === "class" && candidate.classId && artwork.class?.[candidate.classId]) return artwork.class[candidate.classId];
+  if (candidate.category === "failure" && artwork.special?.silencio) return artwork.special.silencio;
+  const specialId = String(candidate.specialId || candidate.id || "").replace(/^special:/, "");
+  return artwork.special?.[specialId] || fallback;
+}
+
 function getEndingCategoryLabel(candidate) {
   if (candidate.pureEnding?.axis) return candidate.pureEnding.axis === "tone" ? "puro de tom" : "puro de estrutura";
   if (candidate.category === "class") return "classe formada";
@@ -1387,6 +1399,7 @@ function buildEndingViewData(candidate, tier, toneProfile, structureProfile = ge
   return {
     title: getEndingTitle(candidate, tier),
     categoryLabel: getEndingCategoryLabel(candidate),
+    artwork: getEndingArtwork(candidate),
     paragraphs,
     summary: [
       ["Classe", getEndingLabel(candidate.classId || state.careerPathState?.detectedClassId || state.chosenClass, "Sem classe definida")],
@@ -1420,6 +1433,20 @@ function renderEndingSummary(summary = []) {
   });
 }
 
+function renderEndingArtwork(artwork) {
+  const image = elements.ending?.art;
+  if (!image) return;
+  const fallback = V2_ENDINGS.artwork?.fallback;
+  image.alt = artwork?.alt || fallback?.alt || "Ilustração do final da corrida.";
+  image.onerror = () => {
+    if (!fallback || image.src.endsWith(fallback.path)) return;
+    image.onerror = null;
+    image.src = fallback.path;
+    image.alt = fallback.alt || image.alt;
+  };
+  image.src = artwork?.path || fallback?.path || "assets/scenes/endings/fallback.png";
+}
+
 function showEndingScreen(candidate, tier, toneProfile, structureProfile = getStructureProfile()) {
   const ending = elements.ending;
   if (!ending?.screen || !elements.mainPanel) return false;
@@ -1436,6 +1463,7 @@ function showEndingScreen(candidate, tier, toneProfile, structureProfile = getSt
   }
   renderEndingSummary(view.summary);
   if (ending.unlocks) ending.unlocks.textContent = view.unlocks;
+  renderEndingArtwork(view.artwork);
   uiMode = "ending";
   setGameplayLocked(true);
   elements.mainPanel.classList.add("ending-active");
@@ -1462,7 +1490,8 @@ function renderFinalizedRun() {
       id: state.runState.pureEndingId,
       axis: state.runState.pureEndingId.split(":")[1],
       value: state.runState.pureEndingId.split(":").slice(2).join(":")
-    } : null
+    } : null,
+    endingArtId: state.runState.endingArtId
   };
   showEndingScreen(candidate, state.runState.endingTier, toneProfile, structureProfile);
 }
@@ -1473,9 +1502,11 @@ function finalizeRun(candidate) {
   const structureProfile = getStructureProfile();
   const score = calculateRunEndingScore();
   const tier = getRunEndingTier(score);
+  const artwork = getEndingArtwork(candidate);
   state.runState.status = "ended";
   state.runState.endingId = candidate.id;
   state.runState.pureEndingId = candidate.pureEnding?.id || null;
+  state.runState.endingArtId = artwork.id;
   state.runState.dominantStructure = structureProfile.dominantStructure;
   state.runState.endingTier = tier;
   state.runState.endingScore = score;
@@ -1490,6 +1521,7 @@ function finalizeRun(candidate) {
     dominantTone: toneProfile.dominantTone,
     dominantStructure: structureProfile.dominantStructure,
     pureEndingId: candidate.pureEnding?.id || null,
+    endingArtId: artwork.id,
     politicoUnlocked: !!state.politicoUnlocked,
     writingGuideUnlocked: !!state.writingGuideUnlocked,
     crowdWorkUnlocked: !!state.crowdWorkUnlocked,
@@ -3053,6 +3085,7 @@ function cacheElements() {
     motivation: document.querySelector("#motivationText"),
     texto: document.querySelector("#textoText"),
     entrega: document.querySelector("#entregaText"),
+    study: document.querySelector("#studyText"),
     day: document.querySelector("#dayText"),
     points: document.querySelector("#pointsText"),
     flow: document.querySelector("#flowText")
@@ -3063,6 +3096,7 @@ function cacheElements() {
   };
   elements.ending = {
     screen: document.querySelector("#endingScreen"),
+    art: document.querySelector("#endingArt"),
     eyebrow: document.querySelector("#endingEyebrow"),
     title: document.querySelector("#endingTitle"),
     prose: document.querySelector("#endingProse"),
@@ -3387,6 +3421,11 @@ function updateStats(animate = true) {
   if (animate && state.entrega !== old.entrega) { animateNumber(elements.stats.entrega, old.entrega, state.entrega, 400); animateStatChange('entrega', state.entrega > old.entrega); }
   else elements.stats.entrega.textContent = `${state.entrega}`;
 
+  if (elements.stats.study) {
+    const studyCount = normalizeRouteCounters(state.routeCounters).studyCount;
+    elements.stats.study.textContent = `${studyCount} total · ${state.weeklyStudyCount || 0}/3 semana`;
+  }
+
   const stage = getCareerStage();
   if (elements.buttons.write) {
     elements.buttons.write.textContent = stage === "open" ? "✏️ Escrever Piada" : "🧱 Trabalhar Texto";
@@ -3438,7 +3477,8 @@ function updateScheduledShowUI() {
       const lines = allShows.map(s => {
         const sShow = findShowById(s.showId);
         const d = s.dayScheduled - state.currentDay;
-        return `📅 ${sShow?.name || 'Show'} ${d === 0 ? 'HOJE' : `em ${d}d (${getDayName(s.dayScheduled)})`}`;
+        const eventTag = s.isEventGig ? ' · CONVITE ESPECIAL' : '';
+        return `📅 ${sShow?.name || 'Show'}${eventTag} ${d === 0 ? 'HOJE' : `em ${d}d (${getDayName(s.dayScheduled)})`}`;
       });
       elements.scheduledShowInfo.classList.remove('hidden');
       elements.scheduledShowText.textContent = lines.join(' | ');

@@ -74,6 +74,21 @@ test("show result art resolves by selected avatar and score", () => {
   assert.equal(run("getShowResultImage(3)"), "assets/scenes/results/avatar1/segurou.png");
 });
 
+test("ending art resolves to pure tone, class, Silêncio, or fallback", () => {
+  const { run } = createHarness();
+  assert.equal(run("getEndingArtwork({id:'class:roteirista', category:'class', classId:'roteirista'}).path"), "assets/scenes/endings/class/roteirista.png");
+  assert.equal(run("getEndingArtwork({id:'class:roteirista', category:'class', classId:'roteirista', pureEnding:{axis:'tone', value:'político'}}).path"), "assets/scenes/endings/pure-tone/politico.png");
+  assert.equal(run("getEndingArtwork({id:'failure', category:'failure'}).id"), "special:silencio");
+  assert.equal(run("getEndingArtwork({id:'unknown', category:'default'}).id"), "fallback");
+});
+
+test("finalized runs persist their resolved ending art ID", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); finalizeRun({id:'failure', category:'failure', classId:null});");
+  assert.equal(run("state.runState.endingArtId"), "special:silencio");
+  assert.equal(run("loadLegacyArchive()[0].endingArtId"), "special:silencio");
+});
+
 test("legacy archive grants only non-mentor options and no numeric advantage", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
@@ -392,4 +407,12 @@ test("class endings require credible stage experience", () => {
     state.showHistory = Array.from({length: 5}, () => ({ nota: 4 }));
   `);
   assert.equal(run("resolveRunEndingCandidate()"), null);
+});
+
+test("Jogo do Tigrinho offers a substantial reach-versus-craft tradeoff", () => {
+  const { run } = createHarness();
+  const event = JSON.parse(run("JSON.stringify(GAME_CONTENT.events.find(event => event.id === 'jogoDoTigrinho'))"));
+  assert.ok(event);
+  assert.ok(event.choices.some(choice => choice.effects.fans >= 30 && choice.effects.motivation <= -10 && choice.effects.texto < 0));
+  assert.ok(event.choices.some(choice => choice.effects.texto >= 12 && choice.effects.fans < 0));
 });

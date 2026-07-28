@@ -35,10 +35,9 @@ Target: dedicated full-screen state (DESIGN_V2):
 - [x] HTML/CSS ending shell (lock gameplay while active)
 - [x] Wire existing ending resolver output into shell (title, prose, summary, unlocks)
 - [x] Actions: `Nova corrida`, `Ver arquivo` (or history/archive equivalent)
-- [ ] Canvas compositor + art-recipe manifest (can start with base fallback only)
-- [ ] Progressive layer reveal if assets exist; skip missing layers safely
-- [ ] Accessibility text equivalent for canvas
-- [ ] Persist art recipe in archive (not bitmap)
+- [x] Resolve one finished avatar-neutral illustration per ending route
+- [ ] Accessibility text for ending illustrations
+- [x] Persist ending-art ID/path in archive (not bitmap)
 
 ### B. Playtest & polish
 
@@ -73,7 +72,7 @@ Target: dedicated full-screen state (DESIGN_V2):
 ### F. Art & polish
 - [x] Named NPC portraits: Rossini, Bruno, Douglas, Diego (user-supplied; copying into `assets/characters/`)
 - [x] Show result art: 30 finished images (`assets/scenes/results/<avatar>/<result>.png`) — no layering
-- [ ] Ending art layers (class / tone / structure / path / lighting) under `assets/scenes/endings/`
+- [x] Finished avatar-neutral ending illustrations: one per class, pure-tone, and special ending
 - [ ] Ending gallery in archive UI
 - [ ] Shareable ending image export
 - [ ] Copy polish pass across all ending tiers
@@ -102,8 +101,12 @@ Target: dedicated full-screen state (DESIGN_V2):
 - Wired show results to `assets/scenes/results/<avatar>/<result>.png`, with score-to-result lookup covered by the mechanics test suite.
 - Restored mobile narration focus: after a new message settles, mobile viewports scroll it into view while respecting reduced-motion preferences.
 
+### 2026-07-28
+- Produced the 17 standalone, avatar-neutral ending illustrations: five class scenes, six pure-tone scenes, five special scenes, and a shared neutral fallback under `assets/scenes/endings/`.
+- Wired the ending-art resolver, direct image rendering, fallback behavior, accessibility descriptions, and archive `endingArtId` persistence.
+
 ## Next session start here
 
 1. Manual playtest one successful class run: Event 1 → Event 2 → class → job offer → elenco → class ending
 2. Manual playtest one no-class/default/almost/failure run
-3. Ending Canvas/art-recipe (separate from show results), special endings, gallery — full DESIGN_V2 scope
+3. Finished avatar-neutral ending illustrations, special endings, gallery — full DESIGN_V2 scope

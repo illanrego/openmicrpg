@@ -1,6 +1,6 @@
 # Open Mic RPG — Pre-Production Implementation Plan
 
-> **Status: intake / planning only. Do not implement from this document yet.**
+> **Status: first implementation pass completed 2026-07-28.**
 >
 > This is the active place to collect the final gameplay, balance, onboarding, and shipping changes before production. Add decisions here, then convert agreed items into implementation phases.
 
@@ -12,7 +12,7 @@ Ship a 100-day career run where early learning, meaningful events, gig choices, 
 
 - Predefined characters; no avatar customizer in V2.
 - Show-result art is 30 finished result × avatar images, not runtime layers. See `assets/scenes/results/README.md`.
-- Ending presentation is a main-panel screen. Ending Canvas layers remain a separate future system.
+- Ending presentation is a main-panel screen. Ending art uses one finished, avatar-neutral illustration per ending route; no Canvas/layer system.
 - Legacy/archive unlocks grant options only, never stats.
 - Mentor-owned options (`humor negro`, `storytelling`, `prop`, `oneliner`) must stay mentor-owned and cannot be granted merely by levels, study, or archive completion.
 
@@ -23,14 +23,14 @@ Ship a 100-day career run where early learning, meaningful events, gig choices, 
 - The first ever `Escrever Piada` interaction must be generic: no tone picker and no content guide.
 - A lesson/tutorial then teaches the player how tone/content direction works and unlocks the first writing choices.
 - From the second run onward, those first writing choices start unlocked, as they do today.
-- Decide the exact lesson trigger and Carvalho copy before implementation.
+- Implemented: the first joke is generic, then Carvalho teaches tone/structure; the lesson carries into later runs.
 
 ### Crowd work unlock
 
 - Crowd work must not be available from day 1.
 - Unlock it later through a Professor Carvalho dialogue or a crowd-related character event/challenge.
 - The unlock needs a clear player-facing explanation and archive behavior for subsequent runs.
-- Decide the trigger: first show, a specific good/bad result, a show-count threshold, or a named NPC event.
+- Implemented: Carvalho unlocks it after the second performed show; it persists into later runs.
 
 ### Permanent option-unlock map
 
@@ -59,20 +59,18 @@ Initial known rules:
 
 - Rework the bad-advertising event into **Jogo do Tigrinho**.
 - It should present a meaningful decision, for example: follower/network gain or immediate money/visibility versus motivation loss, text damage, reputation/path pressure, or another real career cost.
-- Final wording, exact stats, and whether it is a one-time or repeatable event remain TBD.
+- Implemented as the random **Jogo do Tigrinho** event: reach/network versus text/motivation; the player can reject it and turn the pitch into material.
 
 ## Intake: study and resource economy
 
 ### Study tracking
 
 - Surface a player-visible metric for total times studied.
-- `routeCounters.studyCount` already exists in save state; decide where it appears and what it meaningfully affects.
+- Implemented: the top stat panel shows total studies and the current weekly count.
 
 ### Weekly study cap
 
-- Proposed cap: maximum 3 study actions per week.
-- Before implementation, simulate and manually playtest the impact on writer progression, level gain, activity-point economy, and the 100-day class timing.
-- Do not add the cap if it makes Roteirista thresholds or a normal full run unreasonably tight; adjust rewards/thresholds together if needed.
+- Implemented: maximum 3 study actions per week, reset each Monday. Automated mechanics coverage passes; a full manual balance playtest remains required before shipping.
 
 ## Intake: gigs and scheduling
 
@@ -86,13 +84,13 @@ Initial known rules:
 - Normal schedule remains capped at 3 gigs.
 - An important event may inject a fourth scheduled gig and bypass that normal cap, e.g. `Turnê do Veterano`.
 - The UI must clearly mark the exceptional opportunity and preserve it without silently replacing another gig.
-- Test collision behavior, day conflicts, and save/load restoration.
+- Implemented: event gigs use an explicit overflow flag, are retained in save state, and are marked as `CONVITE ESPECIAL` in the scheduled-show UI. Manual collision playtesting remains required.
 
 ## Intake: ending and balance review
 
 - Class endings must be reviewed for a credible minimum amount of real stage experience. The current Roteirista endpoint can be visually previewed with five gigs and needs balance review before shipping.
 - Re-test default, almost, failure, class, and pure endings after progression/economy changes.
-- Keep ending formatting shared across ending categories; only data, title, prose, and art recipe vary.
+- Keep ending formatting shared across ending categories; only data, title, prose, and resolved finished illustration vary.
 
 ## Required implementation order (after intake is complete)
 
