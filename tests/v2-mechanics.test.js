@@ -263,6 +263,38 @@ test("multi-day career events advance the clock without changing AP costs", () =
   assert.equal(run("state.activityPoints"), 2);
 });
 
+test("multi-day challenges pause for scheduled gigs and grant no activity points", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.currentDay = 15; state.currentWeekDay = 1; state.activityPoints = 1;
+    state.scheduledShows = [
+      {showId:'barzinho', dayScheduled:16, showType:'normal'},
+      {showId:'copo-sujo-comedy', dayScheduled:18, showType:'normal'}
+    ];
+    updateStats = () => {}; setScene = () => {}; refreshRouteInviteAvailability = () => {};
+    queueCriticalDialog = () => {}; displayNarration = () => {}; saveGameState = () => {};
+    maybeResolveRunEnding = () => false; checkEmploymentOffer = () => false;
+    const candidate = {classId:'roteirista', phase:1, config:V2_PROGRESSION.classPaths.roteirista.event1};
+    acceptCareerEvent(candidate);
+  `);
+  assert.equal(run("state.currentDay"), 16);
+  assert.equal(run("state.activityPoints"), 0);
+  assert.equal(run("state.scheduledShows[0].showId"), "barzinho");
+  assert.equal(run("state.careerPathState.event1ByClass.roteirista.status"), "accepted");
+  assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 2);
+
+  run("removeScheduledShow(state.scheduledShows[0]); continueCareerEventTimeAdvance();");
+  assert.equal(run("state.currentDay"), 18);
+  assert.equal(run("state.activityPoints"), 0);
+  assert.equal(run("state.scheduledShows[0].showId"), "copo-sujo-comedy");
+  assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 0);
+
+  run("removeScheduledShow(state.scheduledShows[0]); continueCareerEventTimeAdvance();");
+  assert.equal(run("state.careerPathState.event1ByClass.roteirista.status"), "completed");
+  assert.equal(run("state.careerPathState.activeTimeAdvance"), null);
+});
+
 test("automatic class assignment applies its bonus only once", () => {
   const { run } = createHarness();
   run("state = loadGameState(); ensureCareerProgressState(); updateStats = () => {}; checkEmploymentOffer = () => {}; queueCriticalDialog = () => {}; state.texto = 20; assignDetectedClass('roteirista'); assignDetectedClass('roteirista');");

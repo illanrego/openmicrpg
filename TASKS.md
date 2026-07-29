@@ -103,6 +103,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Produced the 17 standalone, avatar-neutral ending illustrations: five class scenes, six pure-tone scenes, five special scenes, and a shared neutral fallback under `assets/scenes/endings/`.
 - Wired the ending-art resolver, direct image rendering, fallback behavior, accessibility descriptions, and archive `endingArtId` persistence.
 - Added João Valio's Black House Comedy route: Se Vira nos 5 in Sorocaba, two-day travel scheduling, and a nota-dependent Black House Show de Elenco invitation.
+- Fixed multi-day career challenges so they pause for every scheduled gig instead of deleting crossed dates; gigs remain playable while challenge-period activity points stay at zero.
 
 ## Next session start here
 

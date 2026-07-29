@@ -728,7 +728,22 @@ function createDefaultCareerPathState(existing = {}) {
     bigRoomShowsCount: Math.max(0, Math.round(existing.bigRoomShowsCount || 0)),
     elencoGoodShowsCount: Math.max(0, Math.round(existing.elencoGoodShowsCount || 0)),
     employmentDeclinedUntil: Math.max(0, Math.round(existing.employmentDeclinedUntil || 0)),
-    employmentOfferPending: !!existing.employmentOfferPending
+    employmentOfferPending: !!existing.employmentOfferPending,
+    activeTimeAdvance: normalizeCareerEventTimeAdvance(existing.activeTimeAdvance)
+  };
+}
+
+function normalizeCareerEventTimeAdvance(existing) {
+  if (!existing || typeof existing !== "object") return null;
+  const classId = V2_PROGRESSION.classPaths?.[existing.classId] ? existing.classId : null;
+  const phase = existing.phase === 2 ? 2 : existing.phase === 1 ? 1 : null;
+  if (!classId || !phase) return null;
+  return {
+    classId,
+    phase,
+    remainingDays: Math.max(0, Math.round(existing.remainingDays || 0)),
+    totalDays: Math.max(0, Math.round(existing.totalDays || 0)),
+    branchChoiceId: typeof existing.branchChoiceId === "string" ? existing.branchChoiceId : null
   };
 }
 
@@ -2062,19 +2077,40 @@ function acceptCareerEvent(candidate, branchChoice = null) {
   const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
   phaseMap[candidate.classId].status = "accepted";
   if (candidate.phase === 2) state.careerPathState.lockedPathId = candidate.classId;
+  state.careerPathState.activeTimeAdvance = {
+    classId: candidate.classId,
+    phase: candidate.phase,
+    remainingDays: candidate.config.durationDays,
+    totalDays: candidate.config.durationDays,
+    branchChoiceId: branchChoice?.id || null
+  };
   saveGameState();
-  advanceDays(candidate.config.durationDays, {
-    source: `class-event-${candidate.phase}`,
-    recoverMotivation: 0,
-    allowEvents: false,
-    allowCareerEvents: false,
-    narration: false
-  });
-  if (state.runState?.status === "ended") return;
-  phaseMap[candidate.classId].status = "completed";
-  phaseMap[candidate.classId].completedDay = state.currentDay;
-  if (candidate.phase === 2) {
-    const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event2`];
+  continueCareerEventTimeAdvance();
+}
+
+function promptCareerEventScheduledGig() {
+  const entry = getScheduledShowsForToday()[0];
+  if (!entry) return false;
+  const show = findShowById(entry.showId);
+  const showName = show?.name || "o show marcado";
+  queueCriticalDialog(
+    `📅 O desafio ocupa este dia, então você não recebe pontos de atividade. Mas ${showName} continua marcado e pode ser apresentado normalmente.`,
+    [{ label: `🎤 Ir para ${showName}`, handler: () => handleGoToScheduledShow() }],
+    { imageSrc: show?.image || "", imageAlt: showName }
+  );
+  return true;
+}
+
+function completeCareerEventTimeAdvance(activeAdvance) {
+  const active = normalizeCareerEventTimeAdvance(activeAdvance);
+  if (!active) return false;
+  const phaseMap = active.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
+  phaseMap[active.classId].status = "completed";
+  phaseMap[active.classId].completedDay = state.currentDay;
+  let branchChoice = null;
+  if (active.phase === 2) {
+    const content = V2_EVENTS.classEvents?.[`${active.classId}:event2`];
+    branchChoice = (content?.choices || []).find(choice => choice.id === active.branchChoiceId) || null;
     if (branchChoice) {
       applyEventEffects(branchChoice.effects || {});
       state.pathProgressState.choiceGroups[content.choiceGroup] = {
@@ -2085,13 +2121,59 @@ function acceptCareerEvent(candidate, branchChoice = null) {
         late: false
       };
       if (branchChoice.flag) state.pathProgressState.flags[branchChoice.flag] = true;
-      registerCareerChoice("class-event2-branch", { classId: candidate.classId, choiceId: branchChoice.id, flag: branchChoice.flag || null });
+      registerCareerChoice("class-event2-branch", { classId: active.classId, choiceId: branchChoice.id, flag: branchChoice.flag || null });
     }
-    assignDetectedClass(candidate.classId);
+    assignDetectedClass(active.classId);
   }
-  displayNarration(`⏩ ${candidate.config.durationDays} dias passaram nessa oportunidade.${branchChoice?.narration ? ` ${branchChoice.narration}` : ""}`);
+  state.careerPathState.activeTimeAdvance = null;
+  displayNarration(`⏩ ${active.totalDays} dias passaram nessa oportunidade.${branchChoice?.narration ? ` ${branchChoice.narration}` : ""}`);
   saveGameState();
   maybeCheckProgressionGates({ resolveEnding: false });
+  return true;
+}
+
+function continueCareerEventTimeAdvance() {
+  ensureCareerProgressState();
+  const active = normalizeCareerEventTimeAdvance(state.careerPathState.activeTimeAdvance);
+  if (!active || state.runState?.status === "ended") return false;
+  state.careerPathState.activeTimeAdvance = active;
+  state.activityPoints = 0;
+  if (getScheduledShowsForToday().length) {
+    saveGameState();
+    promptCareerEventScheduledGig();
+    return false;
+  }
+  if (active.remainingDays > 0) {
+    const advanced = advanceDays(active.remainingDays, {
+      source: `class-event-${active.phase}`,
+      recoverMotivation: 0,
+      grantActivityPoints: false,
+      stopAtScheduledShow: true,
+      allowEvents: false,
+      allowCareerEvents: false,
+      narration: false
+    });
+    active.remainingDays = Math.max(0, active.remainingDays - advanced);
+    state.careerPathState.activeTimeAdvance = active;
+  }
+  state.activityPoints = 0;
+  if (getScheduledShowsForToday().length) {
+    saveGameState();
+    promptCareerEventScheduledGig();
+    return false;
+  }
+  return active.remainingDays === 0 ? completeCareerEventTimeAdvance(active) : false;
+}
+
+function offerCareerEventContinuationAfterShow() {
+  const active = normalizeCareerEventTimeAdvance(state.careerPathState?.activeTimeAdvance);
+  if (!active) return false;
+  if (getScheduledShowsForToday().length) return promptCareerEventScheduledGig();
+  queueCriticalDialog(
+    "⏩ O show terminou. O restante do desafio ainda ocupa os próximos dias e continuará sem gerar pontos de atividade.",
+    [{ label: "Continuar o desafio", handler: () => continueCareerEventTimeAdvance() }]
+  );
+  return true;
 }
 
 function assignDetectedClass(classId) {
@@ -2618,7 +2700,7 @@ function advanceDays(count, options = {}) {
     advanced += 1;
     state.performedShowToday = false;
     state.currentWeekDay = (state.currentWeekDay + 1) % 7;
-    state.activityPoints = getMaxActivityPoints();
+    state.activityPoints = options.grantActivityPoints === false ? 0 : getMaxActivityPoints();
     state.scheduledShows = (state.scheduledShows || []).filter(entry => entry.dayScheduled >= state.currentDay);
     if (state.currentWeekDay === 1) {
       state.currentWeek = (state.currentWeek || 1) + 1;
@@ -2631,6 +2713,7 @@ function advanceDays(count, options = {}) {
     if (recoverMotivation) state.motivation = clamp(state.motivation + recoverMotivation, 0, 120);
     processFlowState();
     if (typeof maybeCheckProgressionGates === "function" && maybeCheckProgressionGates({ allowCareerEvents: false })) break;
+    if (options.stopAtScheduledShow && getScheduledShowsForToday().length) break;
   }
 
   updateStats();
@@ -4408,6 +4491,7 @@ function performShow() {
     refreshRouteInviteAvailability("show");
     checkFanMilestones();
     saveGameState();
+    offerCareerEventContinuationAfterShow();
   } finally {
     suspendCriticalDialogs = false;
     flushDeferredCriticalDialogs();

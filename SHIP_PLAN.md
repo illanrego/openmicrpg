@@ -94,6 +94,7 @@ The table is now active. Two archived completed runs guarantee `hack`, Ator Côm
 - An important event may inject a fourth scheduled gig and bypass that normal cap, e.g. `Turnê do Veterano`.
 - The UI must clearly mark the exceptional opportunity and preserve it without silently replacing another gig.
 - Implemented: event gigs use an explicit overflow flag, are retained in save state, and are marked as `CONVITE ESPECIAL` in the scheduled-show UI. Manual collision playtesting remains required.
+- Multi-day career challenges no longer erase gigs whose dates fall inside the challenge. Time advancement pauses on each scheduled-show day, the gig remains fully playable, and the challenge resumes afterward. Challenge days grant zero activity points; only those points are suppressed.
 
 ### Black House Comedy route
 
