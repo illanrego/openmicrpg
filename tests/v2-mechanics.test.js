@@ -189,18 +189,23 @@ test("all Event 2 paths contain an exclusive two-way branch", () => {
   assert.equal(run("V2_PROGRESSION.classOrder.every(id => V2_EVENTS.classEvents[`${id}:event2`].choices.length === 2)"), true);
 });
 
-test("accepting Event 2 records its branch before assigning the class", () => {
+test("Event 2 records its branch and assigns the class after its manual-day period", () => {
   const { run } = createHarness();
   run(`
     state = loadGameState(); ensureCareerProgressState();
     queueCriticalDialog = () => {}; updateStats = () => {}; checkEmploymentOffer = () => {}; displayNarration = () => {};
-    advanceDays = days => { state.currentDay += days; return days; };
+    setScene = () => {}; refreshRouteInviteAvailability = () => {}; maybeResolveRunEnding = () => false;
     state.currentDay = 40;
     state.careerPathState.event1ByClass.roteirista.status = 'completed';
     const candidate = {classId:'roteirista',phase:2,config:V2_PROGRESSION.classPaths.roteirista.event2};
     const branch = V2_EVENTS.classEvents['roteirista:event2'].choices[0];
     acceptCareerEvent(candidate, branch);
+    globalThis.dayWhenAccepted = state.currentDay;
+    globalThis.classWhenAccepted = state.chosenClass;
+    advanceDays(candidate.config.durationDays, {recoverMotivation:0, allowEvents:false, allowCareerEvents:false, narration:false});
   `);
+  assert.equal(run("dayWhenAccepted"), 40);
+  assert.equal(run("classWhenAccepted"), null);
   assert.equal(run("state.chosenClass"), "roteirista");
   assert.equal(run("state.pathProgressState.choiceGroups['class-event2:roteirista'].choiceId"), "punch-up");
   assert.equal(run("state.pathProgressState.flags['roteirista-punch-up']"), true);
@@ -263,34 +268,46 @@ test("multi-day career events advance the clock without changing AP costs", () =
   assert.equal(run("state.activityPoints"), 2);
 });
 
-test("multi-day challenges pause for scheduled gigs and grant no activity points", () => {
+test("multi-day challenges do not skip time and suppress AP during manually played days", () => {
   const { run } = createHarness();
   run(`
     state = loadGameState(); ensureCareerProgressState();
     state.currentDay = 15; state.currentWeekDay = 1; state.activityPoints = 1;
     state.scheduledShows = [
       {showId:'barzinho', dayScheduled:16, showType:'normal'},
-      {showId:'copo-sujo-comedy', dayScheduled:18, showType:'normal'}
+      {showId:'se-vira-nos-5', dayScheduled:17, showType:'special-invite'}
     ];
-    updateStats = () => {}; setScene = () => {}; refreshRouteInviteAvailability = () => {};
-    queueCriticalDialog = () => {}; displayNarration = () => {}; saveGameState = () => {};
+    globalThis.challengeNarration = ''; globalThis.challengeSceneChanges = 0;
+    updateStats = () => {}; setScene = () => { globalThis.challengeSceneChanges += 1; }; refreshRouteInviteAvailability = () => {};
+    queueCriticalDialog = () => {}; displayNarration = (text) => { globalThis.challengeNarration = text; }; saveGameState = () => {};
     maybeResolveRunEnding = () => false; checkEmploymentOffer = () => false;
+    maybeTriggerEvent = () => false; maybeTriggerCarvalhoDialog = () => false;
     const candidate = {classId:'roteirista', phase:1, config:V2_PROGRESSION.classPaths.roteirista.event1};
     acceptCareerEvent(candidate);
   `);
-  assert.equal(run("state.currentDay"), 16);
+  assert.equal(run("state.currentDay"), 15);
   assert.equal(run("state.activityPoints"), 0);
   assert.equal(run("state.scheduledShows[0].showId"), "barzinho");
   assert.equal(run("state.careerPathState.event1ByClass.roteirista.status"), "accepted");
+  assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 3);
+  assert.doesNotMatch(run("challengeNarration"), /dias passaram/);
+  assert.equal(run("challengeSceneChanges"), 0);
+
+  run("advanceDay()");
+  assert.equal(run("state.currentDay"), 16);
+  assert.equal(run("state.activityPoints"), 0);
+  assert.equal(run("state.scheduledShows[0].showId"), "barzinho");
   assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 2);
 
-  run("removeScheduledShow(state.scheduledShows[0]); continueCareerEventTimeAdvance();");
-  assert.equal(run("state.currentDay"), 18);
+  run("removeScheduledShow(state.scheduledShows[0]); advanceDay()");
+  assert.equal(run("state.currentDay"), 17);
   assert.equal(run("state.activityPoints"), 0);
-  assert.equal(run("state.scheduledShows[0].showId"), "copo-sujo-comedy");
-  assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 0);
+  assert.equal(run("state.scheduledShows[0].showId"), "se-vira-nos-5");
+  assert.equal(run("state.careerPathState.activeTimeAdvance.remainingDays"), 1);
 
-  run("removeScheduledShow(state.scheduledShows[0]); continueCareerEventTimeAdvance();");
+  run("removeScheduledShow(state.scheduledShows[0]); advanceDay()");
+  assert.equal(run("state.currentDay"), 18);
+  assert.equal(run("state.activityPoints"), 1);
   assert.equal(run("state.careerPathState.event1ByClass.roteirista.status"), "completed");
   assert.equal(run("state.careerPathState.activeTimeAdvance"), null);
 });
