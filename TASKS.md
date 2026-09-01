@@ -22,7 +22,7 @@ Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships
 - [x] Generic + pure ending resolution
 - [x] Ending copy in `content/endings.js`
 - [x] Legacy archive option unlocks
-- [x] Mechanics test suite green (`38/38` via `node --test tests/v2-mechanics.test.js`)
+- [x] Mechanics test suite green (`39/39` via `node --test tests/v2-mechanics.test.js`; last verified 2026-08-31)
 
 ## Now — ship blockers / highest value
 
@@ -105,16 +105,21 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Added João Valio's Black House Comedy route: Se Vira nos 5 in Sorocaba, two-day travel scheduling, and a nota-dependent Black House Show de Elenco invitation.
 - Simplified multi-day career challenges: accepting one never advances time or replaces the current scene. The player advances days normally with zero activity points during the challenge; scheduled gigs and all zero-cost actions remain usable.
 
+### 2026-08-17
+- Illan reported (forgot to log earlier): multiple playtests done since 2026-07-28; game WORKS and is functionally FINISHED. New remaining work: comedy-theory insertion points, a few adjustments, near-total player-facing text rewrite.
+
+### 2026-08-20
+- Agreed the comedy-theory insertion direction (designed, NOT implemented): (1) Study action returns varied PT theory text per press on the same button — stats/XP/counters unchanged, rotating content pool in `content/world.js` consumed at `script.js:4596`; (2) more Carvalho dialog beats added via the existing milestone pattern. Recorded as intake in `SHIP_PLAN.md` "Intake: comedy-theory insertion".
+
+### 2026-08-31
+- Wired available character portraits into NPC/path events: Rossini mentor events now use `assets/characters/rossini.png`, and Douglas Ferreira's event uses `assets/characters/douglao.png`. Verified all content image references exist and mechanics tests pass (`39/39`).
+
 ## Next session start here
 
-1. Manual playtest one successful class run: Event 1 → Event 2 → class → job offer → elenco → class ending
-2. Manual playtest one no-class/default/almost/failure run
-3. Complete the player-facing Portuguese copy and terminology pass
-4. Implement the ending gallery in the archive: show discovered ending art, conceal undiscovered endings, and restore art from archived `endingArtId`
-5. Add shareable ending-image export after the gallery is stable
-6. Polish first-run onboarding for writing, crowd work, hidden class discovery, and legacy progression
-7. Update README to describe the shipped V2 accurately, including automatic class detection, six avatars, endings, persistence, and local play
-8. Confirm the production URL, deploy, then smoke-test the deployed build on mobile and desktop
+1. Design the NEW comedy-theory insertion points (with Illan) — where theory content lands in the run
+2. Adjustment pass — the few gameplay tweaks Illan has in mind
+3. Text rewrite — player-facing Portuguese copy almost entirely rewritten
+4. Then the pre-ship items: ending gallery, shareable ending export, first-run onboarding, README, deploy + smoke test
 
 ## Explicitly not blocking 1.0
 

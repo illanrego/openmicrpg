@@ -115,6 +115,22 @@ The table is now active. Two archived completed runs guarantee `hack`, Ator Côm
 - Re-test default, almost, failure, class, and pure endings after progression/economy changes.
 - Keep ending formatting shared across ending categories; only data, title, prose, and resolved finished illustration vary.
 
+## Intake: comedy-theory insertion (agreed 2026-08-20, design only — implementation deferred)
+
+Direction chosen by Illan. Two pieces, both meant to put real comedy-theory text into the run. No new UI/systems required. Keep all player-facing prose in `content/*.js`, not hardcoded in `script.js`.
+
+### Study — varied text outcomes, same button
+
+- **Current:** `handleStudy()` at `script.js:4576`. One button; a fixed single narration line at `script.js:4596` ("Você mergulha em especiais, podcasts e livros de comédia…"). Stats identical every press: -1 AP, +4 texto, +2 motivation, +15 XP (`XP_GAIN.study`), `studyCount++` and `weeklyStudyCount++` (capped 3/week via `canStudyThisWeek`, `script.js:139`).
+- **Change:** keep the one button and all stat/XP/counter behavior. Each Study press returns a **different** theory/lesson line, drawn from a rotating PT content pool (tone×venue craft, structure, delivery, crowd work, stage energy). Avoid immediate repeats; allow reuse once the pool has cycled. Only the narration text (line 4596) varies.
+- **Where:** new `studyLines` (or equivalent) pool on `OpenMicRpgContent` in `content/world.js`; consumed in `handleStudy`. Match the existing Brazilian comedy-circuit voice.
+
+### More Carvalho dialog beats
+
+- **Current:** 12 Carvalho dialogs, ids `carvalho-*` at `content/events.js:135-256`, fired via `maybeTriggerCarvalhoDialog` + career milestones.
+- **Change:** add more, deliberate craft-lesson beats — additional stage transitions and craft milestones (candidates to design later: a "consolidated set" beat, a follow-up after N studies, a mentor-fork follow-up, deep-elenco milestone, etc.). Follow the existing milestone/dialog pattern.
+- **Where:** content in `content/events.js`; trigger wiring in the same `maybeTriggerCarvalhoDialog`/milestone path used today. Add mechanics tests for any purely mechanical new trigger.
+
 ## Required implementation order (after intake is complete)
 
 1. Finalize the permanent unlock table and tutorial triggers.

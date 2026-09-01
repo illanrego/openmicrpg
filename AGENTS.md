@@ -7,6 +7,11 @@ Portable project rules for Hermes, Codex, Claude Code, etc.
 Finish and ship V2 by **2026-07-23**. Playable 100-day roguelite stand-up career sim.
 Cliffhanger ending: clubs ask about a solo — "E como eu monto meu solo?"
 
+## UI conventions (Illan-defined)
+
+- HUD icons use stable layout slots when populated — no drift with label length.
+- Location guides are map-first.
+
 ## Source of truth
 
 | File | Use |

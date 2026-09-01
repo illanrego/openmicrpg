@@ -85,7 +85,7 @@
         requirements: { levelNumber: 3, showsPerformedCount: 1 },
         title: "Rossini Luz — Uma escolha de linguagem",
         text: "Rossini oferece um ciclo intensivo. Há tempo para aprofundar apenas uma linguagem agora; a outra pode voltar depois, quando já não definir esta corrida.",
-        image: "assets/scenes/writing/notebook3.png",
+        image: "assets/characters/rossini.png",
         choices: [
           { id: "humor-negro", label: "Aprofundar humor negro", unlock: "humorNegro", specialization: "humor-negro", effects: { texto: 18, entrega: 4 }, narration: "Rossini trabalha tensão, limite e ponto de vista. Você sai com uma linguagem perigosa e uma responsabilidade maior." },
           { id: "storytelling", label: "Aprofundar storytelling", unlock: "storytelling", specialization: "storytelling", effects: { texto: 14, entrega: 8 }, narration: "Rossini desmonta histórias em tensão, viradas e payoff. Você sai sabendo sustentar uma narrativa inteira." }
@@ -116,7 +116,7 @@
         requirements: { showsPerformedCount: 6 },
         title: "Rossini Luz — O caminho que ficou para depois",
         text: "Rossini retoma a conversa antiga. Ainda dá para aprender a outra linguagem, mas já é tarde para ela definir esta corrida.",
-        image: "assets/scenes/writing/notebook3.png"
+        image: "assets/characters/rossini.png"
       },
       {
         id: "gabriel-revisita",
@@ -471,6 +471,7 @@
     // ─── New NPCs ───
     {
       id: "douglasFerreiraReading", trigger: "random", isCharacterEvent: true,
+      image: "assets/characters/douglao.png",
       text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
       choices: [
         { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, muda o tom. Se a galera tá rindo antes de você falar, acelera.' Você absorve cada palavra." },
