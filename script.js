@@ -729,6 +729,7 @@ function createDefaultCareerPathState(existing = {}) {
     elencoGoodShowsCount: Math.max(0, Math.round(existing.elencoGoodShowsCount || 0)),
     employmentDeclinedUntil: Math.max(0, Math.round(existing.employmentDeclinedUntil || 0)),
     employmentOfferPending: !!existing.employmentOfferPending,
+    crossroadsDeclinedUntil: Math.max(0, Math.round(existing.crossroadsDeclinedUntil || 0)),
     activeTimeAdvance: normalizeCareerEventTimeAdvance(existing.activeTimeAdvance)
   };
 }
@@ -1993,6 +1994,46 @@ function isClassPathAvailable(classId) {
   return !!path && loadLegacyArchive().length >= (path.availableAfterRuns || 0);
 }
 
+function getCareerCrossroadsRules() {
+  return {
+    minDay: 32,
+    maxDay: 60,
+    minShowsPerformed: 6,
+    maxOptions: 4,
+    declineCooldownDays: 7,
+    ...(V2_PROGRESSION.careerCrossroads || {})
+  };
+}
+
+function hasStartedCareerPathEvent1() {
+  return Object.values(state.careerPathState?.event1ByClass || {})
+    .some(entry => ["pending", "accepted", "completed"].includes(entry?.status));
+}
+
+function getEligibleCareerCrossroadsCandidates() {
+  ensureCareerProgressState();
+  if (state.runState.status !== "active" || state.careerPathState.lockedPathId || hasStartedCareerPathEvent1()) return [];
+  const rules = getCareerCrossroadsRules();
+  const day = state.currentDay || 1;
+  if (day < rules.minDay || day > rules.maxDay || day < (state.careerPathState.crossroadsDeclinedUntil || 0)) return [];
+  const metrics = getCareerMetrics();
+  if (metrics.showsPerformedCount < rules.minShowsPerformed) return [];
+  const candidates = [];
+  (V2_PROGRESSION.classOrder || []).forEach((classId, order) => {
+    if (!isClassPathAvailable(classId)) return;
+    const path = V2_PROGRESSION.classPaths[classId];
+    const first = state.careerPathState.event1ByClass[classId];
+    if (!["unseen", "pending"].includes(first?.status)) return;
+    const config = path.event1;
+    if (first.status === "pending" || meetsHiddenRequirements(config.requirements, metrics)) {
+      candidates.push({ classId, phase: 1, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
+    }
+  });
+  return candidates
+    .sort((a, b) => b.readiness - a.readiness || a.order - b.order)
+    .slice(0, rules.maxOptions);
+}
+
 function getEligibleCareerEvents() {
   ensureCareerProgressState();
   if (state.runState.status !== "active" || state.careerPathState.lockedPathId) return [];
@@ -2014,12 +2055,13 @@ function getEligibleCareerEvents() {
       }
       return;
     }
-    if (["unseen", "pending"].includes(first?.status)) {
+    if (["unseen", "pending"].includes(first?.status) && !hasStartedCareerPathEvent1()) {
+      const rules = getCareerCrossroadsRules();
       const config = path.event1;
-      const isInOfferWindow = day >= config.minDay && day <= config.maxDay;
+      const isInOfferWindow = day >= rules.minDay && day <= rules.maxDay;
       const isLateQualifiedPath = day >= (V2_PROGRESSION.endingRules?.default?.minDay || 90)
         && day < (V2_PROGRESSION.endingRules?.failureDay || 100);
-      if (first.status === "pending" || ((isInOfferWindow || isLateQualifiedPath) && meetsHiddenRequirements(config.requirements, metrics))) {
+      if (metrics.showsPerformedCount >= rules.minShowsPerformed && (first.status === "pending" || ((isInOfferWindow || isLateQualifiedPath) && meetsHiddenRequirements(config.requirements, metrics)))) {
         candidates.push({ classId, phase: 1, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
       }
     }
@@ -2034,11 +2076,7 @@ function hasInProgressCareerPath() {
     .some(event => ["pending", "accepted"].includes(event?.status));
 }
 
-function maybeOfferCareerEvent() {
-  if (careerEventDialogPending || pathEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
-  if (maybeOfferPathEvent()) return true;
-  const candidate = getEligibleCareerEvents()[0];
-  if (!candidate) return false;
+function queueCareerEventDialog(candidate) {
   const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
   phaseMap[candidate.classId].status = "pending";
   const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event${candidate.phase}`];
@@ -2071,6 +2109,50 @@ function maybeOfferCareerEvent() {
     });
   queueCriticalDialog(`${content.title}\n\n${content.text}\n\nEssa oportunidade ocupa ${candidate.config.durationDays} dia(s).`, pathChoices, { imageSrc: content.image || "", imageAlt: content.title, imageIsCharacter: candidate.phase === 2 });
   return true;
+}
+
+function maybeOfferCareerCrossroads(candidates) {
+  if (!candidates.length) return false;
+  careerEventDialogPending = true;
+  saveGameState();
+  const choices = candidates.map(candidate => {
+    const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event1`];
+    const cls = CLASSES[candidate.classId];
+    return {
+      label: `Seguir como ${cls?.name || content?.title || candidate.classId}`,
+      handler: () => {
+        careerEventDialogPending = false;
+        acceptCareerEvent(candidate);
+      }
+    };
+  });
+  choices.push({
+    label: "Ainda estou me encontrando no palco",
+    handler: () => {
+      const rules = getCareerCrossroadsRules();
+      careerEventDialogPending = false;
+      state.careerPathState.crossroadsDeclinedUntil = (state.currentDay || 1) + (rules.declineCooldownDays || 7);
+      saveGameState();
+      maybeCheckProgressionGates({ resolveEnding: false });
+    }
+  });
+  const lines = candidates.map(candidate => {
+    const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event1`];
+    const cls = CLASSES[candidate.classId];
+    return `• ${cls?.name || candidate.classId}: ${content?.text || "uma porta possível no circuito."}`;
+  }).join("\n");
+  queueCriticalDialog(`🎭 Encruzilhada da carreira\n\nDepois de várias noites de palco, o circuito começa a te puxar para caminhos diferentes. Essas portas aparecem pelo que você fez até aqui — escolha qual oportunidade perseguir agora.\n\n${lines}`, choices, { imageSrc: "assets/scenes/performance/great-show-4-out-5.png", imageAlt: "Encruzilhada da carreira" });
+  return true;
+}
+
+function maybeOfferCareerEvent() {
+  if (careerEventDialogPending || pathEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
+  const phase2Candidate = getEligibleCareerEvents().find(candidate => candidate.phase === 2);
+  if (phase2Candidate) return queueCareerEventDialog(phase2Candidate);
+  const crossroadsCandidates = getEligibleCareerCrossroadsCandidates();
+  if (crossroadsCandidates.length) return maybeOfferCareerCrossroads(crossroadsCandidates);
+  if (maybeOfferPathEvent()) return true;
+  return false;
 }
 
 function acceptCareerEvent(candidate, branchChoice = null) {

@@ -518,7 +518,7 @@ Day 1        → Open Mic (level 1), bit + base tones
 Level 2+     → Perk points available (1 per level)
 Days 15-35  → Rossini and Gabriel hidden mentor forks
 Level 5      → "hack" unlocked
-Days 15-30  → Hidden-threshold class Event 1 window
+Day 32-60   → Career Crossroads: 6+ performed shows, then one chosen class door from eligible hidden counters
 Days 40-55  → Hidden-threshold class Event 2 window with two-way branch
 Level 6      → ELENCO stage; class assignment remains event-driven
 Day 65+     → Earliest class ending

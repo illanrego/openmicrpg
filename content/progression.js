@@ -4,6 +4,13 @@
   content.progression = {
     maxLevel: 10,
     classOrder: ["comicoClassico", "roteirista", "produtor", "atorComico", "influencer"],
+    careerCrossroads: {
+      minDay: 32,
+      maxDay: 60,
+      minShowsPerformed: 6,
+      maxOptions: 4,
+      declineCooldownDays: 7
+    },
     classPaths: {
       comicoClassico: {
         availableAfterRuns: 0,

@@ -44,7 +44,7 @@
 
 Classes are assigned based on behavior counters and event outcomes. No menu choice.
 
-| Class | Key Counters | Event 1 "A Porta" (day 15-30, 3 days) | Event 2 "A Virada" (day 40-55, 7-14 days) |
+| Class | Key Counters | Career Crossroads option (day 32-60, 6+ performed shows) | Event 2 "A Virada" (day 40-55, 7-14 days) |
 |-------|-------------|------|------|
 | Cômico Clássico | `consecutiveGoodShows`, `showsScheduledCount` | Fill weekly lineup slot | Veteran asks you to open — outcome from show consistency |
 | Roteirista | `texto`, `writeCount`, `rewriteCount` | Help a comic punch up a set | Writer room sees your material — outcome from texto |
@@ -52,9 +52,9 @@ Classes are assigned based on behavior counters and event outcomes. No menu choi
 | Ator Cômico | `entrega`, big room shows | Casting director in audience | Sketch/acting project invite — outcome from entrega |
 | Influencer | `fans`, `contentCount` | Viral clip opportunity | Brand collab / podcast circuit — outcome from fans |
 
-- Event 1s can be accepted freely (3 days each). They start the path.
-- Event 2s cost 7-14 days, no AP during that period, image + fast-forward text.
-- Event 2 appears only when its hidden deterministic thresholds are met.
+- The Career Crossroads appears once the player has enough stage evidence (day 32-60, at least 6 performed shows) and offers up to four eligible class doors based on hidden counters.
+- Choosing a Crossroads option starts that path and suppresses other class Event 1 offers for the run.
+- Event 2 appears only for the chosen path when its later requirements are met.
 - Each Event 2 has two exclusive approaches with different large bonuses and a persistent path flag.
 - Choosing an Event 2 approach locks and assigns that class after its multi-day fast-forward.
 

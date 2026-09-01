@@ -105,6 +105,7 @@ The table is now active. Two archived completed runs guarantee `hack`, Ator Côm
 
 ## Intake: ending and balance review
 
+- Implemented class-path flow: instead of showing multiple separate Event 1 popups, the game now waits until day 32-60 with at least 6 performed shows, then presents a single **Encruzilhada da carreira** with up to four eligible doors. The player chooses the probable ending path; Event 2 remains the later commitment/lock for only that chosen path.
 - Implemented special endings, all using their finished avatar-neutral scene art:
   - **Bastidor Sombrio:** successful Produtor ending, dominant `humor negro`, and Rossini's early humor-negro specialization.
   - **Profeta do Caos:** a successful ending with `político` and `humor negro` each at 40–60%, plus three structures.

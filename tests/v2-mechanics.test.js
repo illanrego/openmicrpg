@@ -140,14 +140,14 @@ test("Professor saves migrate without losing the run", () => {
   assert.equal(state.runState.status, "active");
 });
 
-test("hidden class event thresholds trigger only at the boundary", () => {
+test("hidden class event thresholds trigger only at the career crossroads boundary", () => {
   const { run } = createHarness();
-  run("state = loadGameState(); ensureCareerProgressState(); state.currentDay = 15; state.routeCounters.showsScheduledCount = 4; state.careerPathState.goodShowsCount = 1;");
+  run("state = loadGameState(); ensureCareerProgressState(); state.currentDay = 32; state.routeCounters.showsScheduledCount = 4; state.showHistory = Array.from({length:6}, () => ({nota:4})); state.careerPathState.goodShowsCount = 1;");
   assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'comicoClassico' && item.phase === 1)"), false);
   run("state.careerPathState.goodShowsCount = 2");
-  assert.equal(run("getEligibleCareerEvents()[0].classId"), "comicoClassico");
-  run("state.currentDay = 31");
-  assert.equal(run("getEligibleCareerEvents().length"), 0);
+  assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'comicoClassico' && item.phase === 1)"), true);
+  run("state.currentDay = 61");
+  assert.equal(run("getEligibleCareerEvents().some(item => item.classId === 'comicoClassico' && item.phase === 1)"), false);
 });
 
 test("Event 2 is deterministic and requires Event 1 completion", () => {
@@ -183,6 +183,51 @@ test("qualified class paths remain available ahead of the default ending", () =>
   run("state.careerPathState.event2ByClass.roteirista.status = 'accepted'");
   assert.equal(run("resolveRunEndingCandidate()"), null);
 });
+
+test("career crossroads does not appear before enough stage evidence", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.pathProgressState.choiceGroups['mentor:gabriel'] = { eventId: 'gabriel-especializacao', choiceId: 'oneliner', day: 20, specialization: 'oneliner', late: false };
+    state.pathProgressState.choiceGroups['mentor:rossini'] = { eventId: 'rossini-especializacao', choiceId: 'storytelling', day: 20, specialization: 'storytelling', late: false };
+    queueCriticalDialog = (...args) => { globalThis.careerPathDialog = args[0]; globalThis.careerPathChoices = args[1] || []; };
+    updateStats = () => {}; saveGameState = () => {}; maybeResolveRunEnding = () => false;
+    state.currentDay = 32;
+    state.texto = 42; state.network = 42;
+    state.routeCounters.writeCount = 10;
+    state.routeCounters.rewriteCount = 3;
+    state.routeCounters.showsScheduledCount = 9;
+    state.showHistory = Array.from({length:5}, () => ({nota:4}));
+  `);
+  assert.equal(run("maybeCheckProgressionGates({ resolveEnding: false })"), false);
+  assert.equal(run("globalThis.careerPathDialog || null"), null);
+});
+
+test("career crossroads consolidates eligible Event 1 paths into one player choice", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    state.pathProgressState.choiceGroups['mentor:gabriel'] = { eventId: 'gabriel-especializacao', choiceId: 'oneliner', day: 20, specialization: 'oneliner', late: false };
+    state.pathProgressState.choiceGroups['mentor:rossini'] = { eventId: 'rossini-especializacao', choiceId: 'storytelling', day: 20, specialization: 'storytelling', late: false };
+    queueCriticalDialog = (...args) => { globalThis.careerPathDialog = args[0]; globalThis.careerPathChoices = args[1] || []; };
+    updateStats = () => {}; saveGameState = () => {}; displayNarration = () => {};
+    refreshRouteInviteAvailability = () => {}; maybeResolveRunEnding = () => false;
+    state.currentDay = 32;
+    state.texto = 42; state.network = 42;
+    state.routeCounters.writeCount = 10;
+    state.routeCounters.rewriteCount = 3;
+    state.routeCounters.showsScheduledCount = 9;
+    state.showHistory = Array.from({length:6}, () => ({nota:4}));
+    state.careerPathState.goodShowsCount = 6;
+  `);
+  assert.equal(run("maybeCheckProgressionGates({ resolveEnding: false })"), true);
+  assert.match(run("careerPathDialog"), /Encruzilhada da carreira/);
+  assert.equal(run("JSON.stringify(careerPathChoices.map(choice => choice.label).filter(label => /Roteirista|Produtor/.test(label)).sort())"), JSON.stringify(["Seguir como Produtor", "Seguir como Roteirista"]));
+  run("careerPathChoices.find(choice => choice.label === 'Seguir como Produtor').handler()");
+  assert.equal(run("state.careerPathState.event1ByClass.produtor.status"), "accepted");
+  assert.equal(run("state.careerPathState.event1ByClass.roteirista.status"), "unseen");
+});
+
 
 test("all Event 2 paths contain an exclusive two-way branch", () => {
   const { run } = createHarness();
