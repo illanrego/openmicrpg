@@ -16,13 +16,13 @@ Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships
 ## Done (baseline as of 2026-07-10)
 
 - [x] V2 run schema / save migration path (schema 3)
-- [x] Class auto-detection via a single Career Crossroads choice (day 32-60, 6+ performed shows) followed by the chosen path's Event 2
+- [x] Class auto-detection via a Career Crossroads choice (day 32-60, 6+ performed shows) followed by a multi-path Event 2 commitment that can confirm or pivot to another eligible class
 - [x] Mentor forks (Rossini / Gabriel early + late)
 - [x] Crowd work + político tone
 - [x] Generic + pure ending resolution
 - [x] Ending copy in `content/endings.js`
 - [x] Legacy archive option unlocks
-- [x] Mechanics test suite green (`41/41` via `node --test tests/v2-mechanics.test.js`; last verified 2026-08-31)
+- [x] Mechanics test suite green (`42/42` via `node --test tests/v2-mechanics.test.js`; last verified 2026-08-31)
 
 ## Now — ship blockers / highest value
 
@@ -113,7 +113,8 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 
 ### 2026-08-31
 - Wired available character portraits into NPC/path events: Rossini mentor events now use `assets/characters/rossini.png`, and Douglas Ferreira's event uses `assets/characters/douglao.png`. Verified all content image references exist and mechanics tests pass (`39/39`).
-- Reworked career class Event 1 into a single **Encruzilhada da carreira** decision: after day 32, at least 6 performed shows, and hidden path evidence, the game shows up to four plausible class doors and the player chooses which one to pursue. Event 2 remains the later commitment/lock for only that chosen path. Mechanics tests pass (`41/41`).
+- Reworked career class Event 1 into a single **Encruzilhada da carreira** decision: after day 32, at least 6 performed shows, and hidden path evidence, the game shows up to four plausible class doors and the player chooses which one to pursue.
+- Reworked Event 2 into a **Virada da carreira** commitment when multiple paths qualify: the player can confirm the first direction or pivot to another eligible class (e.g. Roteirista → Cômico Clássico), with the initial path and pivot recorded. Mechanics tests pass (`42/42`).
 
 ## Next session start here
 

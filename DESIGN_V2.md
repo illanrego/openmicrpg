@@ -54,7 +54,7 @@ Classes are assigned based on behavior counters and event outcomes. No menu choi
 
 - The Career Crossroads appears once the player has enough stage evidence (day 32-60, at least 6 performed shows) and offers up to four eligible class doors based on hidden counters.
 - Choosing a Crossroads option starts that path and suppresses other class Event 1 offers for the run.
-- Event 2 appears only for the chosen path when its later requirements are met.
+- Event 2 can confirm the initial path or pivot to any other class whose Event 2 requirements are met by later play.
 - Each Event 2 has two exclusive approaches with different large bonuses and a persistent path flag.
 - Choosing an Event 2 approach locks and assigns that class after its multi-day fast-forward.
 

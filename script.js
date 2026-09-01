@@ -722,6 +722,8 @@ function createDefaultCareerPathState(existing = {}) {
     event1ByClass: normalizePhaseMap(existing.event1ByClass),
     event2ByClass: normalizePhaseMap(existing.event2ByClass),
     lockedPathId: V2_PROGRESSION.classPaths?.[existing.lockedPathId] ? existing.lockedPathId : null,
+    initialPathId: V2_PROGRESSION.classPaths?.[existing.initialPathId] ? existing.initialPathId : null,
+    pivotPathId: V2_PROGRESSION.classPaths?.[existing.pivotPathId] ? existing.pivotPathId : null,
     detectedClassId: V2_PROGRESSION.classPaths?.[existing.detectedClassId] ? existing.detectedClassId : null,
     classAssignedDay: Number.isFinite(existing.classAssignedDay) ? existing.classAssignedDay : null,
     goodShowsCount: Math.max(0, Math.round(existing.goodShowsCount || 0)),
@@ -2010,6 +2012,14 @@ function hasStartedCareerPathEvent1() {
     .some(entry => ["pending", "accepted", "completed"].includes(entry?.status));
 }
 
+function getInitialCareerPathId() {
+  const explicit = state.careerPathState?.initialPathId;
+  if (V2_PROGRESSION.classPaths?.[explicit]) return explicit;
+  const entry = Object.entries(state.careerPathState?.event1ByClass || {})
+    .find(([, value]) => ["accepted", "completed"].includes(value?.status));
+  return entry?.[0] || null;
+}
+
 function getEligibleCareerCrossroadsCandidates() {
   ensureCareerProgressState();
   if (state.runState.status !== "active" || state.careerPathState.lockedPathId || hasStartedCareerPathEvent1()) return [];
@@ -2040,18 +2050,19 @@ function getEligibleCareerEvents() {
   const day = state.currentDay || 1;
   const metrics = getCareerMetrics();
   const candidates = [];
+  const initialPathId = getInitialCareerPathId();
   (V2_PROGRESSION.classOrder || []).forEach((classId, order) => {
     if (!isClassPathAvailable(classId)) return;
     const path = V2_PROGRESSION.classPaths[classId];
     const first = state.careerPathState.event1ByClass[classId];
     const second = state.careerPathState.event2ByClass[classId];
-    if (first?.status === "completed" && ["unseen", "pending"].includes(second?.status)) {
+    if (initialPathId && ["unseen", "pending"].includes(second?.status)) {
       const config = path.event2;
       const isInOfferWindow = day >= config.minDay && day <= config.maxDay;
       const isLateQualifiedPath = day >= (V2_PROGRESSION.endingRules?.default?.minDay || 90)
         && day < (V2_PROGRESSION.endingRules?.failureDay || 100);
       if (second.status === "pending" || ((isInOfferWindow || isLateQualifiedPath) && meetsHiddenRequirements(config.requirements, metrics))) {
-        candidates.push({ classId, phase: 2, config, order, readiness: getRequirementReadiness(config.requirements, metrics) });
+        candidates.push({ classId, phase: 2, config, order, readiness: getRequirementReadiness(config.requirements, metrics), initialPathId });
       }
       return;
     }
@@ -2145,10 +2156,36 @@ function maybeOfferCareerCrossroads(candidates) {
   return true;
 }
 
+function maybeOfferCareerEvent2Crossroads(candidates) {
+  if (candidates.length <= 1) return false;
+  const initialPathId = getInitialCareerPathId();
+  careerEventDialogPending = true;
+  saveGameState();
+  const choices = candidates.map(candidate => {
+    const cls = CLASSES[candidate.classId];
+    return {
+      label: `${candidate.classId === initialPathId ? "Confirmar" : "Virar"} ${cls?.name || candidate.classId}`,
+      handler: () => {
+        careerEventDialogPending = false;
+        queueCareerEventDialog(candidate);
+      }
+    };
+  });
+  const lines = candidates.map(candidate => {
+    const content = V2_EVENTS.classEvents?.[`${candidate.classId}:event2`];
+    const cls = CLASSES[candidate.classId];
+    const prefix = candidate.classId === initialPathId ? "caminho inicial" : "virada possível";
+    return `• ${cls?.name || candidate.classId} (${prefix}): ${content?.text || "a oportunidade ficou séria."}`;
+  }).join("\n");
+  queueCriticalDialog(`🎭 Virada da carreira\n\nO primeiro caminho abriu a porta, mas a corrida mudou com o que você fez depois. Escolha qual oportunidade vai virar compromisso agora.\n\n${lines}`, choices, { imageSrc: "assets/scenes/performance/great-show-4-out-5.png", imageAlt: "Virada da carreira" });
+  return true;
+}
+
 function maybeOfferCareerEvent() {
   if (careerEventDialogPending || pathEventDialogPending || activeEvent || pendingEvent || state.runState?.status !== "active") return false;
-  const phase2Candidate = getEligibleCareerEvents().find(candidate => candidate.phase === 2);
-  if (phase2Candidate) return queueCareerEventDialog(phase2Candidate);
+  const phase2Candidates = getEligibleCareerEvents().filter(candidate => candidate.phase === 2);
+  if (phase2Candidates.length > 1) return maybeOfferCareerEvent2Crossroads(phase2Candidates);
+  if (phase2Candidates.length === 1) return queueCareerEventDialog(phase2Candidates[0]);
   const crossroadsCandidates = getEligibleCareerCrossroadsCandidates();
   if (crossroadsCandidates.length) return maybeOfferCareerCrossroads(crossroadsCandidates);
   if (maybeOfferPathEvent()) return true;
@@ -2158,7 +2195,13 @@ function maybeOfferCareerEvent() {
 function acceptCareerEvent(candidate, branchChoice = null) {
   const phaseMap = candidate.phase === 1 ? state.careerPathState.event1ByClass : state.careerPathState.event2ByClass;
   phaseMap[candidate.classId].status = "accepted";
-  if (candidate.phase === 2) state.careerPathState.lockedPathId = candidate.classId;
+  if (candidate.phase === 1 && !state.careerPathState.initialPathId) state.careerPathState.initialPathId = candidate.classId;
+  if (candidate.phase === 2) {
+    const initialPathId = getInitialCareerPathId();
+    state.careerPathState.initialPathId = initialPathId || candidate.classId;
+    state.careerPathState.lockedPathId = candidate.classId;
+    state.careerPathState.pivotPathId = initialPathId && initialPathId !== candidate.classId ? candidate.classId : null;
+  }
   state.careerPathState.activeTimeAdvance = {
     classId: candidate.classId,
     phase: candidate.phase,
@@ -2179,6 +2222,9 @@ function completeCareerEventTimeAdvance(activeAdvance) {
   phaseMap[active.classId].status = "completed";
   phaseMap[active.classId].completedDay = state.currentDay;
   let branchChoice = null;
+  if (active.phase === 1 && !state.careerPathState.initialPathId) {
+    state.careerPathState.initialPathId = active.classId;
+  }
   if (active.phase === 2) {
     const content = V2_EVENTS.classEvents?.[`${active.classId}:event2`];
     branchChoice = (content?.choices || []).find(choice => choice.id === active.branchChoiceId) || null;

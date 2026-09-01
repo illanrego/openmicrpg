@@ -256,6 +256,36 @@ test("Event 2 records its branch and assigns the class after its manual-day peri
   assert.equal(run("state.pathProgressState.flags['roteirista-punch-up']"), true);
 });
 
+test("Event 2 lets the player pivot to another eligible path", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); ensureCareerProgressState();
+    queueCriticalDialog = (...args) => { globalThis.careerPathDialog = args[0]; globalThis.careerPathChoices = args[1] || []; };
+    updateStats = () => {}; checkEmploymentOffer = () => {}; displayNarration = () => {};
+    setScene = () => {}; refreshRouteInviteAvailability = () => {}; maybeResolveRunEnding = () => false; saveGameState = () => {};
+    state.currentDay = 45;
+    state.texto = 44;
+    state.entrega = 44;
+    state.routeCounters.writeCount = 10;
+    state.routeCounters.rewriteCount = 3;
+    state.routeCounters.showsScheduledCount = 8;
+    state.showHistory = Array.from({length:8}, () => ({nota:4}));
+    state.consecutiveGoodShows = 3;
+    state.careerPathState.goodShowsCount = 6;
+    state.careerPathState.initialPathId = 'roteirista';
+    state.careerPathState.event1ByClass.roteirista.status = 'completed';
+  `);
+  assert.equal(run("JSON.stringify(getEligibleCareerEvents().filter(item => item.phase === 2).map(item => item.classId).sort())"), JSON.stringify(["comicoClassico", "roteirista"]));
+  assert.equal(run("maybeCheckProgressionGates({ resolveEnding: false })"), true);
+  assert.match(run("careerPathDialog"), /Virada da carreira/);
+  run("careerPathChoices.find(choice => choice.label === 'Virar Cômico Clássico').handler()");
+  assert.match(run("careerPathDialog"), /Abrindo a Noite/);
+  run("careerPathChoices.find(choice => choice.label === 'Abrir com material testado').handler()");
+  assert.equal(run("state.careerPathState.lockedPathId"), "comicoClassico");
+  assert.equal(run("state.careerPathState.initialPathId"), "roteirista");
+  assert.equal(run("state.careerPathState.pivotPathId"), "comicoClassico");
+});
+
 test("mentor forks are deterministic, exclusive, and independently available", () => {
   const { run } = createHarness();
   run(`
