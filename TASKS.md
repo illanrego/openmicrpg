@@ -22,7 +22,7 @@ Ship everything DESIGN_V2 specifies. No cuts. Everything in the design doc ships
 - [x] Generic + pure ending resolution
 - [x] Ending copy in `content/endings.js`
 - [x] Legacy archive option unlocks
-- [x] Mechanics test suite green (`42/42` via `node --test tests/v2-mechanics.test.js`; last verified 2026-08-31)
+- [x] Mechanics test suite green (`44/44` via `node --test tests/v2-mechanics.test.js`; last verified 2026-08-31)
 
 ## Now — ship blockers / highest value
 
@@ -116,6 +116,8 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Reworked career class Event 1 into a single **Encruzilhada da carreira** decision: after day 32, at least 6 performed shows, and hidden path evidence, the game shows up to four plausible class doors and the player chooses which one to pursue.
 - Reworked Event 2 into a **Virada da carreira** commitment when multiple paths qualify: the player can confirm the first direction or pivot to another eligible class (e.g. Roteirista → Cômico Clássico), with the initial path and pivot recorded. Mechanics tests pass (`42/42`).
 - Fixed pure-structure ending art: Forma pura endings now resolve to dedicated `assets/scenes/endings/pure-structure/*.png` illustrations instead of falling back to the class image.
+- Fixed redundancy in the Producer Event 2 branches: "Cuidar da curadoria e da escala" (network-heavy) and "Assumir a operação da noite" (motivation-led, lower network) now offer a real tradeoff instead of both being network gains.
+- Made named character encounters one-per-run (Douglas, Bruno, Diego, etc.) and prioritized unseen character events in the random pool so they reliably appear instead of being lost in the random lottery.
 
 ## Next session start here
 

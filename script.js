@@ -2846,7 +2846,15 @@ function maybeTriggerEvent(trigger, context = {}) {
   const candidates = eventPool.filter((event) => event && eventMatchesTrigger(event, trigger, context));
   if (!candidates.length) return;
 
-  const event = candidates[Math.floor(Math.random() * candidates.length)];
+  // Prefer named one-per-run character encounters before generic events repeat.
+  let pool = candidates;
+  if (trigger === "random" && state.eventRuntime?.seenIds) {
+    const unseenCharacterEvents = candidates.filter(
+      event => event.isCharacterEvent && !state.eventRuntime.seenIds.includes(event.id)
+    );
+    if (unseenCharacterEvents.length) pool = unseenCharacterEvents;
+  }
+  const event = pool[Math.floor(Math.random() * pool.length)];
   if (!event || !event.text) return;
 
   if (trigger === "random") state.eventsThisWeek = (state.eventsThisWeek || 0) + 1;

@@ -235,6 +235,27 @@ test("all Event 2 paths contain an exclusive two-way branch", () => {
   assert.equal(run("V2_PROGRESSION.classOrder.every(id => V2_EVENTS.classEvents[`${id}:event2`].choices.length === 2)"), true);
 });
 
+test("Producer Event 2 branches offer a real tradeoff, not duplicate outcomes", () => {
+  const { run } = createHarness();
+  assert.equal(run("V2_EVENTS.classEvents['produtor:event2'].choices.length"), 2);
+  assert.equal(run("V2_EVENTS.classEvents['produtor:event2'].choices[0].effects.network > V2_EVENTS.classEvents['produtor:event2'].choices[1].effects.network"), true);
+  assert.equal(run("V2_EVENTS.classEvents['produtor:event2'].choices[0].effects.motivation || 0"), 0);
+  assert.equal(run("(V2_EVENTS.classEvents['produtor:event2'].choices[1].effects.motivation || 0) > 0"), true);
+  const flagsA = run("V2_EVENTS.classEvents['produtor:event2'].choices[0].flag");
+  const flagsB = run("V2_EVENTS.classEvents['produtor:event2'].choices[1].flag");
+  assert.notEqual(flagsA, flagsB);
+});
+
+test("named character encounters are one-per-run", () => {
+  const { run } = createHarness();
+  const list = run("eventPool");
+  const douglas = list.find(e => e.id === "douglasFerreiraReading");
+  const bruno = list.find(e => e.id === "brunoBergProducao");
+  assert.equal(douglas.once, true);
+  assert.equal(bruno.once, true);
+  assert.equal(douglas.isCharacterEvent, true);
+});
+
 test("Event 2 records its branch and assigns the class after its manual-day period", () => {
   const { run } = createHarness();
   run(`

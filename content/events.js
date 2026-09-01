@@ -33,8 +33,8 @@
       { id: "estrutura", label: "Organizar a estrutura dos quadros", effects: { texto: 9, network: 7 }, flag: "roteirista-estrutura", narration: "Você aprende a sustentar a sala inteira, conectando vozes, blocos e ritmo." }
     ],
     produtor: [
-      { id: "curadoria", label: "Cuidar da curadoria e da escala", effects: { network: 15 }, flag: "produtor-curadoria", narration: "Você escolhe os nomes, monta a ordem e começa a ser lembrado pelo critério." },
-      { id: "operacao", label: "Assumir a operação da noite", effects: { network: 10, motivation: 8 }, flag: "produtor-operacao", narration: "Você resolve atrasos, casa e bastidor. A noite acontece porque você sustentou a operação." }
+      { id: "curadoria", label: "Cuidar da curadoria e da escala", effects: { network: 15 }, flag: "produtor-curadoria", narration: "Você escolhe os nomes, monta a ordem e passa a ser lembrado pelo critério. As conexões do circuito se multiplicam." },
+      { id: "operacao", label: "Assumir a operação da noite", effects: { network: 6, motivation: 12 }, flag: "produtor-operacao", narration: "Você segura atrasos, casa e bastidor até fechar. A noite acontece porque você sustentou a operação — e você sai com a energia em alta." }
     ],
     atorComico: [
       { id: "personagem", label: "Construir um personagem central", effects: { entrega: 14 }, flag: "ator-personagem", narration: "Você aprofunda corpo, voz e intenção até o personagem sustentar a cena." },
@@ -470,7 +470,7 @@
     },
     // ─── New NPCs ───
     {
-      id: "douglasFerreiraReading", trigger: "random", isCharacterEvent: true,
+      id: "douglasFerreiraReading", trigger: "random", once: true, isCharacterEvent: true,
       image: "assets/characters/douglao.png",
       text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
       choices: [
@@ -480,7 +480,7 @@
       ]
     },
     {
-      id: "brunoBergProducao", trigger: "random", isCharacterEvent: true,
+      id: "brunoBergProducao", trigger: "random", once: true, isCharacterEvent: true,
       requiresLevel: "elenco",
       text: "Bruno Berg, produtor veterano de shows de comédia, te procura no bar: 'Ei, eu vejo potencial em você. Já pensou em produzir seus próprios shows? Te ensino o básico: como montar lineup, negociar com casas, divulgar. É outro jogo, mas abre portas enormes.'",
       choices: [
