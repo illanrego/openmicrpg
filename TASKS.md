@@ -115,6 +115,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Wired available character portraits into NPC/path events: Rossini mentor events now use `assets/characters/rossini.png`, and Douglas Ferreira's event uses `assets/characters/douglao.png`. Verified all content image references exist and mechanics tests pass (`39/39`).
 - Reworked career class Event 1 into a single **Encruzilhada da carreira** decision: after day 32, at least 6 performed shows, and hidden path evidence, the game shows up to four plausible class doors and the player chooses which one to pursue.
 - Reworked Event 2 into a **Virada da carreira** commitment when multiple paths qualify: the player can confirm the first direction or pivot to another eligible class (e.g. Roteirista → Cômico Clássico), with the initial path and pivot recorded. Mechanics tests pass (`42/42`).
+- Fixed pure-structure ending art: Forma pura endings now resolve to dedicated `assets/scenes/endings/pure-structure/*.png` illustrations instead of falling back to the class image.
 
 ## Next session start here
 

@@ -74,10 +74,11 @@ test("show result art resolves by selected avatar and score", () => {
   assert.equal(run("getShowResultImage(3)"), "assets/scenes/results/avatar1/segurou.png");
 });
 
-test("ending art resolves to pure tone, class, Silêncio, or fallback", () => {
+test("ending art resolves to pure tone, pure structure, class, Silêncio, or fallback", () => {
   const { run } = createHarness();
   assert.equal(run("getEndingArtwork({id:'class:roteirista', category:'class', classId:'roteirista'}).path"), "assets/scenes/endings/class/roteirista.png");
   assert.equal(run("getEndingArtwork({id:'class:roteirista', category:'class', classId:'roteirista', pureEnding:{axis:'tone', value:'político'}}).path"), "assets/scenes/endings/pure-tone/politico.png");
+  assert.equal(run("getEndingArtwork({id:'class:produtor', category:'class', classId:'produtor', pureEnding:{axis:'structure', value:'bit'}}).path"), "assets/scenes/endings/pure-structure/bit.png");
   assert.equal(run("getEndingArtwork({id:'failure', category:'failure'}).id"), "special:silencio");
   assert.equal(run("getEndingArtwork({id:'unknown', category:'default'}).id"), "fallback");
 });

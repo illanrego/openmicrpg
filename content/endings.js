@@ -69,6 +69,13 @@
         hack: { id: "pure-tone:hack", path: "assets/scenes/endings/pure-tone/hack.png", alt: "Objetos do cotidiano transformados em adereços de comédia sob um microfone iluminado." },
         "político": { id: "pure-tone:político", path: "assets/scenes/endings/pure-tone/politico.png", alt: "Teatro urbano de sátira cívica, com palco, cidade noturna e plateia atenta." }
       },
+      pureStructure: {
+        bit: { id: "pure-structure:bit", path: "assets/scenes/endings/pure-structure/bit.png", alt: "Palco de comédia com microfone, caderno e blocos de ideias conectados sob um holofote quente." },
+        oneliner: { id: "pure-structure:oneliner", path: "assets/scenes/endings/pure-structure/oneliner.png", alt: "Palco minimalista com microfone em luz precisa e cartões de punchline espalhados como pequenas lâminas." },
+        storytelling: { id: "pure-structure:storytelling", path: "assets/scenes/endings/pure-structure/storytelling.png", alt: "Clube acolhedor onde páginas de caderno formam uma trilha narrativa até o microfone." },
+        prop: { id: "pure-structure:prop", path: "assets/scenes/endings/pure-structure/prop.png", alt: "Palco de comédia cercado por objetos cênicos prontos para carregar punchlines visuais." },
+        crowdWork: { id: "pure-structure:crowdWork", path: "assets/scenes/endings/pure-structure/crowdWork.png", alt: "Microfone apontado para uma plateia viva, com feixes de luz ligando palco e público." }
+      },
       special: {
         "bastidor-sombrio": { id: "special:bastidor-sombrio", path: "assets/scenes/endings/special/bastidor-sombrio.png", alt: "Central de controle escondida nos bastidores de um clube de comédia, iluminada por um palco dourado." },
         "profeta-do-caos": { id: "special:profeta-do-caos", path: "assets/scenes/endings/special/profeta-do-caos.png", alt: "Palco de sátira sob tempestade, com cidade torta, relâmpagos e plateia reagindo." },

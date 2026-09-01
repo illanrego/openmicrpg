@@ -8,6 +8,7 @@ Each ending uses one finished, standalone illustration shared by every player av
 
 - One finished illustration for each class ending.
 - One finished illustration for each pure-tone ending.
+- One finished illustration for each pure-structure ending.
 - One finished illustration for each special ending.
 - Generic/default and almost endings may use a shared neutral fallback until their own finished art is supplied. Failure uses the dedicated `special/silencio.png` scene.
 - Preferred delivery: square `1024×1024` PNG pixel art, authored as a complete scene.
@@ -19,6 +20,7 @@ Each ending uses one finished, standalone illustration shared by every player av
 assets/scenes/endings/
   class/<classId>.png
   pure-tone/<toneId>.png
+  pure-structure/<structureId>.png
   special/<endingId>.png
   fallback.png
 ```
@@ -29,6 +31,7 @@ The content resolver owns the mapping from ending ID/category to a single image 
 
 - `class/`: 5 class-ending scenes
 - `pure-tone/`: 6 pure-tone scenes
+- `pure-structure/`: 5 pure-structure scenes
 - `special/`: 5 special-ending scenes
 - `fallback.png`: shared neutral scene for default, almost, and any unmapped route
 

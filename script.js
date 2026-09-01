@@ -1407,6 +1407,8 @@ function getEndingArtwork(candidate = {}) {
   if (candidate.category === "special" && artwork.special?.[specialId]) return artwork.special[specialId];
   const pureTone = candidate.pureEnding?.axis === "tone" ? candidate.pureEnding.value : null;
   if (pureTone && artwork.pureTone?.[pureTone]) return artwork.pureTone[pureTone];
+  const pureStructure = candidate.pureEnding?.axis === "structure" ? candidate.pureEnding.value : null;
+  if (pureStructure && artwork.pureStructure?.[pureStructure]) return artwork.pureStructure[pureStructure];
   if (candidate.category === "class" && candidate.classId && artwork.class?.[candidate.classId]) return artwork.class[candidate.classId];
   if (candidate.category === "failure" && artwork.special?.silencio) return artwork.special.silencio;
   return artwork.special?.[specialId] || fallback;
