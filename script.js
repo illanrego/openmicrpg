@@ -2762,7 +2762,7 @@ function maybeInterruptShowWithHeckler(setList) {
 
   const affectedIndices = pickHecklerAffectedIndices(setList.length);
   queueCriticalDialog(
-    "🗣️ Um heckler te interrompe no meio da preparação mental para subir. Você pode ignorar e seguir o set, ou responder na hora e tentar tomar a sala de volta.",
+    "🗣️ Um heckler te interrompe no meio do set. Você pode ignorar e seguir, ou responder na hora e tentar tomar a sala de volta.",
     [
       {
         label: "Ignorar",
