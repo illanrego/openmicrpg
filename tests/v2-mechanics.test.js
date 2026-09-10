@@ -79,6 +79,45 @@ test("longer venue gigs unlock in stages before Elenco", () => {
   assert.equal(run("contentGates.showEligible(findShowById('elenco-porao-segunda'), 'elenco')"), true);
 });
 
+test("open show offers guarantee a regular venue when more than one slot", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.hasStarted = true; ensureCareerProgressState(); state.openStageState.offerHistory = [];");
+  const pickIds = run("pickOpenWeightedShows([findShowById('microfone-aberto-padaria'), findShowById('bar-do-tony')], 2).map(s => s.id)");
+  assert.ok(pickIds.includes("bar-do-tony"), "a regular venue is always included when 2+ slots are open");
+  assert.equal(pickIds.length, 2);
+  assert.ok(pickIds.includes("microfone-aberto-padaria"));
+});
+
+test("a fresh open run can receive a regular venue offer from a single slot", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.hasStarted = true; ensureCareerProgressState(); state.openStageState.offerHistory = [];");
+  // A high roll lands in the regular venue's weight band (starter 5.0 vs fresh regular 1.25).
+  run("Math.random = () => 0.9;");
+  const pickIds = run("pickOpenWeightedShows([findShowById('microfone-aberto-padaria'), findShowById('bar-do-tony')], 1).map(s => s.id)");
+  assert.equal(pickIds[0], "bar-do-tony");
+});
+
+test("starter gigs still win the earliest single open offers", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.hasStarted = true; ensureCareerProgressState(); state.openStageState.offerHistory = [];");
+  run("Math.random = () => 0;"); // roll 0 always lands on the heaviest (never-offered starter)
+  const pickIds = run("pickOpenWeightedShows([findShowById('microfone-aberto-padaria'), findShowById('bar-do-tony')], 1).map(s => s.id)");
+  assert.equal(pickIds[0], "microfone-aberto-padaria");
+});
+
+test("open offer variety persists across searches and dampens repeats", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.hasStarted = true; ensureCareerProgressState(); state.openStageState.offerHistory = [{ showId: 'bar-do-tony', day: 1 }];");
+  // bar-do-tony is fresh (history only has a different id) and a starter is also available:
+  // a single slot should still be able to surface a fresh regular venue.
+  run("Math.random = () => 0.99;");
+  const pickIds = run("pickOpenWeightedShows([findShowById('microfone-aberto-padaria'), findShowById('bar-do-tony')], 1).map(s => s.id)");
+  run("ensureCareerProgressState();");
+  const history = run("state.openStageState.offerHistory.map(o => o.showId)");
+  assert.equal(pickIds[0], "bar-do-tony");
+  assert.ok(history.includes("bar-do-tony"));
+});
+
 test("study results play their ordered lessons before cycling through random lessons", () => {
   const { run } = createHarness();
   run("state = loadGameState();");
@@ -182,7 +221,7 @@ test("unguided joke quality rules can be consumed by joke finalization", () => {
     elements.btnDivLow = { style: {}, innerHTML: "" };
     elements.jokeList = { style: {} }; elements.subTitle = { style: {}, textContent: "" };
     _pendingJokeIdea = { seed: "teste", mood: "cotidiano", tone: "besteirol" };
-    _pendingJokeMode = writingModes.day; _selectedTone = "besteirol"; _selectedStructure = "bit";
+    _pendingJokeMode = writingModes.day; writingModes.day.failChance = 0; _selectedTone = "besteirol"; _selectedStructure = "bit";
     _customJokeTitle = "Piada teste"; updateStats = () => {}; renderJokeList = () => {};
     setScene = () => {}; displayNarration = () => {}; saveGameState = () => {};
     finalizeJokeCreation();

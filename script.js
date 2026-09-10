@@ -1022,7 +1022,8 @@ function ensureCareerProgressState() {
   };
   state.openStageState = {
     consistencyStreak: Math.max(0, state.openStageState?.consistencyStreak || 0),
-    breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0)
+    breakthroughs: Math.max(0, state.openStageState?.breakthroughs || 0),
+    offerHistory: Array.isArray(state.openStageState?.offerHistory) ? state.openStageState.offerHistory.slice(-OPEN_OFFER_HISTORY_CAP) : []
   };
   state.onelinerUnlocked = !!state.onelinerUnlocked;
   state.humorNegroUnlocked = !!state.humorNegroUnlocked;
@@ -1292,6 +1293,14 @@ function getVenueReputationTier(repValue) {
   return "neutra";
 }
 
+// Open-stage offer weights: keep starter gigs common while guaranteeing that
+// regular venues still surface. See docs/pre-launch/01-venue-selection.md.
+const OPEN_STARTER_WEIGHT = 5.0;    // per starter venue (5 starters -> strong early bias)
+const OPEN_REGULAR_WEIGHT = 1.0;    // per regular venue
+const OPEN_VARIETY_BONUS = 1.25;    // multiplied onto a regular venue never offered this run
+const OPEN_RECENT_PENALTY = 0.45;   // applied to a venue offered within the last few offers
+const OPEN_OFFER_HISTORY_CAP = 40;  // how many offers we remember for variety weighting
+
 function getVenueOfferWeight(showId) {
   const rep = getVenueReputation(showId);
   return clamp(1 + rep * 0.03, 0.35, 2.2);
@@ -1321,24 +1330,52 @@ function applyVenueReputationOutcome(showId, nota, showType) {
 
 function pickOpenWeightedShows(eligibleShows, maxCount) {
   if (!eligibleShows.length || maxCount <= 0) return [];
-  const starter = eligibleShows.filter((show) => show.isOpenStarter);
-  const regular = eligibleShows.filter((show) => !show.isOpenStarter);
+  ensureCareerProgressState();
+  const history = state.openStageState.offerHistory || [];
+  const recentOffered = new Set(history.slice(-3).map((o) => o.showId));
+
+  const weightOf = (show) => {
+    let w = show.isOpenStarter ? OPEN_STARTER_WEIGHT : OPEN_REGULAR_WEIGHT;
+    if (!show.isOpenStarter && !history.some((o) => o.showId === show.id)) w *= OPEN_VARIETY_BONUS;
+    if (recentOffered.has(show.id)) w *= OPEN_RECENT_PENALTY;
+    return w;
+  };
+
   const pickCount = Math.min(maxCount, eligibleShows.length);
   const picks = [];
+  const pool = eligibleShows.slice();
 
-  const shuffledStarter = [...starter].sort(() => Math.random() - 0.5);
-  const shuffledRegular = [...regular].sort(() => Math.random() - 0.5);
-  const starterQuota = Math.min(shuffledStarter.length, Math.max(1, Math.ceil(pickCount * 0.7)));
+  // Guarantee regular venue variety: whenever there is room for more than one
+  // offer and a regular (non-starter) venue is eligible, always show one. Without
+  // this, a low offer count can fill every slot with starters every search.
+  const regularAvailable = pool.some((show) => !show.isOpenStarter);
+  if (pickCount >= 2 && regularAvailable) {
+    const bestRegular = pool
+      .filter((show) => !show.isOpenStarter)
+      .sort((a, b) => weightOf(b) - weightOf(a))[0];
+    picks.push(bestRegular);
+    pool.splice(pool.indexOf(bestRegular), 1);
+  }
 
-  for (let i = 0; i < starterQuota && picks.length < pickCount; i += 1) {
-    picks.push(shuffledStarter[i]);
+  // Weighted sampling without replacement for the remaining slots. Starters keep
+  // a high base weight so they stay common early; fresh regular venues compete via
+  // the variety bonus and recently offered venues are dampened for spread.
+  while (picks.length < pickCount && pool.length) {
+    const total = pool.reduce((sum, show) => sum + weightOf(show), 0);
+    let roll = Math.random() * total;
+    let idx = pool.length - 1;
+    for (let i = 0; i < pool.length; i += 1) {
+      roll -= weightOf(pool[i]);
+      if (roll < 0) { idx = i; break; }
+    }
+    picks.push(pool[idx]);
+    pool.splice(idx, 1);
   }
-  for (let i = 0; i < shuffledRegular.length && picks.length < pickCount; i += 1) {
-    picks.push(shuffledRegular[i]);
-  }
-  for (let i = starterQuota; i < shuffledStarter.length && picks.length < pickCount; i += 1) {
-    picks.push(shuffledStarter[i]);
-  }
+
+  // Remember what was offered so variety accumulates across the run.
+  const day = state.currentDay || 1;
+  history.push(...picks.map((show) => ({ showId: show.id, day })));
+  state.openStageState.offerHistory = history.slice(-OPEN_OFFER_HISTORY_CAP);
 
   return picks.slice(0, pickCount);
 }
@@ -3301,7 +3338,7 @@ function loadGameState() {
     careerChoices: [],
     carvalhoDialogState: { shownIds: [], triggerCooldowns: {} },
     elencoCircuitState: { weeklyGoalTarget: 2, weeklyGoalProgress: 0, completedWeek: null, weeklySuccessStreak: 0, bestWeeklyStreak: 0 },
-    openStageState: { consistencyStreak: 0, breakthroughs: 0 },
+    openStageState: { consistencyStreak: 0, breakthroughs: 0, offerHistory: [] },
     venueReputation: {}
   };
   try {
@@ -3394,7 +3431,8 @@ function loadGameState() {
       },
       openStageState: {
         consistencyStreak: Math.max(0, parsed.openStageState?.consistencyStreak || 0),
-        breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0)
+        breakthroughs: Math.max(0, parsed.openStageState?.breakthroughs || 0),
+        offerHistory: Array.isArray(parsed.openStageState?.offerHistory) ? parsed.openStageState.offerHistory.slice(-OPEN_OFFER_HISTORY_CAP) : []
       },
       venueReputation: normalizeVenueReputationMap(parsed.venueReputation)
     };
