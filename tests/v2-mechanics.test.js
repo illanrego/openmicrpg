@@ -65,6 +65,20 @@ test("content registry validates", () => {
   assert.equal(run("validateGameContent()"), true);
 });
 
+test("longer venue gigs unlock in stages before Elenco", () => {
+  const { run } = createHarness();
+  run("state = loadGameState(); state.stageTime = 0;");
+  assert.equal(run("contentGates.showEligible(findShowById('bar-do-tony'), 'open')"), true);
+  assert.equal(run("contentGates.showEligible(findShowById('corporativo'), 'open')"), false);
+  assert.equal(run("contentGates.showEligible(findShowById('teatro-limpo'), 'open')"), false);
+  run("state.stageTime = 4;");
+  assert.equal(run("contentGates.showEligible(findShowById('corporativo'), 'open')"), true);
+  assert.equal(run("contentGates.showEligible(findShowById('teatro-limpo'), 'open')"), false);
+  run("state.stageTime = 7;");
+  assert.equal(run("contentGates.showEligible(findShowById('teatro-limpo'), 'open')"), true);
+  assert.equal(run("contentGates.showEligible(findShowById('elenco-porao-segunda'), 'elenco')"), true);
+});
+
 test("study results play their ordered lessons before cycling through random lessons", () => {
   const { run } = createHarness();
   run("state = loadGameState();");

@@ -85,6 +85,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 ### 2026-09-10
 - Added an optional collapsible Pix coffee-support panel below the main game area on mobile, plus a regular Guia do Cômico button above it.
 - Added the Pix QR/copia-e-cola option to Créditos and updated the copy for the official release.
+- Added staged Open venue availability: 6-minute gigs unlock at 4 stage-time and 7-minute gigs at 7, preserving the 15-minute Elenco circuit step.
 
 ### 2026-07-10
 - Created `.hermes.md`, `AGENTS.md`, `TASKS.md` for agent pickup from repo cwd.

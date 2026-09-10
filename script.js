@@ -1096,11 +1096,20 @@ function markCareerMilestone(milestoneId) {
   return false;
 }
 
+function getOpenVenueStageTimeRequirement(show) {
+  const minMinutes = Number(show?.minMinutes) || 0;
+  if (minMinutes < 6) return 0;
+  if (typeof show.minStageTime === "number") return Math.max(0, show.minStageTime);
+  return minMinutes >= 7 ? 7 : 4;
+}
+
 const contentGates = {
   showEligible(show, stage = getCareerStage()) {
     if (!show) return false;
     const requiredStage = show.requiresCareerStage || show.requiresLevel || "open";
-    return isCareerStageAtLeast(stage, requiredStage);
+    if (!isCareerStageAtLeast(stage, requiredStage)) return false;
+    if (stage === "open" && (state?.stageTime || 0) < getOpenVenueStageTimeRequirement(show)) return false;
+    return true;
   },
   eventEligible(event, stage = getCareerStage()) {
     if (!event) return false;

@@ -294,7 +294,7 @@ The old Headliner legacy choice, special tape, Made It, and headliner-set system
 | 25 | Livraria & Riso | `livraria-cultural` | 5 | .30 | Theater | Medium | open+ |
 | 26 | Bem Bolado | `bem-bolado` | 5 | .30 | Young-Chaotic | Medium | open+ |
 | 27 | Comedy no Parque | `parque-ao-ar-livre` | 5 | .35 | Family | Medium | open+ |
-| 28 | Festival de Praia | `festival-praia` | 6 | .35 | Young-Chaotic | Medium | open+ |
+| 28 | Festival de Praia | `festival-praia` | 6 | .35 | Young-Chaotic | Medium | stageTime 4+ |
 
 ### Intermediate / Gated (6)
 
@@ -302,20 +302,20 @@ The old Headliner legacy choice, special tape, Made It, and headliner-set system
 |---|-------|----|----|-----------|----------|------|------|
 | 29 | After Hours Subúrbio | `after-hours` | 5 | .40 | Theater | Medium | Lvl 3+ |
 | 30 | Casa de Swing | `casa-de-swing` | 5 | .42 | Mixed-Room | High | Lvl 3+ |
-| 31 | Coffee Break Corporativo | `corporativo` | 6 | .40 | Corporate | Medium | Lvl 3+ |
-| 32 | Coffee Break Emergencial | `corporativo-surpresa` | 6 | .55 | Corporate | High | Lvl 3+ |
-| 33 | Teatro do Porão | `teatro-alternativo` | 6 | .38 | Theater | Medium | Lvl 3+ |
-| 34 | Casamento | `casamento` | 6 | .45 | Family | Medium | Lvl 5+ |
+| 31 | Coffee Break Corporativo | `corporativo` | 6 | .40 | Corporate | Medium | stageTime 4+ |
+| 32 | Coffee Break Emergencial | `corporativo-surpresa` | 6 | .55 | Corporate | High | stageTime 4+ |
+| 33 | Teatro do Porão | `teatro-alternativo` | 6 | .38 | Theater | Medium | stageTime 4+ |
+| 34 | Casamento | `casamento` | 6 | .45 | Family | Medium | stageTime 4+ |
 
 ### High Tier Venues (4)
 
 | # | Venue | ID | Min | Difficulty | Audience | Risk | Gate |
 |---|-------|----|----|-----------|----------|------|------|
-| 35 | Turnê do Veterano | `veterano-turne` | 7 | .45 | Theater | High | Stevan Gaipo event |
-| 36 | Teatro Municipal | `teatro-limpo` | 7 | .50 | Theater | High | Lvl 6+ |
+| 35 | Turnê do Veterano | `veterano-turne` | 7 | .45 | Theater | High | stageTime 7+ |
+| 36 | Teatro Municipal | `teatro-limpo` | 7 | .50 | Theater | High | stageTime 7+ |
 | 37 | Rooftop Tech Meetup | `rooftop-tech` | 5 | .32 | Digital-Urban | Medium | Lvl 3+ |
 | 38 | Podcast Ao Vivo | `podcast-live` | 4 | .30 | Digital-Urban | Medium | Lvl 3+ |
-| 39 | Show do Sindicato | `sindicato` | 6 | .35 | Corporate | Medium | Lvl 3+ |
+| 39 | Show do Sindicato | `sindicato` | 6 | .35 | Corporate | Medium | stageTime 4+ |
 
 ### Elenco Circuits (3)
 
@@ -511,6 +511,8 @@ Every event has one of two mechanical kinds: `incidental` for small world/stat e
 ---
 
 ## 21. CAREER PROGRESSION SUMMARY
+
+Open-stage venue pacing: 6-minute venues begin at `stageTime` 4 (roughly four shows), while 7-minute venues begin at `stageTime` 7. Elenco circuit gigs remain 15-minute sets after the level 6 transition.
 
 ```
 Day 1        → Open Mic (level 1), bit + base tones
