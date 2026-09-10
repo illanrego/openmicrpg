@@ -68,7 +68,7 @@ function computeLegacyBonuses() {
     prop: false,
     hack: archive.length >= 2 || dominantTones.has("hack"),
     politico: archive.length >= 2 || dominantTones.has("político") || archive.some(run => run.politicoUnlocked),
-    writingGuide: archive.some(run => run.writingGuideUnlocked),
+    writingGuide: false,
     crowdWork: archive.some(run => run.crowdWorkUnlocked),
     expandedClasses: archive.length >= 2
   };
@@ -134,6 +134,24 @@ function getUnlockedStructures() {
 
 function getMaxCrowdWorkMinutes(selectedJokeCount) {
   return state?.crowdWorkUnlocked ? Math.min(3, Math.max(0, selectedJokeCount || 0)) : 0;
+}
+
+function getNewJokeQualityRules() {
+  const skillFactor = clamp(((state?.texto || 0) - 10) / 140, 0, 1);
+  if (!state?.writingGuideUnlocked) {
+    return { badChance: 0.90, mediumChance: 0.09, scorePenalty: 0.12 };
+  }
+  return {
+    badChance: 0.78 - (0.18 * skillFactor),
+    mediumChance: 0.18 + (0.12 * skillFactor),
+    scorePenalty: 0
+  };
+}
+
+function unlockWritingGuideFromStudy() {
+  if (state.writingGuideUnlocked) return false;
+  state.writingGuideUnlocked = true;
+  return true;
 }
 
 function canStudyThisWeek() {
@@ -249,6 +267,7 @@ const confettiColors = ['#d4a84b', '#ffd966', '#f5e6c8', '#a65d4e', '#5a8f5a'];
 const homeText = GAME_CONTENT.world?.homeText || "" ;
 
 const mentorIntroLines = GAME_CONTENT.world?.mentorIntroLines || [] ;
+const STUDY_RESULTS = GAME_CONTENT.world?.studyResults || { ordered: [], random: [] };
 
 
 // ─── Perk Trees ───
@@ -689,6 +708,55 @@ function createDefaultRouteCounters() {
   };
 }
 
+function getStudyResultEntries(group) {
+  const entries = Array.isArray(STUDY_RESULTS?.[group]) ? STUDY_RESULTS[group] : [];
+  const seenIds = new Set();
+  return entries.filter(entry => {
+    if (!entry || typeof entry.id !== "string" || !entry.id || typeof entry.text !== "string" || !entry.text || seenIds.has(entry.id)) return false;
+    seenIds.add(entry.id);
+    return true;
+  });
+}
+
+function createDefaultStudyResultState(existing = {}) {
+  const ordered = getStudyResultEntries("ordered");
+  const randomIds = new Set(getStudyResultEntries("random").map(entry => entry.id));
+  const randomRemainingIds = Array.isArray(existing.randomRemainingIds)
+    ? existing.randomRemainingIds.filter((id, index, ids) => randomIds.has(id) && ids.indexOf(id) === index)
+    : [];
+  return {
+    orderedIndex: Math.min(ordered.length, Math.max(0, Math.round(existing.orderedIndex || 0))),
+    randomRemainingIds,
+    randomLastId: randomIds.has(existing.randomLastId) ? existing.randomLastId : null
+  };
+}
+
+function getNextStudyResult() {
+  const ordered = getStudyResultEntries("ordered");
+  const random = getStudyResultEntries("random");
+  state.studyResultState = createDefaultStudyResultState(state.studyResultState);
+  const resultState = state.studyResultState;
+
+  if (resultState.orderedIndex < ordered.length) {
+    const result = ordered[resultState.orderedIndex];
+    resultState.orderedIndex += 1;
+    return result;
+  }
+
+  if (!random.length) return { id: "fallback", text: "Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno." };
+  let remaining = resultState.randomRemainingIds.filter(id => random.some(entry => entry.id === id));
+  if (!remaining.length) {
+    remaining = random.map(entry => entry.id);
+    if (remaining.length > 1 && resultState.randomLastId) {
+      remaining = remaining.filter(id => id !== resultState.randomLastId);
+    }
+  }
+  const selectedId = remaining.splice(Math.floor(Math.random() * remaining.length), 1)[0];
+  resultState.randomRemainingIds = remaining;
+  resultState.randomLastId = selectedId;
+  return random.find(entry => entry.id === selectedId) || random[0];
+}
+
 function createDefaultRunState(existing = {}) {
   return {
     runId: typeof existing.runId === "string" && existing.runId ? existing.runId : createId(),
@@ -1031,6 +1099,18 @@ function applyCarvalhoDialogChoice(choice) {
   if (choice.narration) queueCriticalDialog(choice.narration, [{ label: "Continuar", handler: () => {} }]);
 }
 
+function openExternalUrl(url) {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    window.open(parsed.href, "_blank", "noopener,noreferrer");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function showCarvalhoDialog(dialog) {
   ensureCareerProgressState();
   if (!dialog) return;
@@ -1038,6 +1118,8 @@ function showCarvalhoDialog(dialog) {
   state.carvalhoDialogState.triggerCooldowns[dialog.id] = state.currentDay;
   const options = (dialog.choices || []).map((choice) => ({
     label: choice.label,
+    externalUrl: choice.externalUrl,
+    dismiss: choice.dismiss,
     handler: () => applyCarvalhoDialogChoice(choice)
   }));
   if (!options.length) options.push({ label: "Entendido", handler: () => {} });
@@ -3110,6 +3192,7 @@ function loadGameState() {
     writingGuideUnlocked: false,
     crowdWorkUnlocked: false,
     weeklyStudyCount: 0,
+    studyResultState: createDefaultStudyResultState(),
     toneTally: createDefaultToneTally(),
     structureTally: createDefaultStructureTally(),
     chosenClass: null, hasEmployment: false,
@@ -3137,7 +3220,6 @@ function loadGameState() {
       if (bonuses.hack) baseState.hackUnlocked = true;
       if (bonuses.prop) baseState.propUnlocked = true;
       if (bonuses.politico) baseState.politicoUnlocked = true;
-      if (bonuses.writingGuide) baseState.writingGuideUnlocked = true;
       if (bonuses.crowdWork) baseState.crowdWorkUnlocked = true;
       return baseState;
     }
@@ -3179,9 +3261,10 @@ function loadGameState() {
       hackUnlocked: !!parsed.hackUnlocked || bonuses.hack,
       propUnlocked: !!parsed.propUnlocked || bonuses.prop,
       politicoUnlocked: !!parsed.politicoUnlocked || bonuses.politico,
-      writingGuideUnlocked: !!parsed.writingGuideUnlocked || bonuses.writingGuide,
+      writingGuideUnlocked: !!parsed.writingGuideUnlocked,
       crowdWorkUnlocked: !!parsed.crowdWorkUnlocked || bonuses.crowdWork,
       weeklyStudyCount: Math.max(0, parsed.weeklyStudyCount || 0),
+      studyResultState: createDefaultStudyResultState(parsed.studyResultState),
       toneTally: normalizeToneTally(parsed.toneTally),
       structureTally: normalizeStructureTally(parsed.structureTally),
       level: getLevelTier(resolvedLevelNumber),
@@ -3251,6 +3334,7 @@ function saveGameState() {
     writingGuideUnlocked: state.writingGuideUnlocked,
     crowdWorkUnlocked: state.crowdWorkUnlocked,
     weeklyStudyCount: state.weeklyStudyCount,
+    studyResultState: state.studyResultState,
     toneTally: state.toneTally,
     structureTally: state.structureTally,
     chosenClass: state.chosenClass, hasEmployment: state.hasEmployment,
@@ -3497,10 +3581,11 @@ function showNextCriticalDialog() {
       btn.style.transform = 'translateY(10px)';
       btn.addEventListener("click", (e) => {
         e.preventDefault(); e.stopPropagation();
+        if (action.externalUrl) openExternalUrl(action.externalUrl);
         if (action.handler && typeof action.handler === "function") {
           setTimeout(() => action.handler(), 100);
         }
-        dismissCriticalDialog();
+        if (action.dismiss !== false) dismissCriticalDialog();
       });
       actionsEl.appendChild(btn);
       setTimeout(() => { btn.style.transition = 'all 0.3s ease'; btn.style.opacity = '1'; btn.style.transform = 'translateY(0)'; }, 100 + index * 80);
@@ -4054,14 +4139,14 @@ function createJokeFromMode(modeId) {
 
   exitWritingMode();
   if (!state.writingGuideUnlocked) {
-    state.writingGuideUnlocked = true;
     _pendingJokeIdea = idea;
     _pendingJokeMode = mode;
-    _selectedTone = "besteirol";
-    _selectedStructure = "bit";
+    const unguidedTones = getUnlockedTones();
+    const unguidedStructures = getUnlockedStructures();
+    _selectedTone = unguidedTones[Math.floor(Math.random() * unguidedTones.length)] || idea.tone;
+    _selectedStructure = unguidedStructures[Math.floor(Math.random() * unguidedStructures.length)] || "bit";
     _customJokeTitle = formatIdeaTitle(idea);
     finalizeJokeCreation();
-    queueCriticalDialog("🎓 Professor Carvalho\n\nSua primeira piada nasceu sem receita. Agora você vai aprender a escolher tom e estrutura para escrever com intenção.", [{ label: "Aprender", handler: () => {} }]);
     return;
   }
   showJokeCustomization(idea, mode);
@@ -4163,15 +4248,15 @@ function finalizeJokeCreation() {
   const basePotential = generatePotential();
   const flowBonus = state.flowState?.active ? 0.1 : 0;
   const perkPotentialBonus = getPerkEffect('jokePotentialBonus') + getPerkEffect('setupBonus');
-  const skillFactor = clamp(((state.texto || 0) - 10) / 140, 0, 1);
-  const badChance = 0.78 - (0.18 * skillFactor);
-  const mediumChance = 0.18 + (0.12 * skillFactor);
+  const qualityRules = getNewJokeQualityRules();
+  const badChance = qualityRules.badChance;
+  const mediumChance = qualityRules.mediumChance;
   const qualityRoll = Math.random();
   let qualityTier = "bad";
   if (qualityRoll >= badChance + mediumChance) qualityTier = "good";
   else if (qualityRoll >= badChance) qualityTier = "medium";
 
-  const baseScore = basePotential + (state.texto / 250) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus;
+  const baseScore = basePotential + (state.texto / 250) + (state.motivation - 60) / 400 + mode.textoBonus + flowBonus + perkPotentialBonus - qualityRules.scorePenalty;
   let qualityOffset = 0;
   if (qualityTier === "bad") {
     qualityOffset = (-0.16 + (0.10 * skillFactor)) + ((Math.random() * 0.06) - 0.03);
@@ -4720,6 +4805,7 @@ function handleStudy() {
     return;
   }
   if (!spendActivityPoints(ACTIVITY_COSTS.study, "estudar")) return;
+  unlockWritingGuideFromStudy();
   if (markCareerMilestone("firstStudy")) {
     maybeTriggerCarvalhoDialog("firstStudy", { source: "study" });
   }
@@ -4731,7 +4817,16 @@ function handleStudy() {
   const xpGain = applyXp(XP_GAIN.study);
   setScene("home");
   flashScreen('rgba(245, 230, 200, 0.2)');
-  displayNarration(`📚 Você mergulha em especiais, podcasts e livros de comédia. Novas estruturas aparecem no caderno. (-1 ponto de atividade, +${xpGain} XP)`);
+  const studyResult = getNextStudyResult();
+  const studyMessage = `📚 ${studyResult.text} (-1 ponto de atividade, +${xpGain} XP)`;
+  if (studyResult.externalUrl) {
+    queueCriticalDialog(studyMessage, [
+      { label: studyResult.externalLabel || "Abrir link", externalUrl: studyResult.externalUrl, dismiss: false },
+      { label: "OK", handler: () => {} }
+    ]);
+  } else {
+    displayNarration(studyMessage);
+  }
   updateStats();
   saveGameState();
 }

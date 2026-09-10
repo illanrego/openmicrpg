@@ -2217,6 +2217,9 @@ body.flow-active #game {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   animation: fadeIn 0.3s ease;
 }
 
@@ -2236,6 +2239,11 @@ body.flow-active #game {
   padding: 24px;
   max-width: 560px;
   width: 100%;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
   color: var(--text-dark, #1a1a2e);
   box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 20px rgba(212, 168, 75, 0.3);
   animation: criticalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2337,6 +2345,16 @@ body.flow-active #game {
 }
 
 @media (max-width: 680px) {
+  .critical-overlay {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .critical-dialog {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+  }
+
   .critical-dialog-content {
     grid-template-columns: minmax(0, 1fr);
   }

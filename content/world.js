@@ -40,12 +40,64 @@
 content.world.homeText =
     "Você está em casa, à toa. Você tem certeza que será descoberto pelo mercado de comédia, já que se considera naturalmente muito mais engraçado que todo mundo que faz stand up. Apesar disso, talvez fosse uma boa ideia escrever piadas ou buscar show para se apresentar - só enquanto a fama não vem do nada...";
   content.world.mentorIntroLines = [
-    "Olá! Meu nome é Illan Carvalho, mas no circuito me chamam de Professor Carvalho.",
-    "Você vai ouvir muito conselho por aí. Na maior parte do tempo, é só outro comediante explicando como ele funciona.",
-    "Estudar não é copiar especial. É entender como o comediante pensa, corta, acelera, constrói e reescreve.",
-    "Seu trabalho é escrever, testar, ajustar e repetir até transformar palco em laboratório.",
-    "Antes de te mandar pro ringue, me diz: quem é você nessa busca pela próxima risada?"
+    "Olá! Bem-vindo ao mundo da COMÉDIA! Meu nome é Illan! Mas as pessoas me chamam de Professor Carvalho.",
+    "Este mundo é habitado por coisas chamadas PIADAS! Para algumas pessoas, Piadas são casuais.",
+    "Comediantes usam as piadas para destruir no palco. Eu... eu faço e também estudo PIADAS como profissão.",
+    "Você vai aprender a escrever, estudar, entregar e viver a piada, como um mestre da comédia.",
+    "Antes de iniciar essa jornada, me diz: qual seu nome?"
   ];
+  // Edit these texts directly. `ordered` plays once from top to bottom;
+  // after that, `random` is drawn without immediate repeats.
+  content.world.studyResults = {
+    ordered: [
+      {
+        id: "observacao",
+        text: "Você finalmente decide estudar sobre comédia stand up e se depara com o Canal do Illan. Você decide clicar num vídeo sobre tipos de comédia stand up.",
+        externalUrl: "https://www.youtube.com/@canaldoillan",
+        externalLabel: "▶ Ver Canal do Illan"
+      },
+      {
+        id: "figuras-de-linguagem",
+        text: "Você vê materiais sobre 'tipos de punch', mas depois aprende com Carvalho que são apenas figuras de linguagem. Então a comédia é um processo comunicativo que segue as mesmas regras de atenção que outros processos, como a regra de 3. Mas ainda tem que ter punch (variação, quebra)."
+      },
+      {
+        id: "estrutura",
+        text: "Você aprende a estrutura básica da piada, setup + punch. Preparação + Quebra, parece simples. Mas aí você vê que também existe a tag, que é a piada após a piada e o act-out, que é encenar a piada que você acabou de fazer. Parece complexo... você anota."
+      },
+      {
+        id: "curso",
+        text: "Você finalmente decide fazer o curso do comic do professor carvalho e se surpreende com a quantidade de material que existe sobre stand up. Parece que você vai precisar de um tempo assistindo e botando em prática cada aula, pelo visto não funciona só comprar e não assistir.",
+        externalUrl: "https://illancarvalho.orbitpages.online/curso-do-stand-up-comic",
+        externalLabel: "🎓 Ver curso"
+      }
+    ],
+    random: [
+      {
+        id: "corte",
+        text: "Você compara duas versões da mesma ideia e percebe que cortar explicação pode deixar a virada mais nítida. Confiança também cabe numa edição."
+      },
+      {
+        id: "especificidade",
+        text: "Você encontra uma anotação útil: o detalhe específico costuma ser mais vivo que uma generalidade. Antes de aumentar a ideia, experimente aproximar a cena."
+      },
+      {
+        id: "tag",
+        text: "Você finalmente se aprofunda em tags: depois de uma risada, a piada pode ganhar outra camada se a continuação mudar o sentido em vez de apenas repetir o golpe."
+      },
+      {
+        id: "tensao",
+        text: "Você observa como uma história segura informação. A tensão não é enrolar: é fazer a plateia querer entender por que aquela situação importa. Quanto mais tensão, maior o alívio da quebra no punch."
+      },
+      {
+        id: "leitura-de-sala",
+        text: "Você presta atenção na leitura de sala. Não é agradar qualquer público; é perceber o que a plateia recebeu para decidir o próximo passo com intenção e estratégia. Suas piadas e textos são munições, use apropriadamente."
+      },
+      {
+        id: "repertorio",
+        text: "Você volta ao caderno com uma regra simples: repertório não é uma pilha de ideias. É material testado, comparado, reescrito e organizado para cumprir uma função no set."
+      }
+    ]
+  };
 })(window);
 (function registerExistingWorldContent(global) {
   const content = global.OpenMicRpgContent = global.OpenMicRpgContent || {};

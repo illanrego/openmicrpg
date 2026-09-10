@@ -99,7 +99,7 @@
         maxDay: 35,
         requirements: { texto: 16, showsPerformedCount: 2 },
         title: "Gabriel Andrade — Forma curta ou presença visual",
-        text: "Gabriel se dispõe a acompanhar seu material por algumas semanas. Você precisa escolher onde concentrar o trabalho agora.",
+        text: "Gabriel se dispõe a te ensinar um pouco sobre outro tipo de comédia stand up. Você precisa escolher onde concentrar o trabalho agora.",
         image: "assets/characters/gabriel-andrade.png",
         choices: [
           { id: "prop", label: "Treinar prop comedy", unlock: "prop", specialization: "prop", effects: { entrega: 14, texto: 8 }, narration: "Você aprende a fazer o objeto carregar premissa, surpresa e ritmo — sem virar uma muleta." },
@@ -148,7 +148,7 @@
       stage: "open",
       priority: 110,
       once: true,
-      text: "Professor Carvalho te segura por um minuto: 'É isso aqui. Você escolhe as piadas, testa no palco, presta atenção no que realmente aconteceu e volta pro caderno. As fortes ficam. As fracas você reescreve ou mata. Depois escreve material novo e repete. Set bom é repetição, não revelação.'",
+      text: "Professor Carvalho te chama: 'É isso aqui. Você escolhe as piadas, testa no palco, presta atenção no que realmente aconteceu, o que entrou e o que teve silêncio e volta pro caderno. As fortes ficam. As fracas você reescreve ou mata. Depois escreve uma piada nova e repete. Esse é o processo.'",
       choices: [
         { label: "OK", effects: { motivation: 3, texto: 1 } }
       ]
@@ -159,7 +159,7 @@
       stage: "open",
       priority: 105,
       once: true,
-      text: "Carvalho aponta para a tela: 'Estudar não é sair falando igual ao comediante que você admira. É observar como ele pensa. Onde entra a premissa, onde corta gordura, como sustenta a tensão e onde vira a chave da piada. Rouba processo, não personalidade.'",
+      text: "Alguma coisa 'clica' em você e você começa a perceber que esse universo é um pouco mais complexo do que parecia. Agora você consegue escrever piadas escolhendo seu tipo, de acordo com a estrutura e conteúdo.",
       choices: [
         { label: "OK", effects: { texto: 3, motivation: 2 } }
       ]
@@ -170,7 +170,7 @@
       stage: "open",
       priority: 102,
       once: true,
-      text: "Carvalho bate no caderno: 'Agora começou a parte séria. Escrever qualquer um escreve uma vez. Evoluir é voltar, cortar, trocar ordem, mexer no setup e insistir até a piada ficar mais honesta e mais forte.'",
+      text: "Você entende que uma piada nunca está pronta e que reescrever, aumentar, tirar gordura e mexer no punch são coisas que vão fortalecendo o texto. Também tem a hora de desapegar, mas você ainda não precisa pensar em gravar um especial e aposentar seu texto. Agora é a hora de construir.",
       choices: [
         { label: "OK", effects: { texto: 4 } }
       ]
@@ -181,7 +181,7 @@
       stage: "open",
       priority: 100,
       once: true,
-      text: "Professor Carvalho aparece no camarim: 'Todo mundo toma água no começo. O erro agora é achar que o problema foi só coragem. Volta no set e transforma o constrangimento em informação: onde perdeu a sala, onde alongou demais, onde a ideia não se sustentou.'",
+      text: "Professor Carvalho aparece no camarim: 'Tomar água é, provavelmente, a parte mais importante do trabalho. Ir mal, ter silêncio, tomar água, é natural e só acontece quando a pessoa está escrevendo coisa nova, se arriscando e se aprimorando. Quem tem medo de água para de escrever e fica estagnado.'",
       choices: [
         { label: "OK", effects: { texto: 4, motivation: 4 } }
       ]
@@ -192,7 +192,7 @@
       stage: "open",
       priority: 95,
       once: true,
-      text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público.'",
+      text: "Carvalho sorri: 'Boa noite. Agora esquece ego. A piada que matou hoje precisa matar de novo em outro público. Lembra do processo: texto bom é texto que entra na maior parte das vezes.'",
       choices: [
         { label: "OK", effects: { texto: 3, motivation: 2, network: 1 } }
       ]
@@ -203,7 +203,7 @@
       stage: "open",
       priority: 93,
       once: true,
-      text: "Carvalho folheia seu caderno: 'Agora para de colecionar fragmento como se quantidade fosse set. Dez piadas já te deixam ver padrão, voz e repetição de vício. Começa a pensar em bloco, contraste, ordem e no que realmente merece continuar vivo.'",
+      text: "Carvalho folheia seu caderno: 'Agora já dá pra começar a pensar em sets. Em como uma piada influencia a outra, como um texto interfere no outro e que a ordem dos fatores também conta. Experimente, anote os resultados, se assista e veja seu texto de segurança tomar forma'",
       choices: [
         { label: "OK", effects: { texto: 4, motivation: 2 } }
       ]
@@ -214,7 +214,7 @@
       stage: "open",
       priority: 92,
       once: true,
-      text: "Carvalho cruza os braços: 'Uma noite boa anima. Três noites boas começam a dizer alguma coisa. Carreira não é pico, é consistência. O jogo agora é repetir nível, não caçar sensação.'",
+      text: "Carvalho: 'É isso, agora mantenha nesse ritmo e tente aprender com as vitórias também. Uma derrota ensina mais que uma única vitória, mas uma sequência de vitórias também diz algo importante. Bill Burr chama de killing in obscurity, destruindo no anonimato.'",
       choices: [
         { label: "OK", effects: { motivation: 4, texto: 2 } }
       ]
@@ -236,7 +236,7 @@
       stage: "elenco",
       priority: 108,
       once: true,
-      text: "Carvalho olha o texto montado: 'Quinze minutos não é juntar qualquer coisa até fechar a conta. É ritmo, ordem, respiro, entrada, saída. Agora você começa a sentir a diferença entre ter material e ter um texto de verdade.'",
+      text: "Carvalho olha o texto montado: 'Quinze minutos não é juntar qualquer coisa até fechar a conta. Tenha cuidado com seu texto de segurança, é hora de lapidar e deixar só as melhores. Deixar coerente e impactante, é seu cartão de visitas.'",
       choices: [
         { label: "OK", effects: { texto: 4, entrega: 2, motivation: 3 } }
       ]
@@ -247,7 +247,7 @@
       stage: "headliner",
       priority: 120,
       once: true,
-      text: "Carvalho ajeita o microfone e diz: 'Headliner não é status, é responsabilidade. Você sustenta uma noite inteira com assinatura autoral.'",
+      text: "Carvalho ajeita o microfone e diz: 'Ser o headliner da noite é, acima de tudo, responsabilidade. Você sustenta uma noite inteira com tudo que você acumulou até aqui.'",
       choices: [
         { label: "OK", effects: { texto: 6, entrega: 3, fans: 8, motivation: 2 } }
       ]
@@ -258,7 +258,7 @@
       stage: "open",
       priority: 80,
       cooldown: 4,
-      text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. Descansar também faz parte da carreira. Recupera o eixo antes de começar a repetir gesto vazio.'",
+      text: "Carvalho percebe seu cansaço: 'Disciplina sem recuperação vira burnout. A carreira de comediante não é uma corrida de 100 metros, é uma maratona'. (não é AI, o ditado é assim mesmo)'",
       choices: [
         { label: "OK", effects: { texto: 1, motivation: 8 } }
       ]
@@ -268,7 +268,7 @@
     {
       id: "veterano", trigger: "showKill", once: true,
       requiresGoodPerformance: true, isGoodEvent: true, isCharacterEvent: true,
-      text: "Depois do show, Stevan Gaipo te aborda: 'Pô, curti teu set! Cê tem timing bom. To saindo em turnê pelo interior e preciso de alguém pra abrir. Topa vir comigo? São 7 minutos num palco lotado.'",
+      text: "Depois do show, Stevan Gaipo te aborda: 'Pô, curti teu set! Cê tem timing bom. To saindo em turnê pelo sul do Brasil e preciso de alguém pra abrir. Topa vir comigo? São 7 minutos num palco lotado.'",
       image: "assets/characters/stevan-gaipo.png",
       choices: [
         { label: "Aceitar o convite", startShowId: "veterano-turne", allowScheduleOverflow: true, narration: "Você aceita o convite do Stevan! É uma oportunidade extra na agenda: a chance de tocar plateias diferentes e aprender com quem já está há anos na estrada." },
@@ -340,7 +340,7 @@
     },
     {
       id: "cincoPiadas", trigger: "jokes5", once: true, isCharacterEvent: true,
-      text: "Você já tem 5 piadas no caderno! Paulo Araújo, um comediante que você conheceu num bar, te manda mensagem: 'E aí, vi que tu tá escrevendo! Tenho um slot sobrando no 5 a 5 desse domingo, quer testar esse material?'",
+      text: "Você já tem 5 piadas no caderno! Paulo Araújo, o comediante do mineirês, te manda mensagem: 'E aí, vi que você tá escrevendo! Tenho um slot sobrando no 5 a 5 desse domingo, quer testar esse material?'",
       image: "assets/characters/paulo-araujo.png",
       choices: [
         { label: "Aceitar o convite", effects: { motivation: 8, texto: 3, network: 5 }, scheduleShow: "5a5", narration: "Paulo te inscreveu no 5 a 5 desse domingo! Você tem 3 minutos no palco.", unlock5a5: true },
@@ -349,7 +349,7 @@
     },
     {
       id: "joaoValioSeVira", trigger: "seViraNos5Invite", once: true, isCharacterEvent: true,
-      text: "João Valio, dono da Black House Comedy, te chama depois de ver seu 5 a 5: 'Quero te colocar no Se Vira nos 5. São cinco minutos em Sorocaba — tem viagem, casa nova e gente prestando atenção. Um comediante pode ser fácil de lidar, vender bem ou mandar bem no palco. Geralmente dois desses três bastam, mas só um não.'",
+      text: "João Valio, dono da Black House Comedy, te chama depois de ver seu 5 a 5: 'Quero te colocar no Se Vira nos 5. São cinco minutos lá em Sorocaba. Com viagem, casa nova e gente prestando atenção. Fica o conselho pra sua carreira, um comediante pode ser fácil de lidar, vender bem ou mandar bem no palco. Geralmente dois desses três bastam, mas só um não.'",
       image: "assets/characters/joao-valio.png",
       choices: [
         { label: "Aceitar e viajar para Sorocaba", effects: { motivation: 8, network: 6 }, scheduleShow: "se-vira-nos-5", scheduleDelayDays: 2, showType: "seViraNos5", unlockSeViraNos5: true, narration: "João confirma seu nome no Se Vira nos 5. Você separa dois dias para chegar à Black House Comedy e preparar o set." },
@@ -444,15 +444,6 @@
       ]
     },
     {
-      id: "mentorOferece", trigger: "random", isCharacterEvent: true,
-      text: "Um comediante mais experiente te oferece mentoria. Mas ele é conhecido por ser duro e exigente.",
-      image: "assets/characters/carvalho.png",
-      choices: [
-        { label: "Aceitar a mentoria", effects: { texto: 20, motivation: -10 }, narration: "A jornada é brutal, mas você evolui muito como artista." },
-        { label: "Recusar educadamente", effects: { motivation: 8, network: 8, texto: 4 }, narration: "Você agradece e preserva autonomia, sem fechar a porta para uma conversa futura." }
-      ]
-    },
-    {
       id: "competicaoComica", trigger: "random", once: true,
       text: "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
       choices: [
@@ -472,17 +463,17 @@
     {
       id: "douglasFerreiraReading", trigger: "random", once: true, isCharacterEvent: true,
       image: "assets/characters/douglao.png",
-      text: "Douglas Ferreira, porteiro do Copo Sujo e comediante secreto, te puxa de lado depois do show: 'Ó, te dou uma dica grátis: antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo.'",
+      text: "Douglas Ferreira, o douglão, do coletivo Preto Safado Show te puxa de lado depois do show: 'Ó, te dou uma dica grátis: o que acontece, antes de subir, lê a plateia. Vê quem tá prestando atenção, quem tá no celular, quem veio de casal. Isso muda tudo, sacou?.'",
       choices: [
-        { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, muda o tom. Se a galera tá rindo antes de você falar, acelera.' Você absorve cada palavra." },
-        { label: "Pedir dicas de presença de palco", effects: { entrega: 10, texto: 6 }, narration: "Douglas te mostra como usar o espaço do palco. 'Não fica parado no mic. Anda, ocupa, faz a plateia te seguir com os olhos.' Simples mas poderoso." },
+        { label: "Pedir mais dicas de crowd reading", effects: { entrega: 8, motivation: 3 }, narration: "Douglas te explica como ler a energia da sala nos primeiros 30 segundos. 'Se o cara da frente cruzou os braços, se a galera tá rindo antes de você falar, presta atenção.' Você absorve cada palavra e aprende a aquecer de verdade a plateia." },
+        { label: "Pedir dicas de presença de palco", effects: { entrega: 10, texto: 6 }, narration: "Cara, o que acontece, você precisa ser você mesmo sacou? Mas você pode aumentar um pouco quem você é pra chamar mais atenção, mas parte de você tá ligado?" },
         { label: "Agradecer e ir embora", effects: { motivation: 8, network: 7 }, narration: "Você agradece a dica rápida. Douglas sorri e volta pro portão. 'Qualquer coisa, tô ali.'" }
       ]
     },
     {
       id: "brunoBergProducao", trigger: "random", once: true, isCharacterEvent: true,
       requiresLevel: "elenco",
-      text: "Bruno Berg, produtor veterano de shows de comédia, te procura no bar: 'Ei, eu vejo potencial em você. Já pensou em produzir seus próprios shows? Te ensino o básico: como montar lineup, negociar com casas, divulgar. É outro jogo, mas abre portas enormes.'",
+      text: "Bruno Berg, comediante e produtor veterano de shows de comédia, te procura no bar: 'Ei, eu vejo potencial em você. Já pensou em produzir seus próprios shows? Te ensino o básico: como montar lineup, negociar com casas, divulgar. É outro jogo, mas abre portas enormes.'",
       choices: [
         { label: "Aprender sobre produção", effects: { network: 12, texto: 5, motivation: -3 }, narration: "Bruno te mostra os bastidores: contrato com casa, divisão de bilheteria, curadoria de elenco. É cansativo mas revelador. Você entende como o negócio funciona." },
         { label: "Perguntar sobre gestão de carreira", effects: { network: 8, motivation: 5, fans: 5 }, narration: "Bruno te dá conselhos sobre posicionamento: 'Não aceita qualquer show. Escolha onde aparece. Sua marca é o que as pessoas falam quando você sai.' Você sai pensando diferente." },

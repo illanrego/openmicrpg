@@ -119,6 +119,13 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Fixed redundancy in the Producer Event 2 branches: "Cuidar da curadoria e da escala" (network-heavy) and "Assumir a operação da noite" (motivation-led, lower network) now offer a real tradeoff instead of both being network gains.
 - Made named character encounters one-per-run (Douglas, Bruno, Diego, etc.) and prioritized unseen character events in the random pool so they reliably appear instead of being lost in the random lottery.
 
+### 2026-09-10
+- Fixed the Career Crossroads / path-choice critical dialog overflowing on smaller viewports: the dialog is now viewport-bounded and scrollable, with touch scrolling on the overlay.
+- Moved Estudar results into an editable `content.world.studyResults` catalog: four foundational lessons appear in order, then the random lessons cycle without an immediate repeat. Study rewards and weekly cap are unchanged.
+- Moved the writing-guide unlock to the first Estudar action. Until then, writing assigns tone/structure automatically and has intentionally poor new-joke odds; this tutorial unlock is now per-run, not inherited from the archive.
+- Added an optional course link to the `curso` Estudar result: `Ver curso` opens it in a new tab and leaves the dialog open; `OK` continues normally.
+- Added the Canal do Illan as the optional external action for the first ordered Estudar result, with its own YouTube button label.
+
 ## Next session start here
 
 1. Design the NEW comedy-theory insertion points (with Illan) — where theory content lands in the run

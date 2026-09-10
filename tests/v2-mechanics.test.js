@@ -65,6 +65,20 @@ test("content registry validates", () => {
   assert.equal(run("validateGameContent()"), true);
 });
 
+test("study results play their ordered lessons before cycling through random lessons", () => {
+  const { run } = createHarness();
+  run("state = loadGameState();");
+  const ordered = JSON.parse(run("JSON.stringify(getStudyResultEntries('ordered').map(entry => entry.text))"));
+  assert.equal(run("getNextStudyResult().text"), ordered[0]);
+  assert.equal(run("getNextStudyResult().text"), ordered[1]);
+  assert.equal(run("state.studyResultState.orderedIndex"), 2);
+  run("state.studyResultState.orderedIndex = getStudyResultEntries('ordered').length;");
+  const random = JSON.parse(run("JSON.stringify(getStudyResultEntries('random').map(entry => entry.text))"));
+  const seen = new Set();
+  for (let index = 0; index < random.length; index += 1) seen.add(run("getNextStudyResult().text"));
+  assert.deepEqual([...seen].sort(), [...random].sort());
+});
+
 test("show result art resolves by selected avatar and score", () => {
   const { run } = createHarness();
   run("state = loadGameState(); state.avatar = 'avatar6';");
@@ -116,7 +130,7 @@ test("legacy archive grants only non-mentor options and no numeric advantage", (
   assert.equal("legacyAp2Unlocked" in state, false);
 });
 
-test("existing save unlocks survive the mentor-owned migration", () => {
+test("existing save skill unlocks survive the mentor-owned migration", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.save.v2", JSON.stringify({
     storytellingUnlocked: true,
@@ -129,6 +143,29 @@ test("existing save unlocks survive the mentor-owned migration", () => {
   assert.equal(state.onelinerUnlocked, true);
   assert.equal(state.humorNegroUnlocked, true);
   assert.equal(state.propUnlocked, true);
+});
+
+test("the writing guide unlocks only after studying and makes new jokes less random", () => {
+  const { run, storage } = createHarness();
+  storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([{ runId: "1", writingGuideUnlocked: true }]));
+  run("state = loadGameState();");
+  assert.equal(run("state.writingGuideUnlocked"), false);
+  assert.equal(run("unlockWritingGuideFromStudy()"), true);
+  assert.equal(run("state.writingGuideUnlocked"), true);
+  run("state.writingGuideUnlocked = false; state.texto = 10;");
+  assert.equal(run("getNewJokeQualityRules().badChance"), 0.90);
+  assert.equal(run("getNewJokeQualityRules().scorePenalty"), 0.12);
+  run("state.writingGuideUnlocked = true;");
+  assert.equal(run("getNewJokeQualityRules().badChance"), 0.78);
+  assert.equal(run("getNewJokeQualityRules().scorePenalty"), 0);
+});
+
+test("ordered study links have the correct optional destinations and labels", () => {
+  const { run } = createHarness();
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'observacao').externalUrl"), "https://www.youtube.com/@canaldoillan");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'observacao').externalLabel"), "▶ Ver Canal do Illan");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'curso').externalUrl"), "https://illancarvalho.orbitpages.online/curso-do-stand-up-comic");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'curso').externalLabel"), "🎓 Ver curso");
 });
 
 test("Professor saves migrate without losing the run", () => {
@@ -575,13 +612,13 @@ test("archive writes are idempotent by runId", () => {
   assert.equal(run("loadLegacyArchive().length"), 1);
 });
 
-test("archive carries learned writing guidance and political access into the next run", () => {
+test("archive carries political access but not the per-run writing guide", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.legacyArchive.v1", JSON.stringify([
     { runId: "1", writingGuideUnlocked: true, politicoUnlocked: true }
   ]));
   const state = JSON.parse(run("JSON.stringify(loadGameState())"));
-  assert.equal(state.writingGuideUnlocked, true);
+  assert.equal(state.writingGuideUnlocked, false);
   assert.equal(state.politicoUnlocked, true);
 });
 
