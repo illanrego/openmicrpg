@@ -4251,6 +4251,7 @@ function finalizeJokeCreation() {
   const qualityRules = getNewJokeQualityRules();
   const badChance = qualityRules.badChance;
   const mediumChance = qualityRules.mediumChance;
+  const skillFactor = clamp(((state.texto || 0) - 10) / 140, 0, 1);
   const qualityRoll = Math.random();
   let qualityTier = "bad";
   if (qualityRoll >= badChance + mediumChance) qualityTier = "good";

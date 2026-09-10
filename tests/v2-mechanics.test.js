@@ -160,6 +160,22 @@ test("the writing guide unlocks only after studying and makes new jokes less ran
   assert.equal(run("getNewJokeQualityRules().scorePenalty"), 0);
 });
 
+test("unguided joke quality rules can be consumed by joke finalization", () => {
+  const { run } = createHarness();
+  run(`
+    state = loadGameState(); state.hasStarted = true; state.activityPoints = 1;
+    state.jokes = []; state.writingGuideUnlocked = false;
+    elements.btnDivLow = { style: {}, innerHTML: "" };
+    elements.jokeList = { style: {} }; elements.subTitle = { style: {}, textContent: "" };
+    _pendingJokeIdea = { seed: "teste", mood: "cotidiano", tone: "besteirol" };
+    _pendingJokeMode = writingModes.day; _selectedTone = "besteirol"; _selectedStructure = "bit";
+    _customJokeTitle = "Piada teste"; updateStats = () => {}; renderJokeList = () => {};
+    setScene = () => {}; displayNarration = () => {}; saveGameState = () => {};
+    finalizeJokeCreation();
+  `);
+  assert.equal(run("state.jokes.length"), 1);
+});
+
 test("ordered study links have the correct optional destinations and labels", () => {
   const { run } = createHarness();
   assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'observacao').externalUrl"), "https://www.youtube.com/@canaldoillan");
