@@ -133,6 +133,13 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Removed the illogical sick-day random event from the active event pool and implementation reference.
 - Renamed the legacy Pokémon-themed sound-effects directory/files and updated runtime audio keys and styling comments to neutral retro-RPG terminology.
 
+### 2026-09-10 (pre-launch)
+- Implemented the three `docs/pre-launch/` recommendations:
+  - **Venue selection** (`01-venue-selection.md`): replaced the hard starter quota in `script.js:pickOpenWeightedShows` with weighted sampling (starter base 5.0, fresh-regular variety bonus ×1.25, recent-offer penalty ×0.45) plus a guarantee that a regular venue is always offered when 2+ slots are open. Added per-run `openStageState.offerHistory` (init + migration + save). Added 4 unit tests.
+  - **Headless run checks** (`02-headless-run-checks.md`): new `scripts/headless-run-checks.mjs` — 23 checks covering the fresh / open-to-Elenco / class / no-class / persistence scenarios and the acceptance criteria (no blank dialogs, gigs resolve to valid show + image, ending locks gameplay, new run inherits nothing). Also fixed a flaky joke-finalization unit test (`failChance`) so the suite is deterministic.
+  - **Share preview** (`03-share-preview.md`): added title, description, Open Graph, Twitter/X card, and canonical metadata to `index.html` for the `standupsim.sitedoillan.com.br` release, using the existing 1920×1080 `assets/screenshots/screen.png` as the share image.
+- Mechanics suite now `53/53`; `node scripts/headless-run-checks.mjs` = `23/23`.
+
 ## Next session start here
 
 1. Design the NEW comedy-theory insertion points (with Illan) — where theory content lands in the run
