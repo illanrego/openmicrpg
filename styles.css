@@ -850,6 +850,51 @@ button:active {
   margin-bottom: 12px;
 }
 
+.credits-support {
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--wood-dark);
+  border: 2px solid var(--menu-border);
+  text-align: center;
+}
+
+#creditsPixQr {
+  display: block;
+  width: min(180px, 100%);
+  height: auto;
+  margin: 0 auto 10px;
+  border: 3px solid #fff;
+  image-rendering: pixelated;
+}
+
+.credits-support label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gold);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.credits-pix-code {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 78px;
+  padding: 7px;
+  resize: vertical;
+  background: var(--menu-bg);
+  border: 1px solid var(--menu-border);
+  color: var(--cream);
+  font: 0.72rem/1.35 monospace;
+}
+
+#creditsPixCopyButton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
 #dialogActions {
   display: flex;
   flex-direction: column;

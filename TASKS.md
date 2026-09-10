@@ -84,6 +84,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 
 ### 2026-09-10
 - Added an optional collapsible Pix coffee-support panel below the main game area on mobile, plus a regular Guia do Cômico button above it.
+- Added the Pix QR/copia-e-cola option to Créditos and updated the copy for the official release.
 
 ### 2026-07-10
 - Created `.hermes.md`, `AGENTS.md`, `TASKS.md` for agent pickup from repo cwd.
