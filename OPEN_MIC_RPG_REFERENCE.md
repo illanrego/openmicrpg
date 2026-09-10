@@ -462,7 +462,6 @@ Every event has one of two mechanical kinds: `incidental` for small world/stat e
 | 22 | `viralNegativo` | random | Cancel attempt: explain (-15 fans) or stay silent (-8 fans) |
 | 23 | `ofertaDinheiro` | random | Shady sponsorship: accept (-10 fans) or refuse (+8 fans) |
 | 24 | `festaPosShow` | showKill | After-show party: party (+8 motivation +10 network) or write (+12 texto) |
-| 25 | `doencaDiaShow` | random | Sick on show day: go anyway (-8 motivation +5 network) or cancel (+5 motivation -8 network) |
 | 26 | `competicaoComica` | random | Comedy competition: enter (-5 motivation +15 fans) or wait (+3 motivation) |
 | 27 | `piratearamSeuShow` | fans30 | Show pirated: demand removal (-5 fans) or use as promo (+20 fans) |
 

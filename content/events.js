@@ -435,15 +435,6 @@
       ]
     },
     {
-      id: "doencaDiaShow", trigger: "random",
-      text: "Você acorda se sentindo péssimo. Garganta arranhando, corpo mole, febre baixa. Tem um show marcado pra hoje...",
-      image: "assets/scenes/writing/quarto2.png",
-      choices: [
-        { label: "Ir mesmo assim", effects: { motivation: -8, network: 5 }, narration: "Você toma um remédio, vai e faz o set no automático. Não foi seu melhor dia, mas o produtor respeita quem cumpre compromisso." },
-        { label: "Avisar que não vai", effects: { motivation: 5, network: -8 }, narration: "Você avisa o produtor que não tem condição. Ele não fica feliz, mas pelo menos você não piorou a doença." }
-      ]
-    },
-    {
       id: "competicaoComica", trigger: "random", once: true,
       text: "Uma competição de comédia está aceitando inscrições. O prêmio é visibilidade, mas a competição é acirrada.",
       choices: [

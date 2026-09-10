@@ -125,6 +125,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Moved the writing-guide unlock to the first Estudar action. Until then, writing assigns tone/structure automatically and has intentionally poor new-joke odds; this tutorial unlock is now per-run, not inherited from the archive.
 - Added an optional course link to the `curso` Estudar result: `Ver curso` opens it in a new tab and leaves the dialog open; `OK` continues normally.
 - Added the Canal do Illan as the optional external action for the first ordered Estudar result, with its own YouTube button label.
+- Removed the illogical sick-day random event from the active event pool and implementation reference.
 
 ## Next session start here
 
