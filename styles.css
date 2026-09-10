@@ -1129,6 +1129,94 @@ button:active {
   background: linear-gradient(180deg, #6aaf6a 0%, var(--success) 100%) !important;
 }
 
+/* ========== PLAYER SUPPORT ========== */
+#supportSection {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--menu-bg);
+  border: 2px solid var(--menu-border);
+  color: var(--cream);
+  text-align: center;
+}
+
+#supportTitle {
+  margin: 0 0 10px;
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.support-layout {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+#pixQr {
+  display: block;
+  width: min(180px, 100%);
+  height: auto;
+  border: 3px solid #fff;
+  image-rendering: pixelated;
+}
+
+.support-copy {
+  width: 100%;
+  min-width: 0;
+}
+
+.support-copy p {
+  margin: 0 0 8px;
+  color: var(--cream-dark);
+  font-size: 0.9rem;
+}
+
+.support-copy label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gold);
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+#pixCode {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 78px;
+  padding: 7px;
+  resize: vertical;
+  background: var(--wood-dark);
+  border: 1px solid var(--menu-border);
+  color: var(--cream);
+  font: 0.72rem/1.35 monospace;
+}
+
+#pixCopyButton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.support-status {
+  display: block;
+  min-height: 1.1em;
+  margin-top: 5px;
+  color: var(--success);
+  font-size: 0.8rem;
+}
+
+.guide-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--gold);
+  font-size: 0.95rem;
+}
+
+.guide-link:hover {
+  color: var(--cream);
+}
+
 /* Show today button in main menu */
 #button2.show-today {
   background: linear-gradient(180deg, var(--success) 0%, #4a7a4a 100%) !important;

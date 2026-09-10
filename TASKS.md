@@ -82,6 +82,9 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 
 ## Session log (append short notes)
 
+### 2026-09-10
+- Added an optional Pix coffee-support panel below the day controls, with the supplied QR code, copia-e-cola copy button, and Guia do Cômico link.
+
 ### 2026-07-10
 - Created `.hermes.md`, `AGENTS.md`, `TASKS.md` for agent pickup from repo cwd.
 - Verified tests: 20/20 pass.

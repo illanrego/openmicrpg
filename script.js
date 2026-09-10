@@ -1162,6 +1162,40 @@ function openExternalUrl(url) {
   }
 }
 
+async function copyPixCode() {
+  const codeField = document.querySelector("#pixCode");
+  const status = document.querySelector("#pixCopyStatus");
+  if (!codeField) return;
+  const code = codeField.value || codeField.textContent || "";
+  let copied = false;
+
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    } catch {
+      // Fall back to the legacy copy command below.
+    }
+  }
+
+  if (!copied) {
+    codeField.focus();
+    codeField.select();
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
+    codeField.setSelectionRange(0, 0);
+  }
+
+  if (status) {
+    status.textContent = copied
+      ? "Código Pix copiado!"
+      : "Selecione e copie o código manualmente.";
+  }
+}
+
 function showCarvalhoDialog(dialog) {
   ensureCareerProgressState();
   if (!dialog) return;
@@ -5196,6 +5230,14 @@ function attachEvents() {
   addButtonEffects(elements.btnContinuar, performShow);
   addButtonEffects(elements.btnEndDay, handleEndDay);
   addButtonEffects(elements.btnGoToShow, handleGoToScheduledShow);
+  const pixCopyButton = document.querySelector("#pixCopyButton");
+  if (pixCopyButton) {
+    pixCopyButton.addEventListener("click", (event) => {
+      playSound("click");
+      createRipple(event, pixCopyButton);
+      copyPixCode();
+    });
+  }
 
   elements.jokeList.addEventListener("click", handleJokeListClick);
   elements.introContinue.addEventListener("click", (e) => { createRipple(e, elements.introContinue); advanceIntro(); });
