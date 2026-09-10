@@ -1815,10 +1815,20 @@ body.flow-active #game {
   }
 
   #guideButton {
+    position: relative;
     grid-column: 1;
     grid-row: 2;
     width: calc(100% - 32px);
     max-width: none;
+  }
+
+  #guideButton::before {
+    content: "";
+    position: absolute;
+    top: -12px;
+    left: -16px;
+    right: -16px;
+    border-top: 2px solid var(--menu-border);
   }
 
   #supportSection {
