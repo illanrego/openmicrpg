@@ -311,6 +311,57 @@ function inferShowAudienceType(show) {
   return "mixed-room";
 }
 
+const SHOW_STAGE_LABELS = {
+  open: "nível Open",
+  elenco: "nível Elenco",
+  headliner: "nível Headliner"
+};
+
+const SHOW_RISK_LABELS = {
+  low: "plateia comportada",
+  medium: "plateia exigente",
+  high: "plateia imprevisível"
+};
+
+const SHOW_AUDIENCE_LABELS = {
+  corporate: "público corporativo",
+  theater: "público teatral",
+  "young-chaotic": "público jovem e caótico",
+  "digital-urban": "público digital e urbano",
+  family: "público família",
+  "mixed-room": "público misto"
+};
+
+const SHOW_DIFFICULTY_LABELS = {
+  low: "dificuldade baixa",
+  medium: "dificuldade média",
+  high: "dificuldade alta"
+};
+
+const VENUE_REPUTATION_LABELS = {
+  "casa-favorita": "casa parceira",
+  quente: "casa aquecida",
+  instável: "casa instável",
+  fria: "casa fria",
+  neutra: "casa neutra"
+};
+
+function getShowRiskLabel(risk) {
+  return SHOW_RISK_LABELS[risk] || "plateia de risco desconhecido";
+}
+
+function getShowAudienceLabel(audience) {
+  return SHOW_AUDIENCE_LABELS[audience] || SHOW_AUDIENCE_LABELS["mixed-room"];
+}
+
+function getShowDifficultyLabel(show) {
+  return SHOW_DIFFICULTY_LABELS[inferShowRiskProfile(show)] || "dificuldade desconhecida";
+}
+
+function getVenueReputationLabel(tier) {
+  return VENUE_REPUTATION_LABELS[tier] || VENUE_REPUTATION_LABELS.neutra;
+}
+
 function inferAudienceTypeFromAffinity(typeAffinity) {
   const safe = typeAffinity || {};
   const fallback = (typeof safe.default === "number") ? safe.default : 0;
@@ -4410,15 +4461,16 @@ function presentShowOptions(availableShows) {
     if (showType === "5a5") label = `⭐ ${show.name} (especial iniciantes)`;
     if (showType === "seViraNos5") label = `🏠 ${show.name} (convite de João Valio)`;
     if (showType === "pague15") label = `🏆 ${show.name} (desbloqueado!)`;
-    if (showType === "openStarter") label = `🌱 ${show.name} (open iniciante)`;
+    if (showType === "openStarter") label = `🌱 ${show.name} (primeiro palco)`;
     if (showType === "elenco15") label = `🎬 ${show.name} (circuito 15min)`;
     if (showType === "specialTape") label = `🎥 ${show.name} (gravação final)`;
-    const stageTag = show.careerStage ? ` · ${show.careerStage.toUpperCase()}` : "";
-    const riskTag = show.riskProfile ? ` · risco ${show.riskProfile}` : "";
-    const crowdTag = show.audienceType ? ` · público ${show.audienceType}` : "";
-    const difficultyTag = ` · dificuldade ${(show.difficulty * 100).toFixed(0)}%`;
+    const stageTag = show.careerStage ? ` · ${SHOW_STAGE_LABELS[show.careerStage] || show.careerStage}` : "";
+    const riskTag = ` · ${getShowRiskLabel(show.riskProfile)}`;
+    const crowdTag = ` · ${getShowAudienceLabel(show.audienceType)}`;
+    const difficultyTag = ` · ${getShowDifficultyLabel(show)}`;
     const venueRep = getVenueReputation(show.id);
-    const repTag = ` · casa ${getVenueReputationTier(venueRep)} (${venueRep >= 0 ? "+" : ""}${venueRep})`;
+    const repTier = getVenueReputationTier(venueRep);
+    const repTag = ` · ${getVenueReputationLabel(repTier)}`;
     const locationTag = show.location ? `\n📍 ${show.location}` : "";
     return {
       label: `${label}${stageTag}${riskTag}${crowdTag}${difficultyTag}${repTag}${locationTag}\n📅 ${dayName} (${daysAhead === 0 ? 'HOJE' : daysAhead + 'd'}) | ⏱️ ${offeredTime} min oferecidos`,
