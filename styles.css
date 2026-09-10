@@ -274,7 +274,7 @@ h3 {
   transform: scale(1.05);
 }
 
-/* Dialog text box - Pokemon style */
+/* Dialog text box - retro RPG style */
 #introText {
   min-height: 100px;
   padding: 16px;
@@ -399,7 +399,7 @@ h3 {
   animation: menu-open 0.4s ease-out;
 }
 
-/* Player stats panel - Pokemon/SNES RPG style */
+/* Player stats panel - retro SNES RPG style */
 #player {
   padding: 12px;
   display: flex;
@@ -634,7 +634,7 @@ button:active {
   transform: scale(1.05);
 }
 
-/* Narration text box - Pokemon dialog style */
+/* Narration text box - retro RPG dialog style */
 #text {
   font-size: 1.2rem;
   line-height: 1.6;

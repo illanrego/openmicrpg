@@ -126,6 +126,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Added an optional course link to the `curso` Estudar result: `Ver curso` opens it in a new tab and leaves the dialog open; `OK` continues normally.
 - Added the Canal do Illan as the optional external action for the first ordered Estudar result, with its own YouTube button label.
 - Removed the illogical sick-day random event from the active event pool and implementation reference.
+- Renamed the legacy Pokémon-themed sound-effects directory/files and updated runtime audio keys and styling comments to neutral retro-RPG terminology.
 
 ## Next session start here
 

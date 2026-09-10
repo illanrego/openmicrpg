@@ -596,15 +596,15 @@ const flashScreen = (color = 'rgba(212, 168, 75, 0.25)') => {
 // ═══════════════════════════════════════════════════════════════════
 
 const sounds = {
-  click: new Audio('pokemonsoundeffects/click.wav'),
-  save: new Audio('pokemonsoundeffects/save.wav'),
-  getSomething: new Audio('pokemonsoundeffects/get something.wav'),
-  victory: new Audio('pokemonsoundeffects/victory1.wav'),
-  boom: new Audio('pokemonsoundeffects/boom.wav'),
-  menu: new Audio('pokemonsoundeffects/menu.wav'),
-  pokeball: new Audio('pokemonsoundeffects/pokeball.wav'),
-  findSomething: new Audio('pokemonsoundeffects/find something.wav'),
-  comeWithMe: new Audio('pokemonsoundeffects/come with me.wav')
+  click: new Audio('soundeffects/click.wav'),
+  save: new Audio('soundeffects/save.wav'),
+  getSomething: new Audio('soundeffects/get something.wav'),
+  victory: new Audio('soundeffects/victory1.wav'),
+  boom: new Audio('soundeffects/boom.wav'),
+  menu: new Audio('soundeffects/menu.wav'),
+  itemSelect: new Audio('soundeffects/item_select.wav'),
+  findSomething: new Audio('soundeffects/find something.wav'),
+  comeWithMe: new Audio('soundeffects/come with me.wav')
 };
 
 Object.values(sounds).forEach(sound => { sound.volume = 0.3; sound.load(); });
@@ -4343,7 +4343,7 @@ function finalizeJokeCreation() {
   renderJokeList({ selectable: false });
   updateStats();
   setScene("home");
-  playSound('pokeball');
+  playSound('itemSelect');
   flashScreen('rgba(212, 168, 75, 0.2)');
   if (adjustedPotential > 0.7) spawnConfetti(15);
 
