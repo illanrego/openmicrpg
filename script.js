@@ -5230,6 +5230,10 @@ function attachEvents() {
   addButtonEffects(elements.btnContinuar, performShow);
   addButtonEffects(elements.btnEndDay, handleEndDay);
   addButtonEffects(elements.btnGoToShow, handleGoToScheduledShow);
+  const guideButton = document.querySelector("#guideButton");
+  if (guideButton) {
+    addButtonEffects(guideButton, () => openExternalUrl(guideButton.dataset.url));
+  }
   const pixCopyButton = document.querySelector("#pixCopyButton");
   if (pixCopyButton) {
     pixCopyButton.addEventListener("click", (event) => {

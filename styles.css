@@ -1130,25 +1130,56 @@ button:active {
 }
 
 /* ========== PLAYER SUPPORT ========== */
+#guideButton {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  margin: 10px auto 0;
+}
+
 #supportSection {
   margin-top: 10px;
   padding: 12px;
   background: var(--menu-bg);
   border: 2px solid var(--menu-border);
   color: var(--cream);
-  text-align: center;
+  overflow: hidden;
 }
 
 #supportTitle {
-  margin: 0 0 10px;
+  position: relative;
+  margin: 0;
+  padding-right: 22px;
   color: var(--gold);
   font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+#supportTitle::-webkit-details-marker {
+  display: none;
+}
+
+#supportTitle::after {
+  content: "▾";
+  position: absolute;
+  right: 0;
+  transition: transform 0.15s ease;
+}
+
+#supportSection:not([open]) #supportTitle::after {
+  transform: rotate(-90deg);
 }
 
 .support-layout {
   display: grid;
   gap: 10px;
   justify-items: center;
+}
+
+#supportSection[open] .support-layout {
+  margin-top: 10px;
 }
 
 #pixQr {
@@ -1204,17 +1235,6 @@ button:active {
   margin-top: 5px;
   color: var(--success);
   font-size: 0.8rem;
-}
-
-.guide-link {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--gold);
-  font-size: 0.95rem;
-}
-
-.guide-link:hover {
-  color: var(--cream);
 }
 
 /* Show today button in main menu */
