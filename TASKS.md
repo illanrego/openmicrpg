@@ -83,7 +83,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 ## Session log (append short notes)
 
 ### 2026-09-10
-- Added an optional collapsible Pix coffee-support panel below the day controls, plus a regular Guia do Cômico button above it.
+- Added an optional collapsible Pix coffee-support panel below the main game area on mobile, plus a regular Guia do Cômico button above it.
 
 ### 2026-07-10
 - Created `.hermes.md`, `AGENTS.md`, `TASKS.md` for agent pickup from repo cwd.
