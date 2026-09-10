@@ -867,6 +867,16 @@ button:active {
   image-rendering: pixelated;
 }
 
+.pix-qr-label {
+  display: block;
+  text-align: center;
+  margin-bottom: 6px;
+  color: var(--gold);
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 .credits-support label {
   display: block;
   margin-bottom: 4px;
