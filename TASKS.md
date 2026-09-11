@@ -1,6 +1,6 @@
 # Open Mic RPG — live ship board
 
-Last updated: 2026-07-28
+Last updated: 2026-09-11
 Deadline: **2026-07-23** (12 days to build, ship on day 13)  
 Owner: Illan  
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -71,6 +71,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - [x] Named NPC portraits: Rossini, Bruno, Douglas, Diego (user-supplied; copying into `assets/characters/`)
 - [x] Show result art: 30 finished images (`assets/scenes/results/<avatar>/<result>.png`) — no layering
 - [x] Finished avatar-neutral ending illustrations: one per class, pure-tone, and special ending
+- [x] Additional writing-room variants (`quarto6`–`quarto10`) with cat companions
 - [ ] Ending gallery in archive UI
 - [ ] Shareable ending image export
 - [ ] Copy polish pass across all ending tiers

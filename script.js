@@ -1933,8 +1933,20 @@ const cloneJokes = (list) => list.map((joke) => sanitizeJoke(joke));
 const describeTone = (tone) => toneDescriptions[tone] || "coisa difícil de rotular";
 const formatHistory = (history = []) => history && history.length ? history.join(" ") : "⏱️ nenhuma referência recente";
 
-function getQuartoForWeekday(weekday) {
-  const quartos = ['assets/scenes/writing/quarto1.png', 'assets/scenes/writing/quarto2.png', 'assets/scenes/writing/quarto3.png', 'assets/scenes/writing/quarto4.png', 'assets/scenes/writing/quarto5.png'];
+function getQuartoForWritingDay(weekday, day) {
+  const quartos = [
+    'assets/scenes/writing/quarto1.png',
+    'assets/scenes/writing/quarto2.png',
+    'assets/scenes/writing/quarto3.png',
+    'assets/scenes/writing/quarto4.png',
+    'assets/scenes/writing/quarto5.png',
+    'assets/scenes/writing/quarto6.png',
+    'assets/scenes/writing/quarto7.png',
+    'assets/scenes/writing/quarto8.png',
+    'assets/scenes/writing/quarto9.png',
+    'assets/scenes/writing/quarto10.png'
+  ];
+  if (Number.isFinite(day)) return quartos[(day - 1) % quartos.length];
   if (weekday === 0) return quartos[1]; // Domingo
   if (weekday === 6) return quartos[0]; // Sábado
   return quartos[weekday - 1];          // Segunda–Sexta
@@ -3820,7 +3832,7 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
     if (token !== sceneRenderToken) return;
     let imageToUse = customImage || scene.image;
     if (!customImage && !scene.image && state && typeof state.currentWeekDay !== 'undefined') {
-      imageToUse = getQuartoForWeekday(state.currentWeekDay);
+      imageToUse = getQuartoForWritingDay(state.currentWeekDay, state.currentDay);
     }
     elements.image.classList.toggle('character-image', !!isCharacter);
     elements.image.onload = () => {
