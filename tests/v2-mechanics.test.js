@@ -237,6 +237,14 @@ test("ordered study links have the correct optional destinations and labels", ()
   assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'curso').externalLabel"), "🎓 Ver curso");
 });
 
+test("reference study results use inline links instead of dedicated action buttons", () => {
+  const { run } = createHarness();
+  assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comedia-com-legenda').inlineLinkUrl"), "https://www.youtube.com/@Com%C3%A9diacomLegenda");
+  assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comedia-com-legenda').externalUrl"), undefined);
+  assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').inlineLinkLabel"), "Comics Legendados");
+  assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').externalUrl"), undefined);
+});
+
 test("Professor saves migrate without losing the run", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.save.v2", JSON.stringify({ chosenClass: "professor", currentDay: 22, jokes: [] }));

@@ -44,6 +44,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - [ ] Fix any softlocks, blank dialogs, day-skip bugs found
 - [ ] Confirm mentor revisits and pure-ending edge cases in real UI
 - [ ] Tone/structure dominance UI clarity if confusing
+- [x] Add optional inline reference links to study results
 
 ### C. Ship packaging
 

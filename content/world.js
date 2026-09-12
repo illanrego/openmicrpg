@@ -95,6 +95,18 @@ content.world.homeText =
       {
         id: "repertorio",
         text: "Você volta ao caderno com uma regra simples: repertório não é uma pilha de ideias. É material testado, comparado, reescrito e organizado para cumprir uma função no set."
+      },
+      {
+        id: "referencias-comedia-com-legenda",
+        text: "Você decide estudar referências e acaba vendo trechos de stand up legendados no Comédia com Legenda. Não é seu canal, mas ajuda a ouvir cadência, escolha de palavra e ritmo sem brigar tanto com o inglês.",
+        inlineLinkUrl: "https://www.youtube.com/@Com%C3%A9diacomLegenda",
+        inlineLinkLabel: "Comédia com Legenda"
+      },
+      {
+        id: "referencias-comics-legendados",
+        text: "Você viu um trecho de We Might Be Drunk com Mark Normand e Sam Morril, com Dave Attell de convidado, no Comics Legendados. Você fica atordoado com tanta sabedoria e talvez consegue levar algo pro seu processo.",
+        inlineLinkUrl: "https://www.youtube.com/@comicslegendados",
+        inlineLinkLabel: "Comics Legendados"
       }
     ]
   };

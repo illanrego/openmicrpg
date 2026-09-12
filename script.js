@@ -3811,6 +3811,49 @@ function displayNarration(message) {
   setTimeout(() => focusNarrationOnMobile(token), 450);
 }
 
+function appendNarrationLink(token, url, label) {
+  if (token !== narrationRenderToken || !elements.text) return;
+  if (typeof url !== "string" || !url.trim()) return;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+
+    const separator = document.createTextNode(" ");
+    const link = document.createElement("a");
+    link.href = parsed.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "narration-inline-link";
+    link.textContent = label || "Ver referência";
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openExternalUrl(parsed.href);
+    });
+    elements.text.append(separator, link);
+  } catch {
+    // Ignore malformed optional study links; the study narration still works.
+  }
+}
+
+function displayStudyNarration(message, studyResult = {}) {
+  narrationRenderToken += 1;
+  const token = narrationRenderToken;
+  elements.text.innerHTML = "";
+  elements.text.style.opacity = '0';
+  elements.text.style.transform = 'translateY(10px)';
+  setTimeout(() => {
+    if (token !== narrationRenderToken) return;
+    elements.text.style.transition = 'all 0.3s ease';
+    elements.text.style.opacity = '1';
+    elements.text.style.transform = 'translateY(0)';
+    showText("#text", message, 0, 18, () => {
+      appendNarrationLink(token, studyResult.inlineLinkUrl, studyResult.inlineLinkLabel);
+    }, token);
+  }, 100);
+  setTimeout(() => focusNarrationOnMobile(token), 450);
+}
+
 function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   const scene = scenes[sceneKey] || {};
   sceneRenderToken += 1;
@@ -4973,7 +5016,7 @@ function handleStudy() {
       { label: "OK", handler: () => {} }
     ]);
   } else {
-    displayNarration(studyMessage);
+    displayStudyNarration(studyMessage, studyResult);
   }
   updateStats();
   saveGameState();

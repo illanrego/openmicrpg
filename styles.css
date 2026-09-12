@@ -651,6 +651,18 @@ button:active {
   animation: menu-open 0.3s ease-out;
 }
 
+.narration-inline-link {
+  color: var(--brick);
+  font-weight: bold;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.narration-inline-link:hover,
+.narration-inline-link:focus-visible {
+  color: var(--accent);
+}
+
 #subTitle {
   color: var(--gold);
   font-size: 1.3rem;
