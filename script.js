@@ -625,6 +625,10 @@ let state;
 let currentShow = null;
 let uiMode = "idle";
 let introStep = 0;
+// Intro typewriter state: the continue button stays locked until the current
+// line finishes typing, and a token cancels any stale typing pass.
+let introTextTyping = false;
+let introTextToken = 0;
 let activeEvent = null;
 let pendingEvent = null;
 let lastLevelLabel = null;
@@ -4164,6 +4168,8 @@ function renderSetSummary() {
 function startIntro() {
   uiMode = "intro";
   introStep = 0;
+  introTextToken += 1;
+  introTextTyping = false;
   setScene("intro", "Professor Carvalho", "assets/characters/carvalho.png", true);
   elements.introScreen.classList.remove("hidden");
   elements.screen.classList.add("hidden");
@@ -4173,16 +4179,60 @@ function startIntro() {
   playIntroLine();
 }
 
+// The continue button is locked while a line is still typing so rapid clicks
+// cannot start a second typing pass over the same element (which produced
+// overlapping / garbled intro text).
+function setIntroContinueLocked(locked) {
+  const button = elements.introContinue;
+  if (!button) return;
+  button.disabled = locked;
+  button.classList.toggle("is-locked", locked);
+  button.setAttribute("aria-disabled", locked ? "true" : "false");
+}
+
 function playIntroLine() {
   const line = mentorIntroLines[introStep] || mentorIntroLines[mentorIntroLines.length - 1];
-  elements.introText.innerHTML = "";
-  showText("#introText", line, 0, 30);
   const hasMore = introStep < mentorIntroLines.length - 1;
+  const token = ++introTextToken;
+  const target = elements.introText;
+
+  introTextTyping = true;
+  if (target) target.textContent = "";
   elements.introContinue.style.display = hasMore ? "inline-block" : "none";
-  if (!hasMore) { elements.nameInput.style.display = "block"; elements.playerNameInput.focus(); }
+  setIntroContinueLocked(hasMore);
+
+  const finish = () => {
+    if (token !== introTextToken) return;
+    introTextTyping = false;
+    if (hasMore) {
+      setIntroContinueLocked(false);
+    } else {
+      elements.nameInput.style.display = "block";
+      elements.playerNameInput.focus();
+    }
+  };
+
+  if (!target || !line) {
+    finish();
+    return;
+  }
+
+  let index = 0;
+  const type = () => {
+    if (token !== introTextToken) return;
+    index += 1;
+    target.textContent = line.substring(0, index);
+    if (index < line.length) {
+      setTimeout(type, 30);
+    } else {
+      finish();
+    }
+  };
+  type();
 }
 
 function advanceIntro() {
+  if (introTextTyping) return;
   if (introStep >= mentorIntroLines.length - 1) return;
   introStep += 1;
   playIntroLine();

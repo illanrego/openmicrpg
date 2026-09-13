@@ -305,6 +305,14 @@ h3 {
   display: none;
 }
 
+#introContinue:disabled,
+#introContinue.is-locked {
+  opacity: 0.45;
+  cursor: default;
+  filter: saturate(0.6);
+  pointer-events: none;
+}
+
 /* Name input section */
 #nameInput {
   width: 100%;
