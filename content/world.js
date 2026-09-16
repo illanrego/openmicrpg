@@ -103,7 +103,7 @@ content.world.homeText =
       },
       {
         id: "leitura-de-sala",
-        text: "Você presta atenção na leitura de sala. Não é agradar qualquer público; é perceber o que a plateia recebeu para decidir o próximo passo com intenção e estratégia. Suas piadas e textos são munições, use apropriadamente."
+        text: "Você aprende a ler a sala antes de entrar no texto: quem chega falando alto, que mesa puxa a energia, o que tem pendurado na casa, como as pessoas estão vestidas e em qual assunto elas engatam. Um detalhe pode abrir uma conversa ou virar crowd work. Os detalhes que servem àquela noite entram; o resto fica no radar enquanto o set segue."
       },
       {
         id: "repertorio",
