@@ -118,7 +118,7 @@ content.world.homeText =
       {
         id: "referencias-comics-legendados",
         text: "Você viu um trecho de We Might Be Drunk com Mark Normand e Sam Morril, com Dave Attell de convidado, no Comics Legendados. Você fica atordoado com tanta sabedoria e talvez consegue levar algo pro seu processo.",
-        inlineLinkUrl: "https://www.youtube.com/@comicslegendados",
+        inlineLinkUrl: "https://www.youtube.com/@comicslegendados1990",
         inlineLinkLabel: "Comics Legendados"
       }
     ]

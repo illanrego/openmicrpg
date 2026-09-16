@@ -259,6 +259,7 @@ test("reference study results use inline links instead of dedicated action butto
   assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comedia-com-legenda').inlineLinkUrl"), "https://www.youtube.com/@Com%C3%A9diacomLegenda");
   assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comedia-com-legenda').externalUrl"), undefined);
   assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').inlineLinkLabel"), "Comics Legendados");
+  assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').inlineLinkUrl"), "https://www.youtube.com/@comicslegendados1990");
   assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').externalUrl"), undefined);
 });
 
