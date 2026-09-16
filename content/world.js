@@ -60,10 +60,22 @@ content.world.homeText =
       },
       {
         id: "estrutura",
-        text: "Você aprende a estrutura básica da piada, setup + punch. Preparação + Quebra, parece simples. Mas aí você vê que também existe a tag, que é a piada após a piada e o act-out, que é encenar a piada que você acabou de fazer. Parece complexo... você anota.",
+        text: "Você aprende a estrutura básica da piada, setup + punch. Preparação + Quebra, parece simples. Mas aí você vê que também existe a tag, que é a piada após a piada e o act-out, que é encenar a piada que você acabou de fazer. Parece complexo... você anota."
+      },
+      {
+        id: "canal-do-illan",
+        text: "Depois de entender o básico, você encontra o Canal do Illan e vê um vídeo sobre tipos de comédia stand up. Agora as ideias parecem ter mais caminhos possíveis.",
         externalUrl: "https://www.youtube.com/@canaldoillan",
         externalLabel: "▶ Ver Canal do Illan",
         externalAfterOk: true
+      },
+      {
+        id: "reescrita",
+        text: "Você relê uma ideia e percebe que escrever é voltar nela. Trocar uma palavra, cortar uma explicação e testar outra ordem pode mudar totalmente onde a risada aparece."
+      },
+      {
+        id: "teste-de-palco",
+        text: "Você entende que a piada não termina no caderno. O palco responde, a plateia mostra o que entendeu e o material volta diferente para a próxima tentativa."
       },
       {
         id: "curso",

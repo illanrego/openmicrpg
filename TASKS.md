@@ -133,7 +133,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Moved the writing-guide unlock to the first Estudar action. Until then, writing assigns tone/structure automatically and has intentionally poor new-joke odds; this tutorial unlock is now per-run, not inherited from the archive.
 - Added an optional course link to the `curso` Estudar result: `Ver curso` opens it in a new tab and leaves the dialog open; `OK` continues normally.
 - Added the Canal do Illan as the optional external action for the first ordered Estudar result, with its own YouTube button label.
-- Moved the Canal do Illan action from the first Estudar result to the third (`estrutura`) lesson so the first study is link-free; the channel button now renders below `OK` and remains optional.
+- Moved the Canal do Illan action from the first Estudar result to the fourth (`canal-do-illan`) lesson so early study remains link-free; the channel button renders below `OK` and remains optional. The full course copy/link now appears on the seventh (`curso`) lesson.
 - Removed the Pix block from Créditos. Credits now introduces Illan Carvalho and offers `Conheça meu trabalho`, opening `https://links.sitedoillan.com.br/`; the standalone café-support panel remains available below the game.
 - Removed the illogical sick-day random event from the active event pool and implementation reference.
 - Renamed the legacy Pokémon-themed sound-effects directory/files and updated runtime audio keys and styling comments to neutral retro-RPG terminology.

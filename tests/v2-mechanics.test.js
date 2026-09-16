@@ -229,21 +229,22 @@ test("unguided joke quality rules can be consumed by joke finalization", () => {
   assert.equal(run("state.jokes.length"), 1);
 });
 
-test("ordered study links have the correct optional destinations and labels", () => {
+test("ordered study links appear on the fourth and seventh lessons", () => {
   const { run } = createHarness();
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'observacao').externalUrl"), undefined);
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'estrutura').externalUrl"), "https://www.youtube.com/@canaldoillan");
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'estrutura').externalLabel"), "▶ Ver Canal do Illan");
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'estrutura').externalAfterOk"), true);
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'curso').externalUrl"), "https://illancarvalho.orbitpages.online/curso-do-stand-up-comic");
-  assert.equal(run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'curso').externalLabel"), "🎓 Ver curso");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[3].id"), "canal-do-illan");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[3].externalUrl"), "https://www.youtube.com/@canaldoillan");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[3].externalLabel"), "▶ Ver Canal do Illan");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[3].externalAfterOk"), true);
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[6].id"), "curso");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[6].externalUrl"), "https://illancarvalho.orbitpages.online/curso-do-stand-up-comic");
+  assert.equal(run("GAME_CONTENT.world.studyResults.ordered[6].externalLabel"), "🎓 Ver curso");
 });
 
 test("the later Canal do Illan study action renders below OK", () => {
   const { run } = createHarness();
   run(`
     state = loadGameState(); state.hasStarted = true; state.activityPoints = 1;
-    state.studyResultState.orderedIndex = 2;
+    state.studyResultState.orderedIndex = 3;
     elements.btnContinuar = { style: {} }; elements.btnDivLow = { style: {} };
     elements.jokeList = { dataset: {}, style: {} }; elements.legend = { style: {} }; elements.subTitle = { textContent: "" };
     queueCriticalDialog = (...args) => { globalThis.studyDialogActions = args[1] || []; };

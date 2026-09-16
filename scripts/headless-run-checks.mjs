@@ -88,10 +88,15 @@ const study = run("getNextStudyResult()");
 check("first study result is non-blank", !!(study && study.text && study.text.trim().length));
 const firstOrdered = run("GAME_CONTENT.world.studyResults.ordered[0]");
 check("first ordered study result is link-free (no invasive CTA)", !!(firstOrdered && firstOrdered.text && !firstOrdered.externalUrl));
-const laterChannelStudy = run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'estrutura')");
+const laterChannelStudy = run("GAME_CONTENT.world.studyResults.ordered[3]");
+const seventhCourseStudy = run("GAME_CONTENT.world.studyResults.ordered[6]");
 check(
-  "later study lesson exposes the Canal do Illan CTA below OK",
-  !!(laterChannelStudy && laterChannelStudy.externalUrl === "https://www.youtube.com/@canaldoillan" && laterChannelStudy.externalLabel && laterChannelStudy.externalAfterOk)
+  "fourth study lesson exposes the Canal do Illan CTA below OK",
+  !!(laterChannelStudy && laterChannelStudy.id === "canal-do-illan" && laterChannelStudy.externalUrl === "https://www.youtube.com/@canaldoillan" && laterChannelStudy.externalLabel && laterChannelStudy.externalAfterOk)
+);
+check(
+  "seventh study lesson exposes the course CTA",
+  !!(seventhCourseStudy && seventhCourseStudy.id === "curso" && seventhCourseStudy.externalUrl === "https://illancarvalho.orbitpages.online/curso-do-stand-up-comic" && seventhCourseStudy.externalLabel)
 );
 // Two offer slots (network >= 30) make the freshness guarantee pick the spots cleanly.
 run("state.network = 30; state.stageTime = 0; state.hasStarted = true;");
