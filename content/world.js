@@ -107,7 +107,7 @@ content.world.homeText =
       },
       {
         id: "repertorio",
-        text: "Você volta ao caderno com uma regra simples: repertório não é uma pilha de ideias. É material testado, comparado, reescrito e organizado para cumprir uma função no set."
+        text: "Construir seu texto de segurança é separar cada piada forte e abandonar ou reescrever as fracas. Nesse texto, fazer rir importa mais que seguir um tema só ou encher de firula."
       },
       {
         id: "referencias-comedia-com-legenda",
