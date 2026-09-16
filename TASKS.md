@@ -76,6 +76,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - [ ] Ending gallery in archive UI
 - [ ] Shareable ending image export
 - [ ] Copy polish pass across all ending tiers
+- [ ] Refresh Credits donor list: grouped topics/categories with a scrollable layout once the complete roster is ready
 - [x] Ending accessibility text
 
 ### G. Onboarding
@@ -133,6 +134,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Added an optional course link to the `curso` Estudar result: `Ver curso` opens it in a new tab and leaves the dialog open; `OK` continues normally.
 - Added the Canal do Illan as the optional external action for the first ordered Estudar result, with its own YouTube button label.
 - Moved the Canal do Illan action from the first Estudar result to the third (`estrutura`) lesson so the first study is link-free; the channel button now renders below `OK` and remains optional.
+- Removed the Pix block from Créditos. Credits now introduces Illan Carvalho and offers `Conheça meu trabalho`, opening `https://links.sitedoillan.com.br/`; the standalone café-support panel remains available below the game.
 - Removed the illogical sick-day random event from the active event pool and implementation reference.
 - Renamed the legacy Pokémon-themed sound-effects directory/files and updated runtime audio keys and styling comments to neutral retro-RPG terminology.
 

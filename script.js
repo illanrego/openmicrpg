@@ -3617,8 +3617,6 @@ function showDialog(message, actions = []) {
 
   playSound('menu');
   elements.dialogText.textContent = message || "";
-  const creditsSupport = document.querySelector("#creditsSupport");
-  if (creditsSupport) creditsSupport.classList.add("hidden");
   elements.dialogActions.innerHTML = "";
 
   if (actions && actions.length > 0) {
@@ -3632,6 +3630,7 @@ function showDialog(message, actions = []) {
       btn.addEventListener("click", (e) => {
         createRipple(e, btn);
         e.preventDefault(); e.stopPropagation();
+        if (action.externalUrl) openExternalUrl(action.externalUrl);
         if (action.handler && typeof action.handler === "function") setTimeout(() => action.handler(), 150);
       });
       elements.dialogActions.appendChild(btn);
@@ -5079,9 +5078,13 @@ function handleShowCredits() {
     "Gabriel Andrade,", "Iago Maia,", "Júnior Rasec,", "Luis Maia,",
     "Paulo Araújo,", "Rossini Luz,", "Stevan Gaipo,", "Thiago Grinberg,"
   ];
-  showDialog(`⭐ CRÉDITOS ⭐\n\nDesenvolvedor: Illan Carvalho\n\nAgradecimentos especiais aos nossos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível! Esta é a versão oficial de lançamento do Open Mic RPG.\n\nQuer apoiar o projeto? Escaneie o QR Code ou copie o código Pix abaixo.`);
-  const creditsSupport = document.querySelector("#creditsSupport");
-  if (creditsSupport) creditsSupport.classList.remove("hidden");
+  showDialog(
+    `⭐ CRÉDITOS ⭐\n\nOpen Mic RPG foi criado por Illan Carvalho, comédia, game design e uma vontade muito específica de transformar a vida de palco num RPG.\n\nAgradecimentos especiais aos apoiadores:\n\n${contributors.join("\n")}\n\nObrigado por tornar este jogo possível!`,
+    [
+      { label: "🌐 Conheça meu trabalho", externalUrl: "https://links.sitedoillan.com.br/" },
+      { label: "Fechar", handler: hideDialog }
+    ]
+  );
 }
 
 function handleViewHistory() {
@@ -5397,14 +5400,6 @@ function attachEvents() {
       playSound("click");
       createRipple(event, pixCopyButton);
       copyPixCode();
-    });
-  }
-  const creditsPixCopyButton = document.querySelector("#creditsPixCopyButton");
-  if (creditsPixCopyButton) {
-    creditsPixCopyButton.addEventListener("click", (event) => {
-      playSound("click");
-      createRipple(event, creditsPixCopyButton);
-      copyPixCode("#creditsPixCode", "#creditsPixCopyStatus");
     });
   }
 

@@ -261,6 +261,16 @@ test("reference study results use inline links instead of dedicated action butto
   assert.equal(run("GAME_CONTENT.world.studyResults.random.find(result => result.id === 'referencias-comics-legendados').externalUrl"), undefined);
 });
 
+test("credits link to Illan's site without embedding the Pix panel", () => {
+  const { run } = createHarness();
+  run("showDialog = (...args) => { globalThis.creditsMessage = args[0]; globalThis.creditsActions = args[1] || []; }; handleShowCredits();");
+  assert.match(run("creditsMessage"), /Open Mic RPG foi criado por Illan Carvalho/);
+  assert.doesNotMatch(run("creditsMessage"), /Pix|QR Code/);
+  assert.equal(run("creditsActions[0].label"), "🌐 Conheça meu trabalho");
+  assert.equal(run("creditsActions[0].externalUrl"), "https://links.sitedoillan.com.br/");
+  assert.equal(run("creditsActions[1].label"), "Fechar");
+});
+
 test("Professor saves migrate without losing the run", () => {
   const { run, storage } = createHarness();
   storage.set("openMicRPG.save.v2", JSON.stringify({ chosenClass: "professor", currentDay: 22, jokes: [] }));
