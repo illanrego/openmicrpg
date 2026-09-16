@@ -136,6 +136,7 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
 - Moved the Canal do Illan action from the first Estudar result to the fourth (`canal-do-illan`) lesson so early study remains link-free; the channel button renders below `OK` and remains optional. The full course copy/link now appears on the seventh (`curso`) lesson.
 - Rewrote the random `leitura-de-sala` Estudar text around concrete crowd-reading cues: the room, tables, visible objects, attention, and crowd-work details worth using that night.
 - Rewrote the random `repertorio` Estudar text around building a reliable safety set: keep strong jokes, rewrite or drop weak ones, and prioritize laughs over a single theme or ornament.
+- Replaced the random `tensao` Estudar text with a direct distinction between storytelling (aligned jokes in one context) and an overlong anecdote with only one final joke.
 - Removed the Pix block from Créditos. Credits now introduces Illan Carvalho and offers `Conheça meu trabalho`, opening `https://links.sitedoillan.com.br/`; the standalone café-support panel remains available below the game.
 - Removed the illogical sick-day random event from the active event pool and implementation reference.
 - Renamed the legacy Pokémon-themed sound-effects directory/files and updated runtime audio keys and styling comments to neutral retro-RPG terminology.

@@ -99,7 +99,7 @@ content.world.homeText =
       },
       {
         id: "tensao",
-        text: "Você observa como uma história segura informação. A tensão não é enrolar: é fazer a plateia querer entender por que aquela situação importa. Quanto mais tensão, maior o alívio da quebra no punch."
+        text: "storytelling é uma junção de piadas que se alinham no mesmo contexto. É totalmente diferente daquela história engraçada que funciona no churrasco. Se sua história só tem uma piada no final nao é storytelling, é uma anedota longa demais."
       },
       {
         id: "leitura-de-sala",
