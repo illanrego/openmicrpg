@@ -5061,10 +5061,11 @@ function handleStudy() {
   const studyResult = getNextStudyResult();
   const studyMessage = `📚 ${studyResult.text} (-1 ponto de atividade, +${xpGain} XP)`;
   if (studyResult.externalUrl) {
-    queueCriticalDialog(studyMessage, [
-      { label: studyResult.externalLabel || "Abrir link", externalUrl: studyResult.externalUrl, dismiss: false },
-      { label: "OK", handler: () => {} }
-    ]);
+    const linkAction = { label: studyResult.externalLabel || "Abrir link", externalUrl: studyResult.externalUrl, dismiss: false };
+    const okAction = { label: "OK", handler: () => {} };
+    queueCriticalDialog(studyMessage, studyResult.externalAfterOk
+      ? [okAction, linkAction]
+      : [linkAction, okAction]);
   } else {
     displayStudyNarration(studyMessage, studyResult);
   }

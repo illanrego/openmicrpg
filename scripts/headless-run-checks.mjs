@@ -87,10 +87,11 @@ check("fresh run starts active", run("state.runState.status") === "active");
 const study = run("getNextStudyResult()");
 check("first study result is non-blank", !!(study && study.text && study.text.trim().length));
 const firstOrdered = run("GAME_CONTENT.world.studyResults.ordered[0]");
+check("first ordered study result is link-free (no invasive CTA)", !!(firstOrdered && firstOrdered.text && !firstOrdered.externalUrl));
+const laterChannelStudy = run("GAME_CONTENT.world.studyResults.ordered.find(result => result.id === 'estrutura')");
 check(
-  "first ordered study result exposes a real destination + label",
-  !!(firstOrdered && firstOrdered.externalUrl && firstOrdered.externalLabel) &&
-    /^https?:\/\//.test(firstOrdered.externalUrl)
+  "later study lesson exposes the Canal do Illan CTA below OK",
+  !!(laterChannelStudy && laterChannelStudy.externalUrl === "https://www.youtube.com/@canaldoillan" && laterChannelStudy.externalLabel && laterChannelStudy.externalAfterOk)
 );
 // Two offer slots (network >= 30) make the freshness guarantee pick the spots cleanly.
 run("state.network = 30; state.stageTime = 0; state.hasStarted = true;");

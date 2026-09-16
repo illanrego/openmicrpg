@@ -52,9 +52,7 @@ content.world.homeText =
     ordered: [
       {
         id: "observacao",
-        text: "Você finalmente decide estudar sobre comédia stand up e se depara com o Canal do Illan. Você decide clicar num vídeo sobre tipos de comédia stand up.",
-        externalUrl: "https://www.youtube.com/@canaldoillan",
-        externalLabel: "▶ Ver Canal do Illan"
+        text: "Você finalmente decide estudar sobre comédia stand up. Começa pela observação: antes de procurar a piada, vale perceber o que incomoda, surpreende ou parece absurdo no cotidiano."
       },
       {
         id: "figuras-de-linguagem",
@@ -62,7 +60,10 @@ content.world.homeText =
       },
       {
         id: "estrutura",
-        text: "Você aprende a estrutura básica da piada, setup + punch. Preparação + Quebra, parece simples. Mas aí você vê que também existe a tag, que é a piada após a piada e o act-out, que é encenar a piada que você acabou de fazer. Parece complexo... você anota."
+        text: "Você aprende a estrutura básica da piada, setup + punch. Preparação + Quebra, parece simples. Mas aí você vê que também existe a tag, que é a piada após a piada e o act-out, que é encenar a piada que você acabou de fazer. Parece complexo... você anota.",
+        externalUrl: "https://www.youtube.com/@canaldoillan",
+        externalLabel: "▶ Ver Canal do Illan",
+        externalAfterOk: true
       },
       {
         id: "curso",
