@@ -1,6 +1,6 @@
 # Open Mic RPG — live ship board
 
-Last updated: 2026-09-11
+Last updated: 2026-09-18
 Deadline: **2026-07-23** (12 days to build, ship on day 13)  
 Owner: Illan  
 Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -148,6 +148,13 @@ Implemented as an embedded dedicated ending state inside the normal game panel:
   - **Headless run checks** (`02-headless-run-checks.md`): new `scripts/headless-run-checks.mjs` — 23 checks covering the fresh / open-to-Elenco / class / no-class / persistence scenarios and the acceptance criteria (no blank dialogs, gigs resolve to valid show + image, ending locks gameplay, new run inherits nothing). Also fixed a flaky joke-finalization unit test (`failChance`) so the suite is deterministic.
   - **Share preview** (`03-share-preview.md`): added title, description, Open Graph, Twitter/X card, and canonical metadata to `index.html` for the `standupsim.sitedoillan.com.br` release, using the existing 1920×1080 `assets/screenshots/screen.png` as the share image.
 - Mechanics suite now `53/53`; `node scripts/headless-run-checks.mjs` = `23/23`.
+
+### 2026-09-18 (web player)
+- Fixed the reported desktop scroll bug: the only "bring the main section into view" code was `focusNarrationOnMobile()`, gated to viewports ≤767px, so on desktop the viewport stayed wherever the last deep scroll (writing form, joke picker, dialog) left it and the player had to scroll up manually after every action. Measured before the fix at 1366×768: idle y=0 with image+text visible; after Escrever y=592 with the image at −501 (fully off screen); nothing ever came back.
+- Replaced it with a viewport-agnostic **scene focus** rule (`script.js` §17): every narration beat (`displayNarration`, `displayStudyNarration`) and every scene-image load re-centers the image + narration pair (centered when it fits, top-aligned when taller than the viewport, skipped when already visible or the correction is under 24px, `prefers-reduced-motion` respected). The ending view replaces the pair as the focus target.
+- Deliberate travel to a control the action just opened (writing form, joke picker, show dialog) now goes through `scrollControlIntoView()`, which holds the viewport for 900ms so a late beat from the same action (e.g. the scene image finishing its load) can't drag the player away from what they opened. Closing the last dialog / the results beat hands the viewport back to the scene.
+- New `scripts/verify-scene-focus.js` (CDP, re-runnable like `verify-intro-gate.js`): boots a run, scrolls down, and asserts a read beat re-centers the scene, the writing form and joke picker keep the viewport, dialogs stay readable, and closing returns to the scene. PASSES at 1024×768, 1366×768, 1440×900, 1920×1080 and mobile-emulated 412×915.
+- Mechanics suite now `64/64` (7 new scene-focus tests); `node scripts/headless-run-checks.mjs` = `25/25`.
 
 ## Next session start here
 

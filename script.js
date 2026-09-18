@@ -1763,6 +1763,8 @@ function showEndingScreen(candidate, tier, toneProfile, structureProfile = getSt
   elements.mainPanel.classList.add("ending-active");
   ending.screen.classList.remove("hidden");
   if (ending.newRun && typeof ending.newRun.focus === "function") ending.newRun.focus();
+  // The ending art + prose is the payoff beat; never leave it below the fold.
+  requestSceneFocus(null, { force: true });
   return true;
 }
 
@@ -3644,7 +3646,7 @@ function showDialog(message, actions = []) {
   elements.dialogBox.style.transform = 'scale(0.9) translateY(20px)';
   elements.dialogBox.classList.remove("hidden");
   setTimeout(() => { elements.dialogBox.style.transition = 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'; elements.dialogBox.style.opacity = '1'; elements.dialogBox.style.transform = 'scale(1) translateY(0)'; }, 10);
-  setTimeout(() => { elements.dialogBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
+  scrollControlIntoView(elements.dialogBox, 50);
 }
 
 function hideDialog() {
@@ -3663,6 +3665,8 @@ function hideDialog() {
     if (elements.dialogClose) elements.dialogClose.classList.remove("hidden");
     if (uiMode === "event" && !activeEvent) uiMode = "idle";
     dialogTimeout = null;
+    // The dialog held the player's attention; hand the viewport back to the scene.
+    requestSceneFocus();
   }, 250);
 }
 
@@ -3768,6 +3772,9 @@ function dismissCriticalDialog() {
   criticalDialogQueue.shift();
   if (criticalDialogQueue.length > 0) {
     setTimeout(() => showNextCriticalDialog(), 300);
+  } else {
+    // Last dialog of the chain: bring the scene back under the player's eyes.
+    requestSceneFocus();
   }
 }
 
@@ -3788,12 +3795,112 @@ function resetSubtitle() {
   elements.subTitle.textContent = "Construa sua jornada de Comic";
 }
 
-function focusNarrationOnMobile(token) {
-  if (token !== narrationRenderToken || !elements.text || typeof window.matchMedia !== "function") return;
-  if (!window.matchMedia("(max-width: 767px)").matches) return;
+// ─── Scene focus: keep the main section (scene image + narration) in view ───
+// The player's attention belongs on the image/text after every action, but some actions
+// deliberately travel to the control they just opened (writing form, joke picker, dialog).
+// Rule: a narration beat re-centers the scene unless that same beat claimed the viewport for
+// a control, and closing the interaction re-centers it again. Applies to every viewport.
 
-  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-  elements.text.scrollIntoView?.({ behavior, block: "center", inline: "nearest" });
+const SCENE_FOCUS_DELAY = 450;
+const SCENE_FOCUS_MARGIN = 12;
+// Corrections smaller than this are not worth animating the page for.
+const SCENE_FOCUS_MIN_SHIFT = 24;
+// How long a freshly opened control (form, picker, dialog) owns the viewport.
+const SCENE_FOCUS_CONTROL_HOLD = 900;
+
+let sceneFocusRequestId = 0;
+let sceneFocusHoldUntil = 0;
+let sceneFocusTimer = null;
+
+function prefersReducedMotion() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function sceneScrollBehavior() {
+  return prefersReducedMotion() ? "auto" : "smooth";
+}
+
+// Pure geometry: where the viewport should sit to show the section, or null when it is
+// already comfortably on screen (no jump) or there is nothing to show.
+function resolveSceneFocusScroll({ sectionTop, sectionBottom, viewportHeight, scrollY, maxScroll, margin = SCENE_FOCUS_MARGIN }) {
+  const height = sectionBottom - sectionTop;
+  if (!(height > 0) || !(viewportHeight > 0)) return null;
+  if (sectionTop >= scrollY + margin && sectionBottom <= scrollY + viewportHeight - margin) return null;
+
+  const room = viewportHeight - margin * 2;
+  const target = height <= room
+    ? sectionTop - margin - (room - height) / 2   // whole section fits: center it
+    : sectionTop - margin;                        // taller than the viewport: top-align it
+  const clamped = Math.max(0, Math.min(target, Math.max(0, maxScroll)));
+  return Math.abs(clamped - scrollY) < SCENE_FOCUS_MIN_SHIFT ? null : clamped;
+}
+
+// The ending view replaces the scene; otherwise the scene is the image + narration pair.
+function sceneFocusRects() {
+  const rectOf = (element) => {
+    if (!element || typeof element.getBoundingClientRect !== "function") return null;
+    const rect = element.getBoundingClientRect();
+    return rect && rect.height > 0 ? rect : null;
+  };
+
+  const endingRect = rectOf(elements.ending?.screen);
+  if (endingRect) return [endingRect];
+
+  const textRect = rectOf(elements.text);
+  const imageEl = elements.image;
+  const imageRect = imageEl && imageEl.style.display !== "none" ? rectOf(imageEl) : null;
+  return [imageRect, textRect].filter(Boolean);
+}
+
+function sceneSectionBounds() {
+  const rects = sceneFocusRects();
+  if (!rects.length) return null;
+
+  const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+  const scrollY = window.scrollY || document.documentElement?.scrollTop || 0;
+  return {
+    sectionTop: Math.min(...rects.map(rect => rect.top)) + scrollY,
+    sectionBottom: Math.max(...rects.map(rect => rect.bottom)) + scrollY,
+    viewportHeight,
+    scrollY,
+    maxScroll: Math.max(0, (document.documentElement?.scrollHeight || 0) - viewportHeight)
+  };
+}
+
+function scrollSceneIntoView() {
+  if (typeof window.scrollTo !== "function") return false;
+  const bounds = sceneSectionBounds();
+  if (!bounds) return false;
+  const target = resolveSceneFocusScroll(bounds);
+  if (target === null) return false;
+  window.scrollTo({ top: target, behavior: sceneScrollBehavior() });
+  return true;
+}
+
+// A narration beat asks for the scene. The request is dropped while a control that just
+// opened still owns the viewport (see scrollControlIntoView) and when a newer beat replaces it.
+function requestSceneFocus(token, options = {}) {
+  if (!options.force && Date.now() < sceneFocusHoldUntil) return;
+  sceneFocusRequestId += 1;
+  const requestId = sceneFocusRequestId;
+  if (sceneFocusTimer) { clearTimeout(sceneFocusTimer); sceneFocusTimer = null; }
+  sceneFocusTimer = setTimeout(() => {
+    sceneFocusTimer = null;
+    if (requestId !== sceneFocusRequestId) return;
+    if (Date.now() < sceneFocusHoldUntil) return;
+    if (typeof token === "number" && token !== narrationRenderToken) return;
+    scrollSceneIntoView();
+  }, SCENE_FOCUS_DELAY);
+}
+
+// Deliberate travel to the control or dialog this action just opened. It owns the viewport
+// for a moment so a late beat from the same action (a scene image finishing its load, for
+// example) cannot drag the player away from what they just opened.
+function scrollControlIntoView(element, delay = 100) {
+  if (!element || typeof element.scrollIntoView !== "function") return;
+  sceneFocusHoldUntil = Date.now() + SCENE_FOCUS_CONTROL_HOLD;
+  if (sceneFocusTimer) { clearTimeout(sceneFocusTimer); sceneFocusTimer = null; }
+  setTimeout(() => element.scrollIntoView({ behavior: sceneScrollBehavior(), block: "center" }), delay);
 }
 
 function displayNarration(message) {
@@ -3810,8 +3917,8 @@ function displayNarration(message) {
     showText("#text", message, 0, 18, null, token);
   }, 100);
   // The scene image updates just before narration in most actions. Wait until its
-  // layout transition has settled, then bring the new message into the mobile viewport.
-  setTimeout(() => focusNarrationOnMobile(token), 450);
+  // layout transition has settled, then bring the beat back into view (any viewport).
+  requestSceneFocus(token);
 }
 
 function appendNarrationLink(token, url, label) {
@@ -3854,7 +3961,7 @@ function displayStudyNarration(message, studyResult = {}) {
       appendNarrationLink(token, studyResult.inlineLinkUrl, studyResult.inlineLinkLabel);
     }, token);
   }, 100);
-  setTimeout(() => focusNarrationOnMobile(token), 450);
+  requestSceneFocus(token);
 }
 
 function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
@@ -3885,6 +3992,9 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
       if (token !== sceneRenderToken) return;
       elements.image.style.opacity = '1';
       elements.image.style.transform = 'scale(1)';
+      // The scene only has its real height once the file lands, so re-aim the viewport here:
+      // a narration beat may have measured a scene that was not laid out yet.
+      requestSceneFocus();
     };
     elements.image.onerror = customImage && scene.image
       ? () => {
@@ -4317,7 +4427,7 @@ function presentWritingModes() {
     btn.addEventListener("click", (e) => { createRipple(e, btn); setTimeout(() => createJokeFromMode(btn.dataset.mode), 150); });
   });
 
-  setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+  scrollControlIntoView(elements.btnDivLow, 100);
 }
 
 function exitWritingMode() {
@@ -4439,7 +4549,7 @@ function showJokeCustomization(idea, mode) {
     { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); clearPendingJokeCreation(); } }
   ]);
 
-  setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+  scrollControlIntoView(elements.btnDivLow, 100);
 }
 
 function finalizeJokeCreation() {
@@ -4780,7 +4890,7 @@ function beginShowPreparation(show, offeredMinutes, showType) {
   elements.btnContinuar.style.display = "block";
   elements.btnContinuar.textContent = "🚀 Subir no palco";
   setTimeout(() => { elements.btnContinuar.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'; elements.btnContinuar.style.opacity = '1'; elements.btnContinuar.style.transform = 'translateY(0)'; }, 400);
-  setTimeout(() => { elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+  scrollControlIntoView(elements.jokeList, 150);
 }
 
 function performShow() {
@@ -5157,7 +5267,7 @@ function handleViewHistory() {
   `;
 
   displayNarration(`📊 Seu histórico de shows: ${totalShows} apresentações com média ${avgNota}. Você matou em ${showsNota4Plus} deles!`);
-  setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+  scrollControlIntoView(elements.btnDivLow, 100);
 }
 
 
@@ -5174,7 +5284,7 @@ function showMaterialNotebookView() {
   elements.btnDivLow.innerHTML = `<div>📊 Minutos totais: ${getTotalMinutes()} | Piadas: ${state.jokes.length}</div>`;
   setScene("event", "", getNotebookImageForTexto(state.texto || 10), false);
   displayNarration("📓 Você revisa o caderno e lembra quais piadas ainda valem subir ao palco.");
-  setTimeout(() => { elements.jokeList.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+  scrollControlIntoView(elements.jokeList, 100);
 }
 
 function handleViewMaterial() {
@@ -5272,7 +5382,7 @@ function rewriteJoke(jokeId) {
     { label: "❌ Cancelar", handler: () => { hideDialog(); exitWritingMode(); clearPendingRewrite(); handleViewMaterial(); } }
   ]);
 
-  setTimeout(() => { elements.btnDivLow.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
+  scrollControlIntoView(elements.btnDivLow, 100);
 }
 
 function finalizeRewrite() {

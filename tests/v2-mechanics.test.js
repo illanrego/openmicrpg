@@ -821,3 +821,87 @@ test("a strong Se Vira nos 5 result unlocks João Valio's Black House Elenco inv
   assert.equal(run("state.scheduledShows[0].dayScheduled - state.currentDay"), 2);
   assert.equal(run("findShowById('black-house-show-de-elenco').isElencoCircuit"), true);
 });
+
+// ─── Scene focus: the main section (image + narration) must stay in view ───
+
+test("scene focus centers the image + narration pair when it fits the viewport", () => {
+  const { run } = createHarness();
+  // room = 700 - 24 = 676; pair = 300 tall -> 900 - 12 - (676 - 300) / 2 = 700
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 900, sectionBottom: 1200, viewportHeight: 700, scrollY: 1500, maxScroll: 2400 })"), 700);
+});
+
+test("scene focus top-aligns a section taller than the viewport", () => {
+  const { run } = createHarness();
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 900, sectionBottom: 1600, viewportHeight: 700, scrollY: 1500, maxScroll: 2400 })"), 888);
+});
+
+test("scene focus leaves an already visible section alone and clamps to the document", () => {
+  const { run } = createHarness();
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 100, sectionBottom: 400, viewportHeight: 700, scrollY: 0, maxScroll: 2400 })"), null);
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 40, sectionBottom: 690, viewportHeight: 700, scrollY: 0, maxScroll: 2400 })"), null, "2px cut is not worth an animation");
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 300, sectionBottom: 600, viewportHeight: 700, scrollY: 400, maxScroll: 2400 })"), 100, "a section cut off above scrolls back into place");
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 0, sectionBottom: 0, viewportHeight: 700, scrollY: 0, maxScroll: 0 })"), null);
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 20, sectionBottom: 320, viewportHeight: 700, scrollY: 0, maxScroll: 2400 })"), null);
+  assert.equal(run("resolveSceneFocusScroll({ sectionTop: 4000, sectionBottom: 4300, viewportHeight: 700, scrollY: 0, maxScroll: 1000 })"), 1000);
+});
+
+test("narration focus is no longer gated to mobile viewports", () => {
+  const { run } = createHarness();
+  // The harness has no window.matchMedia at all, which is where the old mobile guard bailed out.
+  assert.equal(run("typeof window.matchMedia"), "undefined");
+  const before = run("sceneFocusRequestId");
+  run("elements.text = { innerHTML: '', style: {} }; displayNarration('beat')");
+  assert.equal(run("sceneFocusRequestId"), before + 1);
+  run("displayStudyNarration('study beat', {})");
+  assert.equal(run("sceneFocusRequestId"), before + 2);
+});
+
+test("a control scroll holds the viewport against the beat that opened it", () => {
+  const { run } = createHarness();
+  run("elements.text = { innerHTML: '', style: {} }; sceneFocusRequestId = 0; sceneFocusHoldUntil = 0;");
+  run("scrollControlIntoView({ scrollIntoView() {} }, 100)");
+  run("displayNarration('beat of the same action')");
+  assert.equal(run("sceneFocusRequestId"), 0, "the form/picker/dialog the action opened keeps the viewport");
+
+  run("sceneFocusHoldUntil = 0");
+  run("displayNarration('next beat')");
+  assert.equal(run("sceneFocusRequestId"), 1);
+
+  // The ending outranks a hold: it replaces the scene entirely.
+  run("sceneFocusHoldUntil = Date.now() + 900; requestSceneFocus(null, { force: true })");
+  assert.equal(run("sceneFocusRequestId"), 2);
+});
+
+test("closing the last critical dialog hands the viewport back to the scene", () => {
+  const { run } = createHarness();
+  run("sceneFocusRequestId = 0; sceneFocusHoldUntil = 0; criticalDialogQueue.length = 0; criticalDialogQueue.push({ message: 'oi', actions: [], options: {} });");
+  run("dismissCriticalDialog();");
+  assert.equal(run("criticalDialogQueue.length"), 0);
+  assert.equal(run("sceneFocusRequestId"), 1);
+
+  // A queued chain keeps the floor: no scene focus while another dialog is waiting.
+  run("sceneFocusRequestId = 0; criticalDialogQueue.push({ message: 'a', actions: [], options: {} }, { message: 'b', actions: [], options: {} });");
+  run("dismissCriticalDialog();");
+  assert.equal(run("criticalDialogQueue.length"), 1);
+  assert.equal(run("sceneFocusRequestId"), 0);
+});
+
+test("the ending screen is the focus target while it is on screen", () => {
+  const { run } = createHarness();
+  run("elements.ending = { screen: { style: {}, getBoundingClientRect: () => ({ top: 100, bottom: 1200, height: 1100 }) } }");
+  run("elements.image = { style: {}, getBoundingClientRect: () => ({ top: 0, bottom: 560, height: 560 }) }");
+  run("elements.text = { style: {}, getBoundingClientRect: () => ({ top: 570, bottom: 700, height: 130 }) }");
+  assert.equal(run("sceneFocusRects().length"), 1, "the ending view replaces the image + text pair");
+  assert.equal(run("sceneFocusRects()[0].height"), 1100);
+  run("elements.ending.screen.getBoundingClientRect = () => ({ top: 0, bottom: 0, height: 0 })");
+  assert.equal(run("sceneFocusRects().length"), 2, "without the ending view the pair is the target");
+  assert.equal(run("sceneFocusRects()[0].height"), 560);
+});
+
+test("every viewport move in script.js goes through the scene-focus helpers", () => {
+  const source = fs.readFileSync(path.join(ROOT, "script.js"), "utf8");
+  assert.equal((source.match(/\.scrollIntoView\(/g) || []).length, 1, "one raw scrollIntoView, inside scrollControlIntoView");
+  assert.equal((source.match(/window\.scrollTo\(/g) || []).length, 1, "one raw scrollTo, inside scrollSceneIntoView");
+  assert.equal((source.match(/\bfocusNarrationOnMobile\b/g) || []).length, 0, "the mobile-only focus is gone");
+  assert.ok((source.match(/scrollControlIntoView\(/g) || []).length >= 7, "deep control targets are registered with the arbiter");
+});
