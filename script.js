@@ -3805,11 +3805,11 @@ const SCENE_FOCUS_DELAY = 450;
 const SCENE_FOCUS_MARGIN = 12;
 // Corrections smaller than this are not worth animating the page for.
 const SCENE_FOCUS_MIN_SHIFT = 24;
-// How long a freshly opened control (form, picker, dialog) owns the viewport.
-const SCENE_FOCUS_CONTROL_HOLD = 900;
 
 let sceneFocusRequestId = 0;
-let sceneFocusHoldUntil = 0;
+// Bumped whenever an action hands the viewport to a control it just opened (see
+// scrollControlIntoView). A beat only re-centers while this is unchanged since the beat began.
+let sceneFocusControlId = 0;
 let sceneFocusTimer = null;
 
 function prefersReducedMotion() {
@@ -3877,28 +3877,36 @@ function scrollSceneIntoView() {
   return true;
 }
 
-// A narration beat asks for the scene. The request is dropped while a control that just
-// opened still owns the viewport (see scrollControlIntoView) and when a newer beat replaces it.
+// A narration beat asks for the scene: promptly once the beat lands, and again when the message
+// finishes typing (the text grows as it types, so the first decision can be stale). Both passes are
+// void if a control claimed the viewport after the beat began, and a newer beat replaces an older one.
 function requestSceneFocus(token, options = {}) {
-  if (!options.force && Date.now() < sceneFocusHoldUntil) return;
+  const controlIdAtBeat = typeof options.controlId === "number" ? options.controlId : sceneFocusControlId;
   sceneFocusRequestId += 1;
   const requestId = sceneFocusRequestId;
   if (sceneFocusTimer) { clearTimeout(sceneFocusTimer); sceneFocusTimer = null; }
   sceneFocusTimer = setTimeout(() => {
     sceneFocusTimer = null;
-    if (requestId !== sceneFocusRequestId) return;
-    if (Date.now() < sceneFocusHoldUntil) return;
-    if (typeof token === "number" && token !== narrationRenderToken) return;
+    if (!sceneFocusAllowed(requestId, controlIdAtBeat, token, options)) return;
     scrollSceneIntoView();
   }, SCENE_FOCUS_DELAY);
 }
 
-// Deliberate travel to the control or dialog this action just opened. It owns the viewport
-// for a moment so a late beat from the same action (a scene image finishing its load, for
-// example) cannot drag the player away from what they just opened.
+// The whole arbitration in one predicate: this pass still owns the viewport only if no newer beat
+// replaced it, no control claimed the viewport since the beat began, and the message is still current.
+function sceneFocusAllowed(requestId, controlIdAtBeat, token, options = {}) {
+  if (requestId !== sceneFocusRequestId) return false;
+  if (!options.force && controlIdAtBeat !== sceneFocusControlId) return false;
+  if (typeof token === "number" && token !== narrationRenderToken) return false;
+  return true;
+}
+
+// Deliberate travel to the control or dialog this action just opened. It owns the viewport for the
+// rest of the beat, so no late pass (a scene image landing, a message finishing its typewriter) can
+// drag the player away from what they opened.
 function scrollControlIntoView(element, delay = 100) {
   if (!element || typeof element.scrollIntoView !== "function") return;
-  sceneFocusHoldUntil = Date.now() + SCENE_FOCUS_CONTROL_HOLD;
+  sceneFocusControlId += 1;
   if (sceneFocusTimer) { clearTimeout(sceneFocusTimer); sceneFocusTimer = null; }
   setTimeout(() => element.scrollIntoView({ behavior: sceneScrollBehavior(), block: "center" }), delay);
 }
@@ -3906,6 +3914,7 @@ function scrollControlIntoView(element, delay = 100) {
 function displayNarration(message) {
   narrationRenderToken += 1;
   const token = narrationRenderToken;
+  const beatControlId = sceneFocusControlId;
   elements.text.innerHTML = "";
   elements.text.style.opacity = '0';
   elements.text.style.transform = 'translateY(10px)';
@@ -3914,11 +3923,11 @@ function displayNarration(message) {
     elements.text.style.transition = 'all 0.3s ease';
     elements.text.style.opacity = '1';
     elements.text.style.transform = 'translateY(0)';
-    showText("#text", message, 0, 18, null, token);
+    showText("#text", message, 0, 18, () => requestSceneFocus(token, { controlId: beatControlId }), token);
   }, 100);
   // The scene image updates just before narration in most actions. Wait until its
   // layout transition has settled, then bring the beat back into view (any viewport).
-  requestSceneFocus(token);
+  requestSceneFocus(token, { controlId: beatControlId });
 }
 
 function appendNarrationLink(token, url, label) {
@@ -3949,6 +3958,7 @@ function appendNarrationLink(token, url, label) {
 function displayStudyNarration(message, studyResult = {}) {
   narrationRenderToken += 1;
   const token = narrationRenderToken;
+  const beatControlId = sceneFocusControlId;
   elements.text.innerHTML = "";
   elements.text.style.opacity = '0';
   elements.text.style.transform = 'translateY(10px)';
@@ -3959,15 +3969,17 @@ function displayStudyNarration(message, studyResult = {}) {
     elements.text.style.transform = 'translateY(0)';
     showText("#text", message, 0, 18, () => {
       appendNarrationLink(token, studyResult.inlineLinkUrl, studyResult.inlineLinkLabel);
+      requestSceneFocus(token, { controlId: beatControlId });
     }, token);
   }, 100);
-  requestSceneFocus(token);
+  requestSceneFocus(token, { controlId: beatControlId });
 }
 
 function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
   const scene = scenes[sceneKey] || {};
   sceneRenderToken += 1;
   const token = sceneRenderToken;
+  const controlIdAtRender = sceneFocusControlId;
 
   elements.title.style.opacity = '0';
   elements.title.style.transform = 'translateY(-10px)';
@@ -3994,7 +4006,7 @@ function setScene(sceneKey, customTitle, customImage, isCharacter = false) {
       elements.image.style.transform = 'scale(1)';
       // The scene only has its real height once the file lands, so re-aim the viewport here:
       // a narration beat may have measured a scene that was not laid out yet.
-      requestSceneFocus();
+      requestSceneFocus(undefined, { controlId: controlIdAtRender });
     };
     elements.image.onerror = customImage && scene.image
       ? () => {

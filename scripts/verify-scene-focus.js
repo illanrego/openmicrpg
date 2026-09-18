@@ -59,7 +59,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const fail = [];
   const check = (ok, message) => { if (!ok) fail.push(message); return ok; };
   const label = (m) => m ? `y=${m.y} img=${m.img?.shown ? m.img.t + '..' + m.img.b : '-'} text=${m.text?.shown ? m.text.t + '..' + m.text.b : '-'}` : 'not measured';
-  const sectionInView = (m) => !!(m.img?.inView && m.text?.inView);
+  // The narration types itself out, so wait until the message stops growing before judging the
+  // layout. A pair taller than the viewport can end a few pixels below the fold — that is fine.
+  const settleText = async (sel = '#text', quiet = 500, timeout = 8000) => {
+    let last = -1, stableSince = Date.now();
+    const started = Date.now();
+    while (Date.now() - started < timeout) {
+      const len = await evalJS(`(document.querySelector(${JSON.stringify(sel)}).textContent || '').length`);
+      if (len !== last) { last = len; stableSince = Date.now(); }
+      else if (Date.now() - stableSince >= quiet) break;
+      await sleep(200);
+    }
+    await sleep(600);   // let the scene focus timer (450ms) land afterwards
+  };
+  // Acceptance: the scene image fully in view with the message starting on screen. When the pair is
+  // taller than the viewport (560px image on a 768px desktop window) the message may end just below the
+  // fold — the focus top-aligns the section in that case, which is the best a single scroll can do.
+  const sectionInView = (m) => {
+    if (!m.img?.inView || !m.text?.shown || m.text.t < -1) return false;
+    const pairTallerThanRoom = (m.text.b - m.img.t) > (m.vh - 24);
+    return pairTallerThanRoom || m.text.b <= m.vh + 1;
+  };
   // Enough state to explain a failure without re-running the take by hand.
   const diagnose = async () => JSON.parse(await evalJS(`JSON.stringify({
     uiMode, jokes: state.jokes.length, activityPoints: state.activityPoints, motivation: state.motivation,
@@ -87,7 +107,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   })()`);
   await send('Page.navigate', { url: BASE + (BASE.includes('?') ? '&' : '?') + 'cb=' + Date.now() });
   await sleep(3000);
-  await evalJS(`writingModes.day.failChance = 0; maybeTriggerEvent = () => {}; checkAndShowPendingEvent = () => {}; 1`);
+  await evalJS(`Object.values(writingModes).forEach(m => { m.failChance = 0; }); maybeTriggerEvent = () => {}; checkAndShowPendingEvent = () => {}; 1`);
+  // Wait for the scene image to land and the app's own focus to settle (live hosting is slower).
+  await waitFor(`(() => { const img = document.querySelector('#locationImg'); return img.complete && img.getBoundingClientRect().height > 0; })()`, 15000);
+  await settleText();
 
   let boot = null, down = null, beat = null, writing = null, afterJoke = null, dialog = null, afterBook = null, prep = null, performed = null, settled = null;
 
@@ -96,23 +119,29 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check(sectionInView(boot), `boot: scene should be in view (${label(boot)})`);
   check(boot.innerScrollers.length === 0, `boot: the page should be the only scroller, found ${JSON.stringify(boot.innerScrollers)}`);
 
-  // 1. The reported bug: player is scrolled down (sidebar / controls), a narration beat lands.
-  await evalJS(`window.scrollTo({ top: 700 }); 1`);
-  await sleep(400);
+  // 1. The reported bug: park the viewport as far from the scene as the document allows, then
+  // fire a narration beat. Position-independent: on a tall desktop page the scene is above and we
+  // scroll to the bottom; on a short mobile page the scene is below and we scroll to the top.
+  const sceneTop = await evalJS(`(() => { const img = document.querySelector('#locationImg');
+    return Math.round(img.getBoundingClientRect().top + scrollY); })()`);
+  const limits = JSON.parse(await evalJS(`JSON.stringify({ maxScroll: Math.round(Math.max(0, document.documentElement.scrollHeight - innerHeight)) })`));
+  const away = sceneTop >= limits.maxScroll ? 0 : limits.maxScroll;
+  await evalJS(`window.scrollTo({ top: ${away} }); 1`);
+  await sleep(500);
   down = await measure();
-  check(down.y > 400, `setup: expected to be scrolled down before the beat (y=${down.y})`);
+  check(!down.img?.inView, `setup: expected the scene off screen before the beat (${label(down)})`);
   await evalJS(`displayNarration('🎤 Beat de verificação: a plateia está olhando para você.')`);
-  await sleep(1400);
+  await settleText();
   beat = await measure();
   check(sectionInView(beat), `read beat must bring image + text back into view (got ${label(beat)})`);
-  check(beat.y < down.y, `read beat must scroll up from y=${down.y}, got y=${beat.y}`);
+  check(beat.y !== down.y, `read beat must move the viewport (stuck at y=${down.y})`);
   check(beat.innerScrollers.length === 0, `read beat: no inner scroller should move (${JSON.stringify(beat.innerScrollers)})`);
 
   // 2. No jank: a beat fired while the section is already visible must not move the page.
   // (A clamp at the very bottom of a shorter document is the browser, not the focus code.)
   const beforeNoop = await measure();
   await evalJS(`displayNarration('🎤 Beat de verificação 2.')`);
-  await sleep(1400);
+  await settleText();
   const afterNoop = await measure();
   const shifted = Math.abs(afterNoop.y - beforeNoop.y);
   const bottomClamp = afterNoop.y <= beforeNoop.y && afterNoop.y >= afterNoop.maxScroll - 1 && afterNoop.docH <= beforeNoop.docH;
@@ -142,7 +171,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       await sleep(900);
     }
   }
-  await sleep(1400);
+  await settleText();
   afterJoke = await measure();
   check(sectionInView(afterJoke), `finishing a joke must re-center the scene (got ${label(afterJoke)})`);
 
@@ -156,7 +185,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check(!!dialog.dlg?.inView, `the show list dialog must be readable where it opens (${label(dialog)})`);
   await clickFirst(`document.querySelector('#dialogActions button')`);
   check(await waitFor(`(state.scheduledShows || []).length > 0`), `booking a show failed (${JSON.stringify(await diagnose())})`);
-  await sleep(1400);
+  await settleText();
   afterBook = await measure();
   check(sectionInView(afterBook), `booking a show must re-center the scene (got ${label(afterBook)})`);
 
@@ -171,11 +200,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     prep = await measure();
     check(!!prep.joke?.inView, `show prep must keep the joke picker on screen (${label(prep)})`);
     await evalJS(`(() => { document.querySelector('#btnContinuar').click(); return 1; })()`);
-    await sleep(3200);
+    await sleep(2600);
+    await settleText();
     performed = await measure();
     check(sectionInView(performed), `the show result beat must land on the image + narration (got ${label(performed)})`);
     await clickFirst(`[...document.querySelectorAll('#criticalDialogActions button')][0]`);
     await sleep(1600);
+    await settleText();
     settled = await measure();
     check(sectionInView(settled), `after dismissing the result dialog the scene must be in view (got ${label(settled)})`);
   }

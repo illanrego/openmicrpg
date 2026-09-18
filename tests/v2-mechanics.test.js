@@ -856,25 +856,31 @@ test("narration focus is no longer gated to mobile viewports", () => {
   assert.equal(run("sceneFocusRequestId"), before + 2);
 });
 
-test("a control scroll holds the viewport against the beat that opened it", () => {
+test("a control scroll ends the beat's claim on the viewport", () => {
   const { run } = createHarness();
-  run("elements.text = { innerHTML: '', style: {} }; sceneFocusRequestId = 0; sceneFocusHoldUntil = 0;");
+  run("elements.text = { innerHTML: '', style: {} }; sceneFocusRequestId = 0; sceneFocusControlId = 0; displayNarration('beat');");
+  const requestId = run("sceneFocusRequestId");
+  const controlIdAtBeat = run("0");
+  assert.ok(requestId > 0);
+  assert.equal(run(`sceneFocusAllowed(${requestId}, ${controlIdAtBeat}, undefined, {})`), true, "no control yet: the beat may re-center");
+
   run("scrollControlIntoView({ scrollIntoView() {} }, 100)");
-  run("displayNarration('beat of the same action')");
-  assert.equal(run("sceneFocusRequestId"), 0, "the form/picker/dialog the action opened keeps the viewport");
+  assert.equal(run("sceneFocusControlId"), 1);
+  assert.equal(run(`sceneFocusAllowed(${requestId}, ${controlIdAtBeat}, undefined, {})`), false, "the form/picker/dialog the action opened keeps the viewport");
+  assert.equal(run(`sceneFocusAllowed(${requestId}, ${controlIdAtBeat}, undefined, { force: true })`), true, "the ending outranks a control");
 
-  run("sceneFocusHoldUntil = 0");
-  run("displayNarration('next beat')");
-  assert.equal(run("sceneFocusRequestId"), 1);
+  // A fresh beat after the control gets a clean claim again.
+  run("displayNarration('later beat')");
+  assert.equal(run(`sceneFocusAllowed(sceneFocusRequestId, sceneFocusControlId, undefined, {})`), true);
 
-  // The ending outranks a hold: it replaces the scene entirely.
-  run("sceneFocusHoldUntil = Date.now() + 900; requestSceneFocus(null, { force: true })");
-  assert.equal(run("sceneFocusRequestId"), 2);
+  // A replaced beat never fires, and a stale message never fires.
+  assert.equal(run("sceneFocusAllowed(sceneFocusRequestId - 1, sceneFocusControlId, undefined, {})"), false);
+  assert.equal(run("narrationRenderToken = 99; sceneFocusAllowed(sceneFocusRequestId, sceneFocusControlId, 1, {})"), false);
 });
 
 test("closing the last critical dialog hands the viewport back to the scene", () => {
   const { run } = createHarness();
-  run("sceneFocusRequestId = 0; sceneFocusHoldUntil = 0; criticalDialogQueue.length = 0; criticalDialogQueue.push({ message: 'oi', actions: [], options: {} });");
+  run("sceneFocusRequestId = 0; criticalDialogQueue.length = 0; criticalDialogQueue.push({ message: 'oi', actions: [], options: {} });");
   run("dismissCriticalDialog();");
   assert.equal(run("criticalDialogQueue.length"), 0);
   assert.equal(run("sceneFocusRequestId"), 1);
